@@ -14,7 +14,7 @@ T['verify'] = new_set()
 T['verify']['not signed in when no cookies'] = function()
   local auth = require('leetcode-ui.auth')
   auth.session = nil
-  local session, err = auth.verify()
+  local session = auth.verify()
   if type(session) == 'table' then
     eq(session.signed_in == false or session.signed_in == nil, true)
   else

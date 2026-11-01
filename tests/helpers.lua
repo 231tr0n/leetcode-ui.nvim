@@ -7,8 +7,7 @@
 --   - browser cookies come from synthetic SQLite fixtures.
 local H = {}
 
-local uv = vim.uv or vim.loop
-
+-- mini.test globals provided by runner
 H.expect = MiniTest.expect
 H.eq = MiniTest.expect.equality
 H.new_set = MiniTest.new_set
@@ -77,16 +76,14 @@ end
 H.make_firefox_db = function(dir, values)
   values = values or { LEETCODE_SESSION = 'fx-session', csrftoken = 'fx-csrf' }
   local path = dir .. '/cookies.sqlite'
-  local script = [[
-import sqlite3, sys
-con = sqlite3.connect(sys.argv[1])
-con.execute('CREATE TABLE moz_cookies (id INTEGER PRIMARY KEY, name TEXT, value TEXT, host TEXT)')
-con.execute("INSERT INTO moz_cookies (name, value, host) VALUES ('LEETCODE_SESSION', ?, '.leetcode.com')", (sys.argv[2],))
-con.execute("INSERT INTO moz_cookies (name, value, host) VALUES ('csrftoken', ?, '.leetcode.com')", (sys.argv[3],))
-con.execute("INSERT INTO moz_cookies (name, value, host) VALUES ('other', 'ignore', '.example.com')")
-con.commit()
-con.close()
-]]
+  local script = 'import sqlite3,sys\n'
+    .. 'c=sqlite3.connect(sys.argv[1])\n'
+    .. "c.execute('CREATE TABLE moz_cookies(id INTEGER PRIMARY KEY,name TEXT,value TEXT,host TEXT)')\n"
+    .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('LEETCODE_SESSION',? ,'.leetcode.com')\",(sys.argv[2],))\n"
+    .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('csrftoken',? ,'.leetcode.com')\",(sys.argv[3],))\n"
+    .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('other','ignore','.example.com')\")\n"
+    .. 'c.commit()\n'
+    .. 'c.close()\n'
   local out = vim
     .system({ 'python3', '-c', script, path, values.LEETCODE_SESSION, values.csrftoken }, { text = true })
     :wait()
@@ -102,20 +99,17 @@ end
 ---@return string path
 H.make_chromium_db = function(dir, session, csrf)
   local path = dir .. '/Cookies'
-  local script = [[
-import sqlite3, subprocess, sys
-db, session, csrf = sys.argv[1], sys.argv[2], sys.argv[3]
-key = subprocess.run(['openssl', 'dgst', '-sha1', '-hmac', 'peanuts'],
-                     input=b'saltysalt\x00\x00\x00\x01', capture_output=True).stdout.decode().strip().split()[-1][:32]
-ct = subprocess.run(['openssl', 'enc', '-e', '-aes-128-cbc', '-K', key, '-iv', '20' * 16],
-                    input=session.encode(), capture_output=True, check=True).stdout
-con = sqlite3.connect(db)
-con.execute('CREATE TABLE cookies (name TEXT, value TEXT, encrypted_value BLOB, host_key TEXT)')
-con.execute("INSERT INTO cookies (name, value, encrypted_value, host_key) VALUES ('LEETCODE_SESSION', '', ?, '.leetcode.com')", (b'v10' + ct,))
-con.execute("INSERT INTO cookies (name, value, encrypted_value, host_key) VALUES ('csrftoken', ?, NULL, '.leetcode.com')", (csrf,))
-con.commit()
-con.close()
-]]
+  local script = 'import sqlite3,subprocess,sys\n'
+    .. 'db,s=sys.argv[1],sys.argv[2]\n'
+    .. 'c=sys.argv[3]\n'
+    .. "k=subprocess.run(['openssl','dgst','-sha1','-hmac','peanuts'],input=b'saltysalt\x00\x00\x00\x01',capture_output=True).stdout.decode().strip().split()[-1][:32]\n"
+    .. "ct=subprocess.run(['openssl','enc','-e','-aes-128-cbc','-K',k,'-iv','20'*16],input=s.encode(),capture_output=True,check=True).stdout\n"
+    .. 'con=sqlite3.connect(db)\n'
+    .. "con.execute('CREATE TABLE cookies(name TEXT,value TEXT,encrypted_value BLOB,host_key TEXT)')\n"
+    .. "con.execute(\"INSERT INTO cookies VALUES('LEETCODE_SESSION','',? ,'.leetcode.com')\",(b'v10'+ct,))\n"
+    .. "con.execute(\"INSERT INTO cookies VALUES('csrftoken',?,NULL,'.leetcode.com')\",(c,))\n"
+    .. 'con.commit()\n'
+    .. 'con.close()\n'
   local out = vim.system({ 'python3', '-c', script, path, session, csrf }, { text = true }):wait()
   if out.code ~= 0 then error('chromium fixture failed: ' .. (out.stderr or '')) end
   return path

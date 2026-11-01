@@ -52,7 +52,7 @@ T['api']['graphql uses stub'] = function()
   helpers.with_stub(
     'leetcode-ui.api',
     'graphql',
-    function(query, variables) return { question = { titleSlug = 'two-sum' } }, nil end,
+    function() return { question = { titleSlug = 'two-sum' } }, nil end,
     function()
       local data, err = api.graphql('q', { a = 1 })
       eq(data.question.titleSlug, 'two-sum')
