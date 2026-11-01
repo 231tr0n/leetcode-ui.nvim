@@ -14,3 +14,4 @@ max_line_length = 120
 files["tests/helpers.lua"] = {
   ignore = { "121" },
 }
+ignore = { "631" }
