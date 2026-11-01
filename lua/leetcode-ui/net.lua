@@ -16,6 +16,7 @@ local LeetCodeNet = {}
 
 LeetCodeNet.curl_args = function(opts, header_file, body_file)
   local args = {
+    'curl',
     '--silent',
     '--show-error',
     '--compressed',
@@ -30,7 +31,7 @@ LeetCodeNet.curl_args = function(opts, header_file, body_file)
   }
 
   for _, header in ipairs(opts.headers or {}) do
-    vim.list_extend(args, { '-LeetCodeNet', header })
+    vim.list_extend(args, { '-H', header })
   end
 
   if opts.body ~= nil and opts.body ~= '' then vim.list_extend(args, { '--data-binary', '@-' }) end
@@ -180,20 +181,22 @@ LeetCodeNet.request_async = function(opts)
       text = true,
       stdin = opts.body,
     }, function(out)
-      local res = LeetCodeNet.read_response(header_file, body_file)
+      vim.schedule(function()
+        local res = LeetCodeNet.read_response(header_file, body_file)
 
-      local transient = res ~= nil and LeetCodeNet.should_retry(res.status)
-      if transient and attempt <= retries then
-        vim.defer_fn(try, 200 * attempt)
-        return
-      end
+        local transient = res ~= nil and LeetCodeNet.should_retry(res.status)
+        if transient and attempt <= retries then
+          vim.defer_fn(try, 200 * attempt)
+          return
+        end
 
-      if res == nil then
-        resume(nil, out.code ~= 0 and ('curl %s'):format(out.code) or 'curl failed')
-        return
-      end
+        if res == nil then
+          resume(nil, out.code ~= 0 and ('curl %s'):format(out.code) or 'curl failed')
+          return
+        end
 
-      resume(res, nil)
+        resume(res, nil)
+      end)
     end)
   end
 

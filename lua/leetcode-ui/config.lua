@@ -146,11 +146,17 @@ LeetCodeConfig.setup_config = function(config)
     LeetCodeConfig.error(('Unknown picker `%s`. Use one of "auto", "mini", "builtin".'):format(config.picker))
   end
 
-  if not vim.tbl_contains({ 'auto', 'firefox', 'chrome', 'brave', 'edge', 'chromium', 'none' }, config.browser) then
+  if
+    not vim.tbl_contains(
+      { 'auto', 'firefox', 'epiphany', 'chrome', 'brave', 'edge', 'chromium', 'none' },
+      config.browser
+    )
+  then
     LeetCodeConfig.error(
-      ('Unknown browser `%s`. Use one of "auto", "firefox", "chrome", "brave", "edge", "chromium", "none".'):format(
-        config.browser
-      )
+      (
+        'Unknown browser `%s`. Use one of "auto", "firefox", "epiphany", '
+        .. '"chrome", "brave", "edge", "chromium", "none".'
+      ):format(config.browser)
     )
   end
 

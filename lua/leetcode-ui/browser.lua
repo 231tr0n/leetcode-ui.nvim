@@ -37,7 +37,7 @@ import json, os, shutil, sqlite3, sys, tempfile
 
 KIND, DB = sys.argv[1], sys.argv[2]
 NAMES = tuple(sys.argv[3:5])
-host_like = ('%.leetcode.com',)
+host_like = ('%leetcode.com',)
 
 def query(con, sql, params):
     try:
@@ -57,7 +57,7 @@ def read(db_path, sql, params):
         finally:
             con.close()
 
-if KIND == 'firefox':
+if KIND in ('firefox', 'epiphany'):
     sql = 'SELECT name AS name, value AS value, \'\' AS blob FROM moz_cookies ' \
         'WHERE host LIKE ? AND name IN (?, ?)'
 else:
@@ -76,7 +76,7 @@ LeetCodeBrowser.cookie_db = function(browser)
     local stat = vim.uv.fs_stat(path)
     if stat ~= nil then
       if stat.type == 'directory' then
-        if browser == 'firefox' then
+        if browser == 'firefox' or browser == 'epiphany' then
           local nested = vim.fn.glob(vim.fs.joinpath(path, '*', 'cookies.sqlite'), true, true)
           if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, 'cookies.sqlite'), true, true) end
           if #nested > 0 then return nested[1] end
@@ -89,7 +89,7 @@ LeetCodeBrowser.cookie_db = function(browser)
       end
       return path
     end
-    if browser == 'firefox' then
+    if browser == 'firefox' or browser == 'epiphany' then
       local nested = vim.fn.glob(vim.fs.joinpath(path, '*', 'cookies.sqlite'), true, true)
       if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, 'cookies.sqlite'), true, true) end
       if #nested > 0 then return nested[1] end
@@ -106,6 +106,23 @@ LeetCodeBrowser.cookie_db = function(browser)
     vim.list_extend(
       candidates,
       vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.mozilla', 'firefox', '*', 'cookies.sqlite'), true, true)
+    )
+    vim.list_extend(
+      candidates,
+      vim.fn.glob(
+        vim.fs.joinpath(vim.env.HOME or '', '.config', 'mozilla', 'firefox', '*', 'cookies.sqlite'),
+        true,
+        true
+      )
+    )
+  elseif browser == 'epiphany' then
+    vim.list_extend(
+      candidates,
+      vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.local', 'share', 'epiphany', 'cookies.sqlite'), true, true)
+    )
+    vim.list_extend(
+      candidates,
+      vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.config', 'epiphany', 'cookies.sqlite'), true, true)
     )
   else
     local root = LeetCodeBrowser.chromium_roots[browser]
@@ -126,7 +143,7 @@ LeetCodeBrowser.selected = function()
   if browser == nil or browser == 'none' then return nil end
 
   if browser == 'auto' then
-    for _, key in ipairs({ 'firefox', 'chrome', 'brave', 'edge', 'chromium' }) do
+    for _, key in ipairs({ 'firefox', 'epiphany', 'chrome', 'brave', 'edge', 'chromium' }) do
       if LeetCodeBrowser.cookie_db(key) ~= nil then return key end
     end
     return nil
@@ -139,10 +156,30 @@ LeetCodeBrowser.unhex = function(hex)
   return (hex:gsub('%x%x', function(pair) return string.char(tonumber(pair, 16)) end))
 end
 
-LeetCodeBrowser.derive_key = function()
+LeetCodeBrowser.keyring_password = function(browser)
+  local candidates = ({
+    chrome = { 'chrome' },
+    brave = { 'brave' },
+    edge = { 'microsoft-edge', 'edge', 'chromium' },
+    chromium = { 'chromium' },
+  })[browser]
+  if candidates == nil then return nil end
+
+  for _, app in ipairs(candidates) do
+    local out = vim.system({ 'secret-tool', 'lookup', 'application', app }, { text = true }):wait()
+    if out.code == 0 then
+      local pw = vim.trim(out.stdout or '')
+      if pw ~= '' then return pw end
+    end
+  end
+  return nil
+end
+
+LeetCodeBrowser.derive_key = function(password)
+  password = password or 'peanuts'
   local message = 'saltysalt' .. string.char(0, 0, 0, 1)
   local out = vim
-    .system({ 'openssl', 'dgst', '-sha1', '-hmac', 'peanuts' }, {
+    .system({ 'openssl', 'dgst', '-sha1', '-hmac', password }, {
       text = true,
       stdin = message,
     })
@@ -155,15 +192,23 @@ LeetCodeBrowser.derive_key = function()
   return hex:sub(1, 32)
 end
 
-LeetCodeBrowser.decrypt_blob = function(blob_hex)
+LeetCodeBrowser.decrypt_blob = function(blob_hex, browser)
   if blob_hex == nil or blob_hex == '' then return nil, nil end
 
   local raw = LeetCodeBrowser.unhex(blob_hex:lower())
-  if raw:sub(1, 3) ~= 'v10' then
-    return nil, ('blob version %q is not supported (keyring-protected)'):format(raw:sub(1, 3))
+  local version = raw:sub(1, 3)
+  ---@type string|nil
+  local password = 'peanuts'
+  if version == 'v11' then
+    password = LeetCodeBrowser.keyring_password(browser)
+    if password == nil or password == '' then
+      return nil, ('blob version %q is not supported (keyring-protected)'):format(version)
+    end
+  elseif version ~= 'v10' then
+    return nil, ('blob version %q is not supported'):format(version)
   end
 
-  local key_hex = LeetCodeBrowser.derive_key()
+  local key_hex = LeetCodeBrowser.derive_key(password)
   if key_hex == nil then return nil, 'openssl is unavailable' end
 
   local ct_file = vim.fn.tempname() .. '.lcv10'
@@ -192,6 +237,22 @@ LeetCodeBrowser.decrypt_blob = function(blob_hex)
 
   local value = out.stdout or ''
   if value == '' then return nil, nil end
+
+  -- Chrome prefixes the plaintext with a 32-byte integrity hash on Linux.
+  if #value > 32 then
+    local prefix = value:sub(1, 32)
+    local has_binary = false
+    for i = 1, #prefix do
+      local b = prefix:byte(i)
+      if b < 32 or b > 126 then
+        has_binary = true
+        break
+      end
+    end
+    if has_binary then value = value:sub(33) end
+  end
+
+  if value == '' then return nil, nil end
   return value, nil
 end
 
@@ -216,7 +277,7 @@ LeetCodeBrowser.read_cookies = function(browser)
     local value = row.value
 
     if LeetCodeBrowser.is_chromium(browser) and (value == nil or value == '') then
-      local plain, derr = LeetCodeBrowser.decrypt_blob(row.blob)
+      local plain, derr = LeetCodeBrowser.decrypt_blob(row.blob, browser)
       if derr ~= nil then table.insert(warnings, ('%s: %s'):format(name or 'cookie', derr)) end
       value = plain
     end
