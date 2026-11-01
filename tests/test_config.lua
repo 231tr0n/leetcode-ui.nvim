@@ -20,7 +20,7 @@ T['defaults']['exposes full default table'] = function()
   eq(config.config.picker, 'auto')
   eq(config.config.browser, 'none')
   eq(type(config.config.keys), 'table')
-  eq(config.config.keys.run, '<CR>')
+  eq(config.config.keys.run, '<F2>')
   eq(type(config.config.icons.status.solved), 'string')
 end
 

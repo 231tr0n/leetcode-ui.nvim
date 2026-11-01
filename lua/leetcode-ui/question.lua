@@ -217,6 +217,7 @@ LeetCodeQuestionView.prepare_buffers = function(view)
     silent = true,
     desc = 'Switch language (fallback)',
   })
+
   vim.keymap.set(
     'n',
     '<Tab>',
@@ -288,6 +289,10 @@ LeetCodeQuestionView.populate_info = function(view)
     { 'Format code', keys.format_code },
     { 'Switch language', keys.switch_language },
     { 'Add testcase', keys.add_test },
+    { 'Delete testcase', keys.delete_test },
+    { 'Edit testcase', keys.edit_test },
+    { 'Next testcase', keys.next_case },
+    { 'Previous testcase', keys.prev_case },
     { 'Close', keys.close },
   }
   for _, row in ipairs(key_rows) do
