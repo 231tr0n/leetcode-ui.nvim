@@ -45,7 +45,7 @@ end
 LeetCodeMenu.bind_cr = function()
   buffer.keymap(LeetCodeMenu.bufnr, '<CR>', function()
     local lnum = vim.api.nvim_win_get_cursor(0)[1]
-    local row = LeetCodeMenu.rows()[lnum - 3]
+    local row = LeetCodeMenu.rows()[lnum - 2]
     if row ~= nil and type(row[3]) == 'function' then row[3]() end
   end, 'Open menu entry')
 end

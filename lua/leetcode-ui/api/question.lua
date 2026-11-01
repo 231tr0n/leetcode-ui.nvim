@@ -83,25 +83,37 @@ LeetCodeQuestion.get_list = function()
   local edge = cache['cache_time'] or cache['saved'] or 0
   local fresh = (os.time() - edge) < (config.config.cooldown * 60)
 
-  if fresh and type(cache.problems) == 'table' and #cache.problems > 0 then
+  if fresh and type(cache.problems) == 'table' and #cache.problems > 0 and #cache.problems >= (cache.total or 0) then
     return { total = cache.total, questions = cache.problems }, nil
   end
 
-  local variables = { categorySlug = 'all-code-essentials', limit = 5000, skip = 0, filters = vim.empty_dict() }
-  local data, err = api.graphql(queries.problems, variables)
-  if err ~= nil or data == nil then return nil, err or 'Empty response' end
-
-  local rows = data.problemsetQuestionList or {}
   local questions = {}
-  local qs = rows.questions
-  ---@cast qs table
-  if type(qs) ~= 'table' then qs = {} end
-  for _, q in ipairs(qs) do
-    table.insert(questions, LeetCodeQuestion.normalize(LeetCodeQuestion.clean(q) --[[@as table]]))
+  local total = 0
+  local skip = 0
+  local page_size = 100
+  while true do
+    local variables =
+      { categorySlug = 'all-code-essentials', limit = page_size, skip = skip, filters = vim.empty_dict() }
+    local data, err = api.graphql(queries.problems, variables)
+    if err ~= nil or data == nil then return nil, err or 'Empty response' end
+
+    local rows = data.problemsetQuestionList or {}
+    total = rows.total or total
+
+    local qs = rows.questions
+    ---@cast qs table
+    if type(qs) ~= 'table' then qs = {} end
+    for _, q in ipairs(qs) do
+      table.insert(questions, LeetCodeQuestion.normalize(LeetCodeQuestion.clean(q) --[[@as table]]))
+    end
+
+    if #qs < page_size then break end
+    if total > 0 and #questions >= total then break end
+    skip = skip + page_size
   end
 
   cache.problems = questions
-  cache.total = rows.total or #questions
+  cache.total = total > 0 and total or #questions
   cache.domain = config.config.url
   cache.cache_time = os.time()
   storage.write_cache(cache)
