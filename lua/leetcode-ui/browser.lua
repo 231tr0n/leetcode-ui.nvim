@@ -1,6 +1,5 @@
---- *LeetCodeBrowser*
+--- *LeetCodeBrowser* Automatic cookie import from browsers
 ---
----@tag LeetCodeBrowser
 
 -- |leetcode-ui-browser| Automatic cookie import from browsers.
 -- Supported (Linux):

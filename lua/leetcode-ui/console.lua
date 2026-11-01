@@ -1,6 +1,5 @@
---- *LeetCodeConsole*
+--- *LeetCodeConsole* Test case console UI
 ---
----@tag LeetCodeConsole
 
 -- |leetcode-ui-console| Test case console UI.
 -- A scrollable bottom pane showing one row per test case: case number, status

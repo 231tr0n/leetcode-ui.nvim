@@ -1,6 +1,5 @@
---- *LeetCodeRunnerApi*
+--- *LeetCodeRunnerApi* Test-run and submit flows
 ---
----@tag LeetCodeRunnerApi
 
 -- |leetcode-ui-api-runner| Test-run (interpret) and submit flows.
 -- Flow: POST local code to LeetCode, then poll `/submissions/detail/{id}/check/`

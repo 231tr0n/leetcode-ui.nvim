@@ -1,6 +1,5 @@
---- *LeetCodeQueries*
+--- *LeetCodeQueries* All GraphQL queries
 ---
----@tag LeetCodeQueries
 
 -- |leetcode-ui-api-queries| All GraphQL queries in one place.
 -- Field names are kept in sync with LeetCode's API (verified live on 2026-11).

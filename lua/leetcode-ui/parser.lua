@@ -1,6 +1,5 @@
---- *LeetCodeParser*
+--- *LeetCodeParser* Question HTML content to styled buffer spans
 ---
----@tag LeetCodeParser
 
 -- |leetcode-ui-parser| Question HTML content to styled buffer spans.
 -- `content` HTML from the API renders to a list of lines; each line is a list

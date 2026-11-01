@@ -1,6 +1,5 @@
---- *LeetCodeRunnerPython*
+--- *LeetCodeRunnerPython* Python3 local runner
 ---
----@tag LeetCodeRunnerPython
 
 -- |leetcode-ui-runner-lang| Local Python 3 harness (`runner/langs/python3`).
 -- Wraps the user's `class Solution` with LeetCode-standard data structures,

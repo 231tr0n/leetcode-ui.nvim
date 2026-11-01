@@ -1,6 +1,5 @@
---- *LeetCodeStatsApi*
+--- *LeetCodeStatsApi* User statistics wrappers
 ---
----@tag LeetCodeStatsApi
 
 -- |leetcode-ui-api-stats| User statistics wrappers.
 -- Wrappers around the `matchedUser`-based queries: solved counts, calendar

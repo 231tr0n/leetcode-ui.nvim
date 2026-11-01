@@ -1,6 +1,5 @@
---- *LeetCodeAsync*
+--- *LeetCodeAsync* Tiny coroutine driver
 ---
----@tag LeetCodeAsync
 
 -- |leetcode-ui-async| Tiny coroutine driver for UI actions.
 -- Runs a function in a dedicated coroutine. Every yield inside must have its

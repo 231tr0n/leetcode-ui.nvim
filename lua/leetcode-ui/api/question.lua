@@ -1,6 +1,5 @@
---- *LeetCodeQuestion*
+--- *LeetCodeQuestion* Problem list, daily, random, and question detail
 ---
----@tag LeetCodeQuestion
 
 -- |leetcode-ui-api-question| Problem list, daily, random, and question detail.
 -- Normalized shapes (snake_case, `vim.NIL` inputs sanitized):

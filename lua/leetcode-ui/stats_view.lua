@@ -1,6 +1,5 @@
---- *LeetCodeStatsView*
+--- *LeetCodeStatsView* Statistics view
 ---
----@tag LeetCodeStatsView
 
 -- |leetcode-ui-stats-view| Statistics view.
 -- Progress meters by difficulty, language breakdown, and skill tags, plus a

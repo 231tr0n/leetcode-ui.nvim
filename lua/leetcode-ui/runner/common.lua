@@ -1,6 +1,5 @@
---- *LeetCodeRunner*
+--- *LeetCodeRunner* Local runner plumbing
 ---
----@tag LeetCodeRunner
 
 -- |leetcode-ui-runner-common| Local runner plumbing.
 -- Machinery shared by language harnesses:

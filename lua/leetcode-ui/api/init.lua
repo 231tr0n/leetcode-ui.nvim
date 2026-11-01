@@ -1,6 +1,5 @@
---- *LeetCodeApi*
+--- *LeetCodeApi* GraphQL and REST plumbing
 ---
----@tag LeetCodeApi
 
 -- |leetcode-ui-api| GraphQL and REST plumbing.
 -- `LeetCodeApi.graphql` runs a query and returns decoded `data` (or an error message built

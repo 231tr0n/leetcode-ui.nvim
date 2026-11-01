@@ -1,6 +1,5 @@
---- *LeetCodeBuffer*
+--- *LeetCodeBuffer* Buffer lifecycle and rendering helpers
 ---
----@tag LeetCodeBuffer
 
 -- |leetcode-ui-buffer| Buffer lifecycle, window, and rendering helpers.
 -- Shared plumbing for the UI modules:

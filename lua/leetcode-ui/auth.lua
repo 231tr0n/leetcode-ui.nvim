@@ -1,6 +1,5 @@
---- *LeetCodeAuth*
+--- *LeetCodeAuth* Session handling based on LeetCode cookies
 ---
----@tag LeetCodeAuth
 
 -- |leetcode-ui-auth| Session handling based on LeetCode cookies.
 -- Cookies are resolved in this order:

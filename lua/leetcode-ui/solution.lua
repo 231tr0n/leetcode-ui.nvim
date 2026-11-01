@@ -1,6 +1,5 @@
---- *LeetCodeSolution*
+--- *LeetCodeSolution* Code editor buffer of a question view
 ---
----@tag LeetCodeSolution
 
 -- |leetcode-ui-solution| Code editor buffer of a question view.
 -- Owns the editable code buffer: initializes from the starter snippet, loads

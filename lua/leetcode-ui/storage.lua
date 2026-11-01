@@ -1,6 +1,5 @@
---- *LeetCodeStorage*
+--- *LeetCodeStorage* Local caching and solution drafts
 ---
----@tag LeetCodeStorage
 
 -- |leetcode-ui-storage| Local caching and solution drafts.
 -- Layout (default `stdpath('data')/leetcode-ui`, override with

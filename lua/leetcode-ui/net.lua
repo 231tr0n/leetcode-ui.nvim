@@ -1,6 +1,5 @@
---- *LeetCodeNet*
+--- *LeetCodeNet* HTTP layer on top of curl
 ---
----@tag LeetCodeNet
 
 -- |leetcode-ui-net| HTTP layer on top of `curl`.
 -- Notes:

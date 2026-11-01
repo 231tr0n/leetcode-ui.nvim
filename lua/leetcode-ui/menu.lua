@@ -1,6 +1,5 @@
---- *LeetCodeMenu*
+--- *LeetCodeMenu* Main menu view
 ---
----@tag LeetCodeMenu
 
 -- |leetcode-ui-menu| Main menu view.
 -- An unlisted buffer listing entry points: daily question, random, problem

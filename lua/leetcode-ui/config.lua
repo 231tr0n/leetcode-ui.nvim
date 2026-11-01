@@ -1,6 +1,5 @@
---- *LeetCodeConfig*
+--- *LeetCodeConfig* Configuration for leetcode-ui
 ---
----@tag LeetCodeConfig
 
 -- |leetcode-ui-config| Structure and helpers for the main |leetcode-ui| module.
 -- This file follows mini.nvim module conventions (see |mini.development|):

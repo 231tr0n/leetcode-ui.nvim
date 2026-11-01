@@ -1,6 +1,5 @@
---- *LeetCodePicker*
+--- *LeetCodePicker* Problem picking
 ---
----@tag LeetCodePicker
 
 -- |leetcode-ui-picker| Problem picking via mini.pick (or builtin fallback).
 -- Two entry points:
