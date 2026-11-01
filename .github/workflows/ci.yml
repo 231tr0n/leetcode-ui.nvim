@@ -57,3 +57,39 @@ jobs:
 
       - name: Run tests
         run: timeout 600 nvim --headless -u scripts/minitest.lua
+
+  docs:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Install mini.nvim
+        run: |
+          mkdir -p ~/.local/share/nvim/site/pack/core/opt
+          git clone --depth 1 https://github.com/echasnovski/mini.nvim.git ~/.local/share/nvim/site/pack/core/opt/mini.nvim
+
+      - name: Generate help
+        run: |
+          mkdir -p doc
+          timeout 300 nvim --headless -u scripts/minidoc.lua
+
+      - name: Commit docs
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: regenerate"
+          file_pattern: doc/*.txt
+          commit_user_name: "231tr0n"
+          commit_user_email: "zeltronsrikar@gmail.com"
