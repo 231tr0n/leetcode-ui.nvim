@@ -13,18 +13,6 @@ A minimal Neovim UI for solving LeetCode problems.
 
 ## Installation
 
-### [lazy.nvim](https://github.com/folke/lazy.nvim)
-
-```lua
-{
-  "231tr0n/leetcode-ui.nvim",
-  dependencies = { "echasnovski/mini.nvim" },
-  config = function()
-    require("leetcode-ui").setup({})
-  end,
-}
-```
-
 ### [vim.pack](https://neovim.io/doc/user/pack.html) (Neovim 0.12+)
 
 ```lua
@@ -37,7 +25,7 @@ require("leetcode-ui").setup({})
 
 ### Other plugin managers
 
-Works with any plugin manager that can clone Git repositories. Make sure `mini.nvim` is available on your runtimepath.
+Works with any plugin manager that can clone Git repositories. Make sure `mini.nvim` is available on your runtimepath if you want to use `mini.pick`.
 
 ## Usage
 
