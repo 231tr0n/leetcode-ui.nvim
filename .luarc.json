@@ -3,7 +3,8 @@
     "version": "LuaJIT"
   },
   "diagnostics": {
-    "globals": ["vim", "utf8"]
+    "globals": ["vim", "utf8", "MiniTest"],
+    "disable": ["undefined-global", "undefined-field", "need-check-nil"]
   },
   "workspace": {
     "library": ["$VIMRUNTIME/lua"],
