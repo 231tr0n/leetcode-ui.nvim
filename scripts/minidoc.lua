@@ -5,7 +5,8 @@ vim.opt.runtimepath:prepend(root)
 local mini = vim.fn.expand('~/.local/share/nvim/site/pack/core/opt/mini.nvim')
 if vim.uv.fs_stat(mini .. '/lua/mini/doc.lua') then vim.opt.runtimepath:append(mini) end
 
-if _G.MiniDoc == nil then require('mini.doc').setup() end
+local MiniDoc = require('mini.doc')
+if _G.MiniDoc == nil then MiniDoc.setup() end
 
 local modules = {
   'leetcode-ui',

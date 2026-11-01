@@ -124,13 +124,17 @@ T['python3']['run_local two-sum returns json'] = function()
     '                    return [i, j]',
     '        return []',
   }, '\n')
-  local result, err = nil, nil
+  ---@type { status: string, message: string }|nil
+  local result = nil
+  ---@type any
+  local err = nil
   common.run_local(question, 'python3', code, '[2,7,11,15]\n9', function(r, e)
     result = r
     err = e
   end)
   eq(helpers.wait_for(function() return result ~= nil end), true)
   eq(err, nil)
+  assert(result ~= nil)
   eq(result.status, 'ran')
   eq(type(result.message), 'string')
   eq(helpers.contains(result.message, '0'), true)
@@ -149,13 +153,17 @@ T['python3']['run_local TreeNode roundtrip'] = function()
     '        root.left, root.right = self.invertTree(root.right), self.invertTree(root.left)',
     '        return root',
   }, '\n')
-  local result, err = nil, nil
+  ---@type { status: string, message: string }|nil
+  local result = nil
+  ---@type any
+  local err = nil
   common.run_local(question, 'python3', code, '[4,2,7,1,3,6,9]', function(r, e)
     result = r
     err = e
   end)
   eq(helpers.wait_for(function() return result ~= nil end), true)
   eq(err, nil)
+  assert(result ~= nil)
   eq(result.status, 'ran')
   eq(helpers.contains(result.message, '4'), true)
 end
@@ -183,13 +191,17 @@ T['python3']['run_local MyCalendar systemdesign'] = function()
     '        self.events.append((start, end))',
     '        return True',
   }, '\n')
-  local result, err = nil, nil
+  ---@type { status: string, message: string }|nil
+  local result = nil
+  ---@type any
+  local err = nil
   common.run_local(question, 'python3', code, '["MyCalendar","book","book"]\n[[],[10,20],[12,30]]', function(r, e)
     result = r
     err = e
   end)
   eq(helpers.wait_for(function() return result ~= nil end), true)
   eq(err, nil)
+  assert(result ~= nil)
   eq(result.status, 'ran')
   eq(result.message, '[null,true,false]')
 end

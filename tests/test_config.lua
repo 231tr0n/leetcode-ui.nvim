@@ -33,7 +33,7 @@ end
 T['defaults']['language metadata covers required languages'] = function()
   local config = helpers.mod('config')
   for _, slug in ipairs({ 'python3', 'javascript', 'typescript', 'cpp', 'c', 'golang', 'java', 'kotlin' }) do
-    eq(type(config.langs[slug]), 'table', 'missing language: ' .. slug)
+    eq(type(config.langs[slug]), 'table')
   end
 end
 
@@ -54,7 +54,7 @@ T['setup']['normalizes language aliases'] = function()
   for alias, expected in pairs({ python = 'python3', go = 'golang', js = 'javascript', ts = 'typescript' }) do
     if config.langs[alias] ~= nil then
       config.setup({ lang = alias })
-      eq(config.config.lang, expected, 'alias: ' .. alias)
+      eq(config.config.lang, expected)
     end
   end
 end

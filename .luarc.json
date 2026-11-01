@@ -3,11 +3,10 @@
     "version": "LuaJIT"
   },
   "diagnostics": {
-    "globals": ["vim", "utf8", "MiniTest"],
-    "disable": ["undefined-global", "undefined-field", "need-check-nil"]
+    "globals": ["vim", "utf8", "MiniTest", "MiniDoc"]
   },
   "workspace": {
-    "library": ["$VIMRUNTIME/lua"],
+    "library": ["$VIMRUNTIME/lua", "~/.local/share/nvim/site/pack/core/opt/mini.nvim/lua"],
     "ignoreDir": [".git", "doc"]
   }
 }

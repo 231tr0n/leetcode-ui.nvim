@@ -17,11 +17,11 @@ if not pcall(require, 'mini.test') then
   if vim.uv.fs_stat(mini .. '/lua/mini/test.lua') then vim.opt.runtimepath:append(mini) end
 end
 
-local minitest = require('mini.test')
-if _G.MiniTest == nil then minitest.setup() end
+local MiniTest = require('mini.test')
+if _G.MiniTest == nil then MiniTest.setup() end
 
-local reporter = minitest.gen_reporter.stdout()
-minitest.run({
+local reporter = MiniTest.gen_reporter.stdout()
+MiniTest.run({
   collect = {
     find_files = function() return vim.fn.globpath(root .. '/tests', 'test_*.lua', true, true) end,
   },

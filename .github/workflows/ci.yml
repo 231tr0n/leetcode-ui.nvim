@@ -53,7 +53,7 @@ jobs:
         run: luacheck . --no-cache
 
       - name: LuaLS check
-        run: lua-language-server --check . --check_out_path /tmp/luals-check.json || true
+        run: lua-language-server --check . --check_out_path /tmp/luals-check.json
 
       - name: Run tests
         run: timeout 600 nvim --headless -u scripts/minitest.lua

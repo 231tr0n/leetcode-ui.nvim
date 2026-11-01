@@ -48,7 +48,8 @@ end
 ---Open a split window for a buffer.
 ---
 ---@param bufnr number
----@param opts table|nil { pos = 'left'|'right'|'above'|'below', width = number, height = number, focus = boolean, name = string }
+---@param opts table|nil
+---   pos='left'|'right'|'above'|'below', width, height, focus, name
 ---@return number winid
 H.open_split = function(bufnr, opts)
   opts = opts or {}

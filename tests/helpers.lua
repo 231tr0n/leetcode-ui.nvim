@@ -79,7 +79,8 @@ H.make_firefox_db = function(dir, values)
   local script = 'import sqlite3,sys\n'
     .. 'c=sqlite3.connect(sys.argv[1])\n'
     .. "c.execute('CREATE TABLE moz_cookies(id INTEGER PRIMARY KEY,name TEXT,value TEXT,host TEXT)')\n"
-    .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('LEETCODE_SESSION',? ,'.leetcode.com')\",(sys.argv[2],))\n"
+    .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('LEETCODE_SESSION',? ,'.leetcode.com')\","
+    .. '(sys.argv[2],))\n'
     .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('csrftoken',? ,'.leetcode.com')\",(sys.argv[3],))\n"
     .. "c.execute(\"INSERT INTO moz_cookies(name,value,host) VALUES('other','ignore','.example.com')\")\n"
     .. 'c.commit()\n'
@@ -102,8 +103,10 @@ H.make_chromium_db = function(dir, session, csrf)
   local script = 'import sqlite3,subprocess,sys\n'
     .. 'db,s=sys.argv[1],sys.argv[2]\n'
     .. 'c=sys.argv[3]\n'
-    .. "k=subprocess.run(['openssl','dgst','-sha1','-hmac','peanuts'],input=b'saltysalt\x00\x00\x00\x01',capture_output=True).stdout.decode().strip().split()[-1][:32]\n"
-    .. "ct=subprocess.run(['openssl','enc','-e','-aes-128-cbc','-K',k,'-iv','20'*16],input=s.encode(),capture_output=True,check=True).stdout\n"
+    .. "k=subprocess.run(['openssl','dgst','-sha1','-hmac','peanuts'],input=b'saltysalt\\x00\\x00\\x00\\x01',"
+    .. 'capture_output=True).stdout.decode().strip().split()[-1][:32]\n'
+    .. "ct=subprocess.run(['openssl','enc','-e','-aes-128-cbc','-K',k,'-iv','20'*16],"
+    .. 'input=s.encode(),capture_output=True,check=True).stdout\n'
     .. 'con=sqlite3.connect(db)\n'
     .. "con.execute('CREATE TABLE cookies(name TEXT,value TEXT,encrypted_value BLOB,host_key TEXT)')\n"
     .. "con.execute(\"INSERT INTO cookies VALUES('LEETCODE_SESSION','',? ,'.leetcode.com')\",(b'v10'+ct,))\n"
