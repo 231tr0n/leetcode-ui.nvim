@@ -53,9 +53,7 @@ jobs:
         run: luacheck . --no-cache
 
       - name: LuaLS check
-        run: |
-          lua-language-server --check . --check_out_path /tmp/luals-check.json || true
-          python3 -c "import json,sys; d=json.load(open('/tmp/luals-check.json')); c=sum(len(v) for v in d.values()); print('luals problems', c); exit(0)"
+        run: lua-language-server --check . --check_out_path /tmp/luals-check.json || true
 
       - name: Run tests
         run: timeout 600 nvim --headless -u scripts/minitest.lua
