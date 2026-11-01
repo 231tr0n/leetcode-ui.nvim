@@ -251,7 +251,8 @@ T['stats_api']['languages works on main thread'] = function()
   api.graphql = function(_q, _v)
     return {
       matchedUser = { language_problem_count = { { language_name = 'Python3', problems_solved = 5 } } },
-    }, nil
+    },
+      nil
   end
   local langs, err = stats.languages()
   eq(err, nil)
@@ -269,7 +270,9 @@ T['stats_api']['skills works on main thread'] = function()
   local original_verify = auth.verify
   auth.verify = function() return { signed_in = true, name = 'u' }, nil end
   api.graphql = function(_q, _v)
-    return { matchedUser = { tag_problems_counts = { fundamental = { { tag_name = 'Array', problems_solved = 2 } } } } },
+    return {
+      matchedUser = { tag_problems_counts = { fundamental = { { tag_name = 'Array', problems_solved = 2 } } } },
+    },
       nil
   end
   local skills, err = stats.skills()
