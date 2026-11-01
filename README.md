@@ -4,7 +4,7 @@ A minimal Neovim UI for solving LeetCode problems.
 
 ## Features
 
-- Browse and pick LeetCode problems (mini.pick or `vim.ui.select`)
+- Browse and pick LeetCode problems (uses `mini.pick` if available, otherwise `vim.ui.select`)
 - View problem descriptions with HTML parsing
 - Edit and run solutions locally or against LeetCode's judge
 - Submit solutions
