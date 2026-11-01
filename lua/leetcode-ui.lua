@@ -17,23 +17,23 @@ LeetCode.config = require('leetcode-ui.config')
 
 -- Public API ========================================================================================================
 
----Set up options (full docs in |leetcode-ui.setup()|).
+---Set up plugin options (full docs in |leetcode-ui.setup()|).
 ---
 ---@param opts table|nil Setup options.
 LeetCode.setup = function(opts) LeetCode.config.setup(opts) end
 
----Ensure a default setup happened once (for one-off commands).
+---Ensure a default setup has happened once (for one-off commands).
 LeetCode.ensure_setup = function()
   if LeetCode.config.is_setup ~= true then LeetCode.setup({}) end
 end
 
----Open the main menu.
+---Open the main menu view.
 LeetCode.menu = function()
   LeetCode.ensure_setup()
   require('leetcode-ui.menu').open()
 end
 
----Open today's daily question.
+---Open today's daily coding challenge question.
 LeetCode.daily = function()
   LeetCode.ensure_setup()
   require('leetcode-ui.picker').daily()
@@ -61,7 +61,7 @@ LeetCode.stats = function()
   require('leetcode-ui.stats_view').open()
 end
 
----Show current session info.
+---Show current session information.
 LeetCode.session = function()
   LeetCode.ensure_setup()
   require('leetcode-ui.stats_view').session()

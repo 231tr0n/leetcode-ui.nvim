@@ -5,7 +5,7 @@
 ------------------------------------------------------------------------------
                                                               *LeetCode.setup()*
                             `LeetCode.setup`({opts})
-up options (full docs in |leetcode-ui.setup()|).
+up plugin options (full docs in |leetcode-ui.setup()|).
 
 Parameters ~
 {opts} `(table|nil)` Setup options.
@@ -13,17 +13,17 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                        *LeetCode.ensure_setup()*
                            `LeetCode.ensure_setup`()
-a default setup happened once (for one-off commands).
+a default setup has happened once (for one-off commands).
 
 ------------------------------------------------------------------------------
                                                                *LeetCode.menu()*
                                `LeetCode.menu`()
-the main menu.
+the main menu view.
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.daily()*
                                `LeetCode.daily`()
-today's daily question.
+today's daily coding challenge question.
 
 ------------------------------------------------------------------------------
                                                              *LeetCode.random()*
@@ -49,7 +49,7 @@ the statistics view.
 ------------------------------------------------------------------------------
                                                             *LeetCode.session()*
                               `LeetCode.session`()
-current session info.
+current session information.
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.close()*
