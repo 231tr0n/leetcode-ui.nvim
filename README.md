@@ -4,7 +4,7 @@ A minimal Neovim UI for solving LeetCode problems.
 
 ## Features
 
-- Browse and pick LeetCode problems (uses `mini.pick` if available, otherwise `vim.ui.select`)
+- Browse and pick LeetCode problems (uses `vim.ui.select` by default; `mini.pick` is optional as a faster UI)
 - View problem descriptions with HTML parsing
 - Edit and run solutions locally or against LeetCode's judge
 - Submit solutions
@@ -17,15 +17,14 @@ A minimal Neovim UI for solving LeetCode problems.
 
 ```lua
 vim.pack.add({
-  { src = "https://github.com/echasnovski/mini.nvim" },
-  { src = "https://github.com/231tr0n/leetcode-ui.nvim" },
+  { src = "https://github.com/231tr0n/leetcode-ui.nvim" }, -- optional: { src = "https://github.com/echasnovski/mini.nvim" } for mini.pick
 })
 require("leetcode-ui").setup({})
 ```
 
 ### Other plugin managers
 
-Works with any plugin manager that can clone Git repositories. Make sure `mini.nvim` is available on your runtimepath if you want to use `mini.pick`.
+Works with any plugin manager that can clone Git repositories. `mini.pick` is optional.
 
 ## Usage
 
@@ -38,7 +37,7 @@ Works with any plugin manager that can clone Git repositories. Make sure `mini.n
 :LeetCode stats
 ```
 
-Selection is done via `vim.ui.select` when no picker is available.
+Selection is done via `vim.ui.select`. If `mini.pick` is installed, you can override `vim.ui.select` with it via `mini.pick.ui_select()` if desired. Multi-select is not currently required, so the picker can rely on `vim.ui.select` alone.
 
 ## Requirements
 
