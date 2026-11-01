@@ -6,7 +6,7 @@
 -- |leetcode-ui| Root module of the |leetcode-ui| plugin.
 -- Usage:
 --   require('leetcode-ui').setup({...})
---   require('leetcode-ui').menu()
+--   require('leetcode-ui').list()
 --   require('leetcode-ui').daily()
 
 local LeetCode = {}
@@ -25,12 +25,6 @@ LeetCode.setup = function(opts) LeetCode.config.setup(opts) end
 ---Ensure a default setup has happened once (for one-off commands).
 LeetCode.ensure_setup = function()
   if LeetCode.config.is_setup ~= true then LeetCode.setup({}) end
-end
-
----Open the main menu view.
-LeetCode.menu = function()
-  LeetCode.ensure_setup()
-  require('leetcode-ui.menu').open()
 end
 
 ---Open today's daily coding challenge question.

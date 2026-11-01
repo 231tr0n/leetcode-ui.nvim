@@ -96,7 +96,8 @@ end
 ---@return table|nil Response
 ---@return string|nil Error
 LeetCodeNet.request = function(opts)
-  if coroutine.running() then return LeetCodeNet.request_async(opts) end
+  local _co, _main = coroutine.running()
+  if _co ~= nil and _main ~= true then return LeetCodeNet.request_async(opts) end
   return LeetCodeNet.request_sync(opts)
 end
 

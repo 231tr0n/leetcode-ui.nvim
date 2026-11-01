@@ -27,7 +27,7 @@ local modules = {
   'leetcode-ui.question',
   'leetcode-ui.picker',
   'leetcode-ui.stats_view',
-  'leetcode-ui.menu',
+
   'leetcode-ui.runner.common',
   'leetcode-ui.runner.langs.python3',
   'leetcode-ui.async',

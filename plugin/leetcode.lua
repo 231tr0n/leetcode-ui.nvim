@@ -7,7 +7,6 @@ local M = require('leetcode-ui')
 
 ---Subcommand table: name -> handler(opts).
 local commands = {
-  menu = function() M.menu() end,
   daily = function() M.daily() end,
   random = function(opts) M.random(opts.fargs[2] ~= nil and { difficulty = opts.fargs[2] } or nil) end,
   list = function(opts) M.list(opts.fargs[2] ~= nil and { difficulty = opts.fargs[2] } or nil) end,
@@ -18,14 +17,14 @@ local commands = {
 
 ---Top-level :LeetCode command.
 ---
----   :LeetCode [daily|random|list|stats|session|menu|close] [Easy|Medium|Hard]
+---   :LeetCode [daily|random|list|stats|session|close] [Easy|Medium|Hard]
 ---
 vim.api.nvim_create_user_command('LeetCode', function(opts)
-  local name = opts.fargs[1] or 'menu'
+  local name = opts.fargs[1] or 'list'
   local action = commands[name]
   if action == nil then
     vim.notify(('(leetcode-ui) Unknown argument `%s`.'):format(name), vim.log.levels.WARN)
-    action = commands.menu
+    action = commands.list
   end
   action(opts)
 end, {

@@ -68,16 +68,6 @@ local function stub_runner()
   end
 end
 
-T['menu'] = new_set()
-
-T['menu']['opens'] = function()
-  local restore = stub_detail()
-  local menu = helpers.mod('menu')
-  local ok = pcall(menu.open)
-  eq(ok, true)
-  restore()
-end
-
 T['question'] = new_set()
 
 T['question']['opens two-sum'] = function()

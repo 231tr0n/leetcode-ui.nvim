@@ -16,11 +16,6 @@ Parameters ~
 a default setup has happened once (for one-off commands).
 
 ------------------------------------------------------------------------------
-                                                               *LeetCode.menu()*
-                               `LeetCode.menu`()
-the main menu view.
-
-------------------------------------------------------------------------------
                                                               *LeetCode.daily()*
                                `LeetCode.daily`()
 today's daily coding challenge question.
@@ -598,18 +593,6 @@ details (user + streak) in a notification.
                                                      *LeetCodeStatsView.close()*
                           `LeetCodeStatsView.close`()
 the statistics buffer, if open.
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                                  *LeetCodeMenu*
-
-*leetcode-ui-menu* Main menu view
-
-------------------------------------------------------------------------------
-                                                           *LeetCodeMenu.open()*
-                             `LeetCodeMenu.open`()
-(or refocus) the menu.
 
 
 ==============================================================================

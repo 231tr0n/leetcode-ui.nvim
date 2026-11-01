@@ -31,7 +31,6 @@ Works with any plugin manager that can clone Git repositories. `mini.pick` is op
 ```vim
 :LeetCode
 :LeetCode list
-:LeetCode menu
 :LeetCode random
 :LeetCode daily
 :LeetCode stats

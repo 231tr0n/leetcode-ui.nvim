@@ -9,13 +9,6 @@ local T = new_set({
   },
 })
 
-T['menu'] = new_set()
-T['menu']['opens without error'] = function()
-  local m = require('leetcode-ui')
-  local ok = pcall(m.menu)
-  eq(ok, true)
-end
-
 T['stats'] = new_set()
 T['stats']['opens without error'] = function()
   local m = require('leetcode-ui')
