@@ -824,7 +824,8 @@ a split window for a buffer.
 
 Parameters ~
 {bufnr} `(number)`
-{opts} `(table|nil)` { pos = 'left'|'right'|'above'|'below', width = number, height = number, focus = boolean, name = string }
+{opts} `(table|nil)`
+  pos='left'|'right'|'above'|'below', width, height, focus, name
 Return ~
 `(number)` winid
 
