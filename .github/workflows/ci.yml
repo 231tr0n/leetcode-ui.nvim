@@ -46,8 +46,16 @@ jobs:
           mkdir -p ~/.local/share/nvim/site/pack/core/opt
           git clone --depth 1 https://github.com/echasnovski/mini.nvim.git ~/.local/share/nvim/site/pack/core/opt/mini.nvim
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Stylua check
         run: stylua --check lua plugin tests scripts
+
+      - name: Prettier check
+        run: npx --yes prettier@3 --check '**/*.{yml,yaml,md}'
 
       - name: Luacheck
         run: luacheck . --no-cache
