@@ -1,0 +1,230 @@
+-- |leetcode-ui-console| Test case console UI.
+--------------------------------------------------------------------------------
+-- A scrollable bottom pane showing one row per test case: case number, status
+-- icon, and a result line (runtime/memory/stdout) once judging finishes.
+-- State is a plain table; |leetcode-ui-question| drives it from results of
+-- |leetcode-ui-api-runner|.
+--------------------------------------------------------------------------------
+
+-- Module design:
+local H = {}
+
+local config = require('leetcode-ui.config')
+local buffer = require('leetcode-ui.buffer')
+
+-- Helper data =======================================================================================================
+
+---Spinner frames for the running state.
+H.spinner = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
+
+---Console header text.
+H.header = 'Testcase'
+
+-- Helper functionality ==============================================================================================
+
+---Create a console UI object for a question view.
+---
+---Fields:
+---  cases     - array of `{ input = string, status = string, result = table|nil }`
+---  selected  - 1-based index of the focused case.
+---
+---@param view table Question view (|leetcode-ui-question|).
+---@return table console
+H.new = function(view)
+  return setmetatable({ view = view, cases = {}, selected = 1, timer = nil, frame = 1 }, { __index = H })
+end
+
+---Initialize known test cases from the question detail.
+---
+---@param testcase_list table Raw input strings, one per case.
+H.set_cases = function(console, testcase_list)
+  local cases = {}
+  for _, input in ipairs(testcase_list) do
+    table.insert(cases, { input = input, status = 'unknown', result = nil, running = false, index = #cases + 1 })
+  end
+  if #cases == 0 then
+    table.insert(cases, { input = '', status = 'unknown', result = nil, running = false, index = 1 })
+  end
+  console.cases = cases
+  console.selected = 1
+end
+
+---Render the console buffer.
+H.render = function(console)
+  if console.bufnr == nil then return end
+
+  local icons = config.config.icons.case
+  local lines = {}
+
+  local header = { { text = H.header, hl = 'LeetCodeTitle' } }
+  table.insert(lines, header)
+
+  for i, case in ipairs(console.cases) do
+    local icon, icon_hl = 'unknown', 'LeetCodeDim'
+
+    if case.running then
+      icon, icon_hl = H.spinner[console.frame], 'LeetCodeWarn'
+    elseif case.status == 'passed' then
+      icon, icon_hl = icons.passed, 'LeetCodeOk'
+    elseif case.status == 'failed' then
+      icon, icon_hl = icons.failed, 'LeetCodeErr'
+    elseif case.status == 'error' then
+      icon, icon_hl = icons.err, 'LeetCodeErr'
+    end
+
+    local marker = i == console.selected and config.config.icons.status.active or ' '
+    table.insert(lines, {
+      { text = marker .. ' ', hl = i == console.selected and 'LeetCodeTitle' or nil },
+      { text = icon .. ' ', hl = icon_hl },
+      { text = ('Case %d'):format(i), hl = i == console.selected and 'LeetCodeTitle' or nil },
+    })
+
+    if case.result ~= nil and case.status ~= 'unknown' and not case.running then
+      local parts = { { text = '    ', hl = nil } }
+      if case.result.runtime_ms ~= nil then
+        table.insert(parts, { text = ('%d ms  '):format(tonumber(case.result.runtime_ms) or 0), hl = 'LeetCodeDim' })
+      end
+      local message = case.result.message
+      if message ~= nil then message = message:gsub('%s+$', '') end
+      if message ~= nil and message ~= '' then
+        local message_lines = vim.split(message, '\n')
+        for j, message_line in ipairs(message_lines) do
+          table.insert(parts, { text = message_line, hl = 'LeetCodeErr' })
+          if j < #message_lines then
+            table.insert(lines, parts)
+            parts = { { text = '    ', hl = nil } }
+          end
+        end
+      end
+      table.insert(lines, parts)
+    end
+  end
+
+  buffer.spans_write(console.bufnr, lines, false)
+end
+
+---Mark a case as running and (re)start the spinner.
+---
+---@param index number
+H.case_running = function(console, index)
+  local case = console.cases[index]
+  if case == nil then return end
+  case.running = true
+  case.status = 'unknown'
+  case.result = nil
+  console.selected = index
+  console:start_spinner()
+end
+
+---Feed a finished result for a case.
+---
+---@param index number
+---@param result table Normalized |leetcode-ui-api-runner| result.
+H.case_result = function(console, index, result)
+  local case = console.cases[index]
+  if case == nil then return end
+
+  case.running = false
+  case.result = result
+
+  local correct, total = result.correct or 0, result.total or 0
+  if result.status == 'Accepted' then
+    case.status = 'passed'
+  elseif result.status == 'Compile Error' then
+    case.status = 'error'
+  elseif result.compare ~= nil and (correct == 0 and total == 0) then
+    -- Per-case compare bit: last char of `compare_result`.
+    case.status = result.compare:sub(-1) == '1' and 'passed' or 'failed'
+  elseif correct == total and total > 0 then
+    case.status = 'passed'
+  else
+    case.status = 'failed'
+  end
+
+  console:render()
+end
+
+---Start (or restart) the spinner animation timer.
+H.start_spinner = function(console)
+  if console.timer ~= nil then return end
+
+  console.frame = 1
+  local timer = vim.uv.new_timer()
+  if timer == nil then return end
+  console.timer = timer
+  timer:start(0, 80, function()
+    vim.schedule(function()
+      if console.bufnr == nil or not vim.api.nvim_buf_is_valid(console.bufnr) then
+        timer:stop()
+        timer:close()
+        console.timer = nil
+        return
+      end
+      local running = false
+      for _, case in ipairs(console.cases) do
+        if case.running then
+          running = true
+          break
+        end
+      end
+      if not running then
+        timer:stop()
+        timer:close()
+        console.timer = nil
+        console:render()
+        return
+      end
+      console.frame = (console.frame % #H.spinner) + 1
+      console:render()
+    end)
+  end)
+end
+
+---Stop the spinner timer, if any.
+H.stop_spinner = function(console)
+  if console.timer ~= nil then
+    console.timer:stop()
+    console.timer:close()
+    console.timer = nil
+  end
+end
+
+---Create buffer + split window, below the solution window.
+H.open = function(console)
+  if console.bufnr ~= nil then return end
+
+  console.bufnr = buffer.scratch('leetcode-ui://console/' .. (console.view.slug or ''), { ft = 'txt' })
+  console.winid = buffer.open_split(console.bufnr, {
+    pos = 'below',
+    height = config.config.console_height,
+    focus = false,
+  })
+  vim.api.nvim_win_set_cursor(console.winid, { 1, 0 })
+
+  buffer.keymaps(console.bufnr, {
+    toggle_console = {
+      rhs = function() console:close() end,
+      desc = 'Close console',
+    },
+  })
+
+  console:render()
+end
+
+---Close the console window.
+H.close = function(console)
+  buffer.close(console.winid)
+  console.winid = nil
+  console.bufnr = nil
+  console:stop_spinner()
+end
+
+H.toggle = function(console)
+  if console.bufnr ~= nil then
+    console:close()
+  else
+    console:open()
+  end
+end
+
+return H

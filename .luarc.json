@@ -1,0 +1,12 @@
+{
+  "runtime": {
+    "version": "LuaJIT"
+  },
+  "diagnostics": {
+    "globals": ["vim", "utf8"]
+  },
+  "workspace": {
+    "library": ["$VIMRUNTIME/lua"],
+    "ignoreDir": [".git", "doc"]
+  }
+}
