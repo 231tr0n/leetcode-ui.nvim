@@ -6,7 +6,10 @@
     "globals": ["vim", "utf8", "MiniTest", "MiniDoc"]
   },
   "workspace": {
-    "library": ["$VIMRUNTIME/lua", "~/.local/share/nvim/site/pack/core/opt/mini.nvim/lua"],
+    "library": [
+      "$VIMRUNTIME/lua",
+      "~/.local/share/nvim/site/pack/core/opt/mini.nvim/lua"
+    ],
     "ignoreDir": [".git", "doc"]
   }
 }
