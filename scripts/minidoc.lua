@@ -39,6 +39,6 @@ for _, mod in ipairs(modules) do
   if vim.fn.filereadable(path) == 1 then table.insert(inputs, path) end
 end
 
-MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), {})
+require('mini.doc').generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), {})
 vim.cmd('helptags ' .. vim.fs.joinpath(root, 'doc'))
 vim.cmd('qa!')
