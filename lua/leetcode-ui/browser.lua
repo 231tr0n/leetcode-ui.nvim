@@ -30,9 +30,7 @@ LeetCodeBrowser.chromium_roots = {
   chromium = vim.fs.joinpath(vim.env.HOME or '', '.config', 'chromium'),
 }
 
-LeetCodeBrowser.is_chromium = function(browser)
-  return LeetCodeBrowser.chromium_roots[browser] ~= nil and browser ~= 'firefox'
-end
+LeetCodeBrowser.is_chromium = function(browser) return LeetCodeBrowser.chromium_roots[browser] ~= nil end
 
 LeetCodeBrowser.python_script = [[
 import json, os, shutil, sqlite3, sys, tempfile
