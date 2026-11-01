@@ -1,0 +1,14 @@
+*.swp
+*.swo
+*.tmp
+.DS_Store
+.tags
+/doc/tags
+/node_modules/
+/luarocks/
+/.luarocks/
+/build/
+/dist/
+/tmp/
+__pycache__/
+*.pyc
