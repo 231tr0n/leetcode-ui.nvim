@@ -23,9 +23,7 @@ if _G.MiniTest == nil then minitest.setup() end
 local reporter = minitest.gen_reporter.stdout()
 minitest.run({
   collect = {
-    find_files = function()
-      return vim.fn.globpath(root .. '/tests', 'test_*.lua', true, true)
-    end,
+    find_files = function() return vim.fn.globpath(root .. '/tests', 'test_*.lua', true, true) end,
   },
   reporter = reporter,
 })

@@ -5,9 +5,7 @@ local new_set = helpers.new_set
 
 local T = new_set({
   hooks = {
-    pre_case = function()
-      helpers.setup()
-    end,
+    pre_case = function() helpers.setup() end,
   },
 })
 
@@ -52,7 +50,13 @@ end
 
 T['common']['meta builds question metadata'] = function()
   local common = helpers.mod('runner.common')
-  local question = { meta = { name = 'twoSum', params = {{name='nums',type='integer[]'},{name='target',type='integer'}}, ['return'] = {type='integer[]'} } }
+  local question = {
+    meta = {
+      name = 'twoSum',
+      params = { { name = 'nums', type = 'integer[]' }, { name = 'target', type = 'integer' } },
+      ['return'] = { type = 'integer[]' },
+    },
+  }
   local meta = common.meta(question)
   eq(meta.mode, 'normal')
   eq(meta.name, 'twoSum')
@@ -63,7 +67,16 @@ end
 
 T['common']['meta systemdesign mode'] = function()
   local common = helpers.mod('runner.common')
-  local question = { meta = { classname = 'MyCalendar', methods = {{name='book', params={{name='start',type='integer'},{name='end',type='integer'}}, ['return']={type='boolean'}}} } }
+  local question = {
+    meta = {
+      classname = 'MyCalendar',
+      methods = {
+        { name = 'book', params = { { name = 'start', type = 'integer' }, { name = 'end', type = 'integer' } }, ['return'] = {
+          type = 'boolean',
+        } },
+      },
+    },
+  }
   local meta = common.meta(question)
   eq(meta.mode, 'systemdesign')
   eq(meta.class_name, 'MyCalendar')
@@ -81,7 +94,11 @@ end
 
 T['python3']['build systemdesign uses class entry'] = function()
   local py = require('leetcode-ui.runner.langs.python3')
-  local src = py.build('class MyCalendar: pass', 'systemdesign', { name = 'book', return_type = 'boolean', class_name = 'MyCalendar' })
+  local src = py.build(
+    'class MyCalendar: pass',
+    'systemdesign',
+    { name = 'book', return_type = 'boolean', class_name = 'MyCalendar' }
+  )
   eq(type(src), 'string')
   eq(#src > 10, true)
 end
@@ -89,7 +106,11 @@ end
 T['python3']['run_local two-sum returns json'] = function()
   local common = helpers.mod('runner.common')
   local question = helpers.fake_detail({ title_slug = 'two-sum' })
-  question.meta = { name = 'twoSum', params = { { name = 'nums', type = 'integer[]' }, { name = 'target', type = 'integer' } }, ['return'] = { type = 'integer[]' } }
+  question.meta = {
+    name = 'twoSum',
+    params = { { name = 'nums', type = 'integer[]' }, { name = 'target', type = 'integer' } },
+    ['return'] = { type = 'integer[]' },
+  }
   local code = table.concat({
     'class Solution:',
     '    def twoSum(self, nums, target):',
@@ -100,7 +121,10 @@ T['python3']['run_local two-sum returns json'] = function()
     '        return []',
   }, '\n')
   local result, err = nil, nil
-  common.run_local(question, 'python3', code, '[2,7,11,15]\n9', function(r, e) result = r; err = e end)
+  common.run_local(question, 'python3', code, '[2,7,11,15]\n9', function(r, e)
+    result = r
+    err = e
+  end)
   eq(helpers.wait_for(function() return result ~= nil end), true)
   eq(err, nil)
   eq(result.status, 'ran')
@@ -112,7 +136,8 @@ end
 T['python3']['run_local TreeNode roundtrip'] = function()
   local common = helpers.mod('runner.common')
   local question = helpers.fake_detail({ title_slug = 'invert-binary-tree' })
-  question.meta = { name = 'invertTree', params = { { name = 'root', type = 'TreeNode' } }, ['return'] = { type = 'TreeNode' } }
+  question.meta =
+    { name = 'invertTree', params = { { name = 'root', type = 'TreeNode' } }, ['return'] = { type = 'TreeNode' } }
   local code = table.concat({
     'class Solution:',
     '    def invertTree(self, root):',
@@ -121,7 +146,10 @@ T['python3']['run_local TreeNode roundtrip'] = function()
     '        return root',
   }, '\n')
   local result, err = nil, nil
-  common.run_local(question, 'python3', code, '[4,2,7,1,3,6,9]', function(r, e) result = r; err = e end)
+  common.run_local(question, 'python3', code, '[4,2,7,1,3,6,9]', function(r, e)
+    result = r
+    err = e
+  end)
   eq(helpers.wait_for(function() return result ~= nil end), true)
   eq(err, nil)
   eq(result.status, 'ran')
@@ -131,9 +159,16 @@ end
 T['python3']['run_local MyCalendar systemdesign'] = function()
   local common = helpers.mod('runner.common')
   local question = helpers.fake_detail({ title_slug = 'my-calendar-i' })
-  question.meta = { classname = 'MyCalendar', methods = {
-    { name = 'book', params = { { name = 'start', type = 'integer' }, { name = 'end', type = 'integer' } }, ['return'] = { type = 'boolean' } },
-  } }
+  question.meta = {
+    classname = 'MyCalendar',
+    methods = {
+      {
+        name = 'book',
+        params = { { name = 'start', type = 'integer' }, { name = 'end', type = 'integer' } },
+        ['return'] = { type = 'boolean' },
+      },
+    },
+  }
   local code = table.concat({
     'class MyCalendar:',
     '    def __init__(self):',
@@ -145,7 +180,10 @@ T['python3']['run_local MyCalendar systemdesign'] = function()
     '        return True',
   }, '\n')
   local result, err = nil, nil
-  common.run_local(question, 'python3', code, '[\"MyCalendar\",\"book\",\"book\"]\n[[],[10,20],[12,30]]', function(r, e) result = r; err = e end)
+  common.run_local(question, 'python3', code, '["MyCalendar","book","book"]\n[[],[10,20],[12,30]]', function(r, e)
+    result = r
+    err = e
+  end)
   eq(helpers.wait_for(function() return result ~= nil end), true)
   eq(err, nil)
   eq(result.status, 'ran')

@@ -5,9 +5,7 @@ local new_set = helpers.new_set
 
 local T = new_set({
   hooks = {
-    pre_case = function()
-      helpers.setup()
-    end,
+    pre_case = function() helpers.setup() end,
   },
 })
 

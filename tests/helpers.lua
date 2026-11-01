@@ -87,7 +87,9 @@ con.execute("INSERT INTO moz_cookies (name, value, host) VALUES ('other', 'ignor
 con.commit()
 con.close()
 ]]
-  local out = vim.system({ 'python3', '-c', script, path, values.LEETCODE_SESSION, values.csrftoken }, { text = true }):wait()
+  local out = vim
+    .system({ 'python3', '-c', script, path, values.LEETCODE_SESSION, values.csrftoken }, { text = true })
+    :wait()
   if out.code ~= 0 then error('firefox fixture failed: ' .. (out.stderr or '')) end
   return path
 end
@@ -133,7 +135,11 @@ H.fake_detail = function(opts)
     content = '<p>Given <code>nums</code>, find two indices.</p>',
     hints = {},
     snippets = {
-      python3 = { lang = 'Python3', lang_slug = 'python3', code = 'class Solution:\n    def twoSum(self, nums, target):\n        pass' },
+      python3 = {
+        lang = 'Python3',
+        lang_slug = 'python3',
+        code = 'class Solution:\n    def twoSum(self, nums, target):\n        pass',
+      },
       golang = { lang = 'Go', lang_slug = 'golang', code = 'func twoSum(nums []int, target int) []int {\n\t\n}' },
     },
     testcases = { '[2,7,11,15]\n9', '[3,2,4]\n6' },
@@ -161,8 +167,6 @@ H.fake_view = function(opts)
 end
 
 ---Wait for an async predicate (default 5s).
-H.wait_for = function(predicate, ms)
-  return vim.wait(ms or 5000, predicate, 20)
-end
+H.wait_for = function(predicate, ms) return vim.wait(ms or 5000, predicate, 20) end
 
 return H

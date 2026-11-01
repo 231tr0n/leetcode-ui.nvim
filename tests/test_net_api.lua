@@ -5,9 +5,7 @@ local new_set = helpers.new_set
 
 local T = new_set({
   hooks = {
-    pre_case = function()
-      helpers.setup({ browser = 'none', cookies = {} })
-    end,
+    pre_case = function() helpers.setup({ browser = 'none', cookies = {} }) end,
   },
 })
 
@@ -51,13 +49,16 @@ end
 
 T['api']['graphql uses stub'] = function()
   local api = helpers.mod('api')
-  helpers.with_stub('leetcode-ui.api', 'graphql', function(query, variables)
-    return { question = { titleSlug = 'two-sum' } }, nil
-  end, function()
-    local data, err = api.graphql('q', { a = 1 })
-    eq(data.question.titleSlug, 'two-sum')
-    eq(err, nil)
-  end)
+  helpers.with_stub(
+    'leetcode-ui.api',
+    'graphql',
+    function(query, variables) return { question = { titleSlug = 'two-sum' } }, nil end,
+    function()
+      local data, err = api.graphql('q', { a = 1 })
+      eq(data.question.titleSlug, 'two-sum')
+      eq(err, nil)
+    end
+  )
 end
 
 T['api_question'] = new_set()

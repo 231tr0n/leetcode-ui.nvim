@@ -6,13 +6,9 @@ local new_set = helpers.new_set
 
 local T = new_set()
 
-local render = function(html)
-  return helpers.mod('parser').render(html)
-end
+local render = function(html) return helpers.mod('parser').render(html) end
 
-local text_of = function(lines)
-  return helpers.mod('buffer').spans_to_texts(lines)
-end
+local text_of = function(lines) return helpers.mod('buffer').spans_to_texts(lines) end
 
 ---Find spans by highlight group across all lines.
 local spans_with_hl = function(lines, hl)
