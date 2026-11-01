@@ -1,9 +1,14 @@
 name: Docs
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [main]
-  workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,12 +16,14 @@ concurrency:
 
 jobs:
   generate:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       - name: Install Neovim
         uses: rhysd/action-setup-vim@v1
@@ -38,6 +45,6 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "docs: regenerate"
-          file_pattern: doc/*.txt README.md || true
+          file_pattern: doc/*.txt
           commit_user_name: "231tr0n"
           commit_user_email: "zeltronsrikar@gmail.com"
