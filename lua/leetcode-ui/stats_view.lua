@@ -25,8 +25,8 @@ LeetCodeStatsView.meter = function(label, solved, total, width)
 
   local hl = LeetCodeStatsView.difficulty_hl[label] or 'LeetCodeTitle'
   return {
-    { text = ('%-8s'):format(label), hl = hl },
-    { text = ('%3d/%-3d'):format(solved, total), hl = 'LeetCodeTitle' },
+    { text = ('%-10s'):format(label), hl = hl },
+    { text = ('%3d/%3d'):format(solved, total), hl = 'LeetCodeTitle' },
     { text = ('█'):rep(filled), hl = hl },
     { text = ('─'):rep(width - filled), hl = 'LeetCodeDim' },
     { text = (' %2d%%'):format(math.floor(ratio * 100 + 0.5)), hl = 'LeetCodeDim' },
@@ -120,10 +120,11 @@ LeetCodeStatsView.open = function()
     LeetCodeStatsView.bufnr = buffer.scratch('leetcode-ui://stats', { ft = 'txt' })
   end
 
-  buffer.open_split(LeetCodeStatsView.bufnr, {
-    pos = 'left',
+  buffer.open_float(LeetCodeStatsView.bufnr, {
     width = 62,
+    height = 24,
     focus = true,
+    title = ' Statistics ',
   })
 
   buffer.keymaps(LeetCodeStatsView.bufnr, {

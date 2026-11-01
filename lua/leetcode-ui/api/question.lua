@@ -87,7 +87,7 @@ LeetCodeQuestion.get_list = function()
     return { total = cache.total, questions = cache.problems }, nil
   end
 
-  local variables = { categorySlug = 'all-code-essentials', limit = 5000, skip = 0, filters = {} }
+  local variables = { categorySlug = 'all-code-essentials', limit = 5000, skip = 0, filters = vim.empty_dict() }
   local data, err = api.graphql(queries.problems, variables)
   if err ~= nil or data == nil then return nil, err or 'Empty response' end
 
@@ -161,10 +161,10 @@ end
 ---@return string|nil title_slug
 ---@return string|nil err
 LeetCodeQuestion.get_random = function(opts)
-  local filters = {}
-  if opts ~= nil and opts.difficulty ~= nil then filters.difficulty = opts.difficulty end
+  local filters = nil
+  if opts ~= nil and opts.difficulty ~= nil then filters = { difficulty = opts.difficulty } end
 
-  local variables = { categorySlug = 'all-code-essentials', filters = filters }
+  local variables = { categorySlug = 'all-code-essentials', filters = filters or vim.empty_dict() }
   local data, err = api.graphql(queries.random_question, variables)
   if err ~= nil or data == nil then return nil, err or 'Empty response' end
 

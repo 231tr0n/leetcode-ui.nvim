@@ -106,4 +106,39 @@ T['highlights']['difficulty groups exist'] = function()
   end
 end
 
+T['langs']['get_lang returns metadata'] = function()
+  local config = require('leetcode-ui.config')
+  local info = config.get_lang('python3')
+  assert(info ~= nil)
+  eq(type(info), 'table')
+  eq(info.slug, 'python3')
+  eq(config.get_lang('nope-slug'), nil)
+end
+
+T['langs']['lang_enabled respects languages filter'] = function()
+  local config = require('leetcode-ui.config')
+  config.setup({ languages = { 'python3', 'cpp' }, browser = 'none', storage_path = helpers.tmpdir(), cookies = {} })
+  eq(config.lang_enabled('python3'), true)
+  eq(config.lang_enabled('java'), false)
+  eq(config.lang_enabled('cpp'), true)
+end
+
+T['setup']['unknown picker errors'] = function()
+  local config = require('leetcode-ui.config')
+  local ok = pcall(config.setup, { picker = 'bogus', browser = 'none', storage_path = helpers.tmpdir(), cookies = {} })
+  eq(ok, false)
+end
+
+T['setup']['unknown browser errors'] = function()
+  local config = require('leetcode-ui.config')
+  local ok = pcall(config.setup, { browser = 'bogus-browser', storage_path = helpers.tmpdir(), cookies = {} })
+  eq(ok, false)
+end
+
+T['setup']['unknown default language errors'] = function()
+  local config = require('leetcode-ui.config')
+  local ok = pcall(config.setup, { lang = 'klingon', browser = 'none', storage_path = helpers.tmpdir(), cookies = {} })
+  eq(ok, false)
+end
+
 return T

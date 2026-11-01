@@ -129,9 +129,20 @@ LeetCodeQuestionView.prepare_buffers = function(view)
       rhs = function() LeetCodeQuestionView.reset_code(view) end,
       desc = 'Reset code',
     },
+    format_code = {
+      rhs = function() solution.format(view) end,
+      desc = 'Format code',
+    },
     switch_language = {
       rhs = function() LeetCodeQuestionView.switch_language(view) end,
       desc = 'Switch language',
+    },
+    add_test = {
+      rhs = function()
+        local input = vim.fn.input('New testcase input: ')
+        if input ~= '' then view.console:add_case(input) end
+      end,
+      desc = 'Add testcase',
     },
     close = {
       rhs = function() LeetCodeQuestionView.close(view) end,

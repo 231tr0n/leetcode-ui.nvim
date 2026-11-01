@@ -58,6 +58,40 @@ LeetCodeBuffer.open_split = function(bufnr, opts)
   return winid
 end
 
+---Open a centered floating window for a buffer.
+---
+---@param bufnr number
+---@param opts table|nil { width = number, height = number, border = string, focus = boolean, title = string }
+---@return number winid
+LeetCodeBuffer.open_float = function(bufnr, opts)
+  opts = opts or {}
+  local width = opts.width or config.config.float_width or 80
+  local height = opts.height or config.config.float_height or 24
+  local border = opts.border
+  if border == nil then border = config.config.float_border end
+  if border == nil then border = (vim.o.winborder ~= '' and vim.o.winborder) or nil end
+
+  -- Clamp to screen.
+  width = math.min(width, vim.o.columns - 4)
+  height = math.min(height, vim.o.lines - 4)
+
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+
+  local winid = vim.api.nvim_open_win(bufnr, opts.focus ~= false, {
+    relative = 'editor',
+    row = row,
+    col = col,
+    width = width,
+    height = height,
+    style = 'minimal',
+    border = border,
+    title = opts.title,
+    title_pos = opts.title and 'center' or nil,
+  })
+  return winid
+end
+
 LeetCodeBuffer.close = function(winid)
   if winid == nil or not vim.api.nvim_win_is_valid(winid) then return end
   local bufnr = vim.api.nvim_win_get_buf(winid)

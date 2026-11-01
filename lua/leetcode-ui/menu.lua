@@ -64,10 +64,11 @@ LeetCodeMenu.open = function()
   LeetCodeMenu.render()
   LeetCodeMenu.bind_cr()
 
-  buffer.open_split(LeetCodeMenu.bufnr, {
-    pos = 'left',
+  buffer.open_float(LeetCodeMenu.bufnr, {
     width = math.max(vim.o.columns / 6, 50),
+    height = 12,
     focus = true,
+    title = ' LeetCode ',
   })
 end
 

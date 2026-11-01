@@ -101,6 +101,17 @@ LeetCodeConsole.case_running = function(console, index)
   console:start_spinner()
 end
 
+---Add a new test case with the given input.
+---
+---@param console table
+---@param input string
+LeetCodeConsole.add_case = function(console, input)
+  local cases = console.cases or {}
+  table.insert(cases, { input = input or '', status = 'unknown', result = nil, running = false, index = #cases + 1 })
+  console.cases = cases
+  console:render()
+end
+
 LeetCodeConsole.case_result = function(console, index, result)
   local case = console.cases[index]
   if case == nil then return end

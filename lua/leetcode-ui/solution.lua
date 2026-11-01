@@ -51,12 +51,13 @@ LeetCodeSolution.languages = function(view)
 end
 
 LeetCodeSolution.open = function(view, win_opts)
-  view.code_winid = buffer.open_split(
+  view.code_winid = buffer.open_float(
     view.code_bufnr,
     vim.tbl_extend('force', {
-      pos = 'right',
       width = math.max(vim.o.columns - (config.config.description_width + 2), 40),
+      height = math.max(vim.o.lines - 4, 10),
       focus = true,
+      title = ' ' .. (view.slug or '') .. ' ',
     }, win_opts or {})
   )
 
@@ -86,6 +87,19 @@ LeetCodeSolution.code = function(view)
   return table.concat(lines, '\n')
 end
 
+---Format the typed code using an available LSP/formatter.
+---
+---@param view table Question view.
+LeetCodeSolution.format = function(view)
+  if view.code_bufnr == nil or not vim.api.nvim_buf_is_valid(view.code_bufnr) then return end
+  local ok = pcall(vim.lsp.buf.format, { bufnr = view.code_bufnr, async = false })
+  if not ok then vim.notify('(leetcode-ui) No formatter available for this buffer', vim.log.levels.WARN) end
+  LeetCodeSolution.save_draft(view)
+end
+
+---Restore the starter snippet, discarding typed changes (draft too).
+---
+---@param view table Question view.
 LeetCodeSolution.reset = function(view)
   local snippet = LeetCodeSolution.snippet(view)
   vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, vim.split(snippet, '\n'))

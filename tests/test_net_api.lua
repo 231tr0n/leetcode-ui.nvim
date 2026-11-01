@@ -77,4 +77,38 @@ T['api_question']['normalize defaults'] = function()
   eq(type(n.ac_rate), 'number')
 end
 
+T['net']['parse_headers extracts status and headers'] = function()
+  local net = require('leetcode-ui.net')
+  local status, headers = net.parse_headers('HTTP/2 200 \r\nContent-Type: application/json\r\nX-Foo: bar\r\n\r\n')
+  eq(status, 200)
+  eq(headers['content-type'], 'application/json')
+  eq(headers['x-foo'], 'bar')
+end
+
+T['net']['parse_headers handles multiple HTTP blocks'] = function()
+  local net = require('leetcode-ui.net')
+  local status, headers =
+    net.parse_headers('HTTP/1.1 302 Found\r\nLocation: /x\r\n\r\nHTTP/2 200 \r\nContent-Type: text/plain\r\n\r\n')
+  eq(status, 200)
+  eq(headers['content-type'], 'text/plain')
+  eq(headers['location'], nil)
+end
+
+T['net']['curl_args includes curl and url'] = function()
+  local net = require('leetcode-ui.net')
+  local args =
+    net.curl_args({ method = 'POST', url = 'https://example.com', body = 'x', timeout = 10 }, '/tmp/h', '/tmp/b')
+  eq(args[1], 'curl')
+  eq(args[#args], 'https://example.com')
+end
+
+T['net']['should_retry'] = function()
+  local net = require('leetcode-ui.net')
+  eq(net.should_retry(403), true)
+  eq(net.should_retry(429), true)
+  eq(net.should_retry(500), true)
+  eq(net.should_retry(200), false)
+  eq(net.should_retry(404), false)
+end
+
 return T

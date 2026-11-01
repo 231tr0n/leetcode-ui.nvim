@@ -89,6 +89,11 @@ local default_config = {
   console_height = 10,
   description_width = 60,
 
+  -- Floating window geometry.
+  float_width = 100,
+  float_height = 30,
+  float_border = nil,
+
   picker = 'auto',
   cooldown = 60,
   hide_premium = false,
@@ -106,7 +111,9 @@ local default_config = {
     toggle_console = 'X',
     toggle_information = 'I',
     reset_code = 'S',
+    format_code = 'F',
     switch_language = 'L',
+    add_test = 'A',
     close = 'Q',
   },
 }
@@ -131,6 +138,9 @@ LeetCodeConfig.setup_config = function(config)
     no_local = { config.no_local, 'table' },
     console_height = { config.console_height, 'number' },
     description_width = { config.description_width, 'number' },
+    float_width = { config.float_width, 'number' },
+    float_height = { config.float_height, 'number' },
+    float_border = { config.float_border, 'string', true },
     picker = { config.picker, 'string' },
     cooldown = { config.cooldown, 'number' },
     hide_premium = { config.hide_premium, 'boolean' },
@@ -170,7 +180,9 @@ LeetCodeConfig.setup_config = function(config)
     toggle_console = true,
     toggle_information = true,
     reset_code = true,
+    format_code = true,
     switch_language = true,
+    add_test = true,
     close = true,
   }
   for name, value in pairs(config.keys) do
