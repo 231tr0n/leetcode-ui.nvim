@@ -67,7 +67,7 @@ jobs:
         uses: raven-actions/actionlint@v2
 
       - name: Run tests
-        run: timeout 600 nvim --headless -u scripts/minitest.lua
+        run: timeout 300 nvim --headless -u scripts/minitest.lua
 
   docs:
     needs: check
