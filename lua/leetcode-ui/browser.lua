@@ -280,20 +280,39 @@ LeetCodeBrowser.unhex = function(hex)
 end
 
 LeetCodeBrowser.keyring_password = function(browser)
-  local candidates = ({
-    chrome = { 'chrome' },
-    brave = { 'brave' },
-    edge = { 'microsoft-edge', 'edge', 'chromium' },
-    chromium = { 'chromium' },
-  })[browser]
-  if candidates == nil then return nil end
+  local osname = LeetCodeBrowser.os_name()
+  local app_map = {
+    chrome = 'Chrome',
+    brave = 'Brave',
+    edge = 'Microsoft Edge',
+    chromium = 'Chromium',
+  }
+  local service = app_map[browser]
+  if service == nil then return nil end
 
-  for _, app in ipairs(candidates) do
-    local out = vim.system({ 'secret-tool', 'lookup', 'application', app }, { text = true }):wait()
-    if out.code == 0 then
-      local pw = vim.trim(out.stdout or '')
-      if pw ~= '' then return pw end
+  if osname == 'linux' then
+    local candidates = ({
+      chrome = { 'chrome' },
+      brave = { 'brave' },
+      edge = { 'microsoft-edge', 'edge', 'chromium' },
+      chromium = { 'chromium' },
+    })[browser] or {}
+    for _, app in ipairs(candidates) do
+      local out = vim.system({ 'secret-tool', 'lookup', 'application', app }, { text = true }):wait()
+      if out.code == 0 then
+        local pw = vim.trim(out.stdout or '')
+        if pw ~= '' then return pw end
+      end
     end
+    return nil
+  elseif osname == 'macos' then
+    local svc = service .. ' Safe Storage'
+    local out = vim.system({ 'security', 'find-generic-password', '-w', '-s', svc }, { text = true }):wait()
+    if out.code == 0 then return vim.trim(out.stdout or '') end
+    return nil
+  elseif osname == 'windows' then
+    -- Windows Chrome uses DPAPI; not implemented. Use cookie_file or env vars.
+    return nil
   end
   return nil
 end
