@@ -181,15 +181,9 @@ LeetCodeConsole.stop_spinner = function(console)
 end
 
 LeetCodeConsole.open = function(console)
-  if console.bufnr ~= nil then return end
+  if console.bufnr ~= nil and vim.api.nvim_buf_is_valid(console.bufnr) then return end
 
   console.bufnr = buffer.scratch('leetcode-ui://console/' .. (console.view.slug or ''), { ft = 'txt' })
-  console.winid = buffer.open_split(console.bufnr, {
-    pos = 'below',
-    height = config.config.console_height,
-    focus = false,
-  })
-  vim.api.nvim_win_set_cursor(console.winid, { 1, 0 })
 
   buffer.keymaps(console.bufnr, {
     toggle_console = {
@@ -202,9 +196,9 @@ LeetCodeConsole.open = function(console)
 end
 
 LeetCodeConsole.close = function(console)
-  buffer.close(console.winid)
-  console.winid = nil
+  buffer.maybe_delete(console.bufnr)
   console.bufnr = nil
+  console.winid = nil
   console:stop_spinner()
 end
 

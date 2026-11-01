@@ -539,52 +539,6 @@ Parameters ~
 
 *leetcode-ui-question* Question view
 
-------------------------------------------------------------------------------
-                                               *LeetCodeQuestionView.get_view()*
-                    `LeetCodeQuestionView.get_view`({slug})
-or last opened question view for a slug.
-
-Parameters ~
-{slug} `(string)`
-Return ~
-`(table|nil)`
-
-------------------------------------------------------------------------------
-                                                *LeetCodeQuestionView.current()*
-                        `LeetCodeQuestionView.current`()
-focused question view (via the code or description buffer).
-
-Return ~
-`(table|nil)`
-
-------------------------------------------------------------------------------
-                                                    *LeetCodeQuestionView.run()*
-                  `LeetCodeQuestionView.run`({view}, {index})
-test cases against LeetCode (interpret, not a submission).
-
-argument runs every known case; `index` runs a single one. Without any
-cases the first example testcase is used.
-
-Parameters ~
-{view} `(table)`
-{index} `(number|nil)` 1-based case index, nil = run all.
-
-------------------------------------------------------------------------------
-                                                 *LeetCodeQuestionView.submit()*
-                     `LeetCodeQuestionView.submit`({view})
-the solution to LeetCode.
-
-Parameters ~
-{view} `(table)`
-
-------------------------------------------------------------------------------
-                                                  *LeetCodeQuestionView.close()*
-                      `LeetCodeQuestionView.close`({view})
-a view: close panes, delete buffers, drop state.
-
-Parameters ~
-{view} `(table)`
-
 
 ==============================================================================
 ------------------------------------------------------------------------------

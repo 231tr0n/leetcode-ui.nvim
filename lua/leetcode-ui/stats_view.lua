@@ -20,17 +20,18 @@ LeetCodeStatsView.difficulty_hl = { Easy = 'LeetCodeEasy', Medium = 'LeetCodeMed
 LeetCodeStatsView.as = function(fn) return require('leetcode-ui.async').run(fn) end
 
 LeetCodeStatsView.meter = function(label, solved, total, width)
-  width = width or 28
+  width = width or 24
   local ratio = total > 0 and math.min(solved / total, 1) or 0
   local filled = math.floor(ratio * width + 0.5)
 
   local hl = LeetCodeStatsView.difficulty_hl[label] or 'LeetCodeTitle'
   return {
     { text = ('%-10s'):format(label), hl = hl },
-    { text = ('%3d/%3d'):format(solved, total), hl = 'LeetCodeTitle' },
+    { text = ('%4d/%4d'):format(solved, total), hl = 'LeetCodeTitle' },
+    { text = '  ', hl = nil },
     { text = ('█'):rep(filled), hl = hl },
-    { text = ('─'):rep(width - filled), hl = 'LeetCodeDim' },
-    { text = (' %2d%%'):format(math.floor(ratio * 100 + 0.5)), hl = 'LeetCodeDim' },
+    { text = ('░'):rep(width - filled), hl = 'LeetCodeDim' },
+    { text = (' %3d%%'):format(math.floor(ratio * 100 + 0.5)), hl = 'LeetCodeDim' },
   }
 end
 

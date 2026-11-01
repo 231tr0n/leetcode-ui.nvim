@@ -13,8 +13,6 @@ local LeetCodeSolution = {}
 
 local config = require('leetcode-ui.config')
 local storage = require('leetcode-ui.storage')
-local buffer = require('leetcode-ui.buffer')
-
 -- Helper data =======================================================================================================
 
 -- Helper functionality =============================================================================================
@@ -51,17 +49,9 @@ LeetCodeSolution.languages = function(view)
   return out
 end
 
-LeetCodeSolution.open = function(view, win_opts)
-  view.code_winid = buffer.open_split(
-    view.code_bufnr,
-    vim.tbl_extend('force', {
-      pos = 'right',
-      width = math.max(vim.o.columns - (config.config.description_width + 2), 40),
-      focus = true,
-    }, win_opts or {})
-  )
-
-  -- Keep code buffer listed so `:b` works naturally with drafts.
+LeetCodeSolution.open = function(view, _opts)
+  -- The code buffer is already displayed in the question window; only apply
+  -- buffer options and draft persistence here.
   vim.api.nvim_set_option_value('buflisted', true, { buf = view.code_bufnr })
   vim.api.nvim_set_option_value('modifiable', true, { buf = view.code_bufnr })
 
