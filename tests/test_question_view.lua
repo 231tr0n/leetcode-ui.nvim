@@ -39,7 +39,7 @@ T['tabs']['show_tab switches active'] = function()
   view.code_bufnr = buffer.scratch('leetcode-ui://' .. view.slug .. '.python3', { ft = 'python' })
   view.info_bufnr = buffer.scratch('leetcode-ui://info/' .. view.slug, { ft = 'txt' })
   local Console = helpers.mod('console')
-  view.console = Console.new(view)
+  view.console = Console.new(view) --[[@as any]]
   view.console:set_cases(view.detail.testcases)
   view.console:open()
   -- fake window via current? can't open float in headless reliably; set winid nil guard

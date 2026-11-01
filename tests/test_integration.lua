@@ -10,15 +10,15 @@ local T = new_set({
 })
 
 local function stub_detail()
-  local qmod = require('leetcode-ui.api.question')
+  local qmod = require('leetcode-ui.api.question') --[[@as any]]
   local original_get_detail = qmod.get_detail
   local original_find = qmod.find_in_list
   local original_get_list = qmod.get_list
-  qmod.get_detail = function(slug) return helpers.fake_detail({ title_slug = slug }), nil end
-  qmod.find_in_list = function(_slug)
+  qmod['get_detail'] = function(slug) return helpers.fake_detail({ title_slug = slug }), nil end
+  qmod['find_in_list'] = function(_slug)
     return { ac_rate = 50.5, topic_tags = { { name = 'Array', slug = 'array' } }, status = nil }
   end
-  qmod.get_list = function()
+  qmod['get_list'] = function()
     return {
       total = 1,
       questions = {
@@ -36,17 +36,17 @@ local function stub_detail()
       nil
   end
   return function()
-    qmod.get_detail = original_get_detail
-    qmod.find_in_list = original_find
-    qmod.get_list = original_get_list
+    qmod['get_detail'] = original_get_detail
+    qmod['find_in_list'] = original_find
+    qmod['get_list'] = original_get_list
   end
 end
 
 local function stub_runner()
-  local rmod = require('leetcode-ui.api.runner')
+  local rmod = require('leetcode-ui.api.runner') --[[@as any]]
   local oi = rmod.interpret
   local os = rmod.submit
-  rmod.interpret = function(_question, _code, _data_input)
+  rmod['interpret'] = function(_question, _code, _data_input)
     return {
       status = 'Accepted',
       ok = true,
@@ -59,12 +59,12 @@ local function stub_runner()
     },
       nil
   end
-  rmod.submit = function(_question, _code)
+  rmod['submit'] = function(_question, _code)
     return { status = 'Accepted', ok = true, runtime_ms = 10, memory_mb = 1024 * 1024 }, nil
   end
   return function()
-    rmod.interpret = oi
-    rmod.submit = os
+    rmod['interpret'] = oi
+    rmod['submit'] = os
   end
 end
 
@@ -86,7 +86,7 @@ T['question']['opens two-sum'] = function()
   q.open('two-sum')
   local ok = helpers.wait_for(function() return q.current() ~= nil end, 5000)
   eq(ok, true)
-  local view = q.current()
+  local view = q.current() --[[@as any]]
   eq(view.slug, 'two-sum')
   eq(view.active, 'code')
   restore()
@@ -98,7 +98,7 @@ T['question']['tab switching'] = function()
   local q = require('leetcode-ui.question')
   q.open('two-sum')
   helpers.wait_for(function() return q.current() ~= nil end, 5000)
-  local view = q.current()
+  local view = q.current() --[[@as any]]
   q.show_tab(view, 'description')
   eq(view.active, 'description')
   q.show_tab(view, 'console')
@@ -116,7 +116,7 @@ T['question']['tab cycle'] = function()
   local q = require('leetcode-ui.question')
   q.open('two-sum')
   helpers.wait_for(function() return q.current() ~= nil end, 5000)
-  local view = q.current()
+  local view = q.current() --[[@as any]]
   q.cycle_tab(view, 1)
   eq(view.active, 'console')
   q.cycle_tab(view, -1)
@@ -130,7 +130,7 @@ T['question']['reset code'] = function()
   local q = require('leetcode-ui.question')
   q.open('two-sum')
   helpers.wait_for(function() return q.current() ~= nil end, 5000)
-  local view = q.current()
+  local view = q.current() --[[@as any]]
   vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, { 'junk' })
   q.reset_code(view)
   local lines = vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)
@@ -145,7 +145,7 @@ T['question']['run all'] = function()
   local q = require('leetcode-ui.question')
   q.open('two-sum')
   helpers.wait_for(function() return q.current() ~= nil end, 5000)
-  local view = q.current()
+  local view = q.current() --[[@as any]]
   q.run(view)
   helpers.wait_for(function()
     for _, c in ipairs(view.console.cases) do
@@ -165,7 +165,7 @@ T['question']['submit'] = function()
   local q = require('leetcode-ui.question')
   q.open('two-sum')
   helpers.wait_for(function() return q.current() ~= nil end, 5000)
-  local view = q.current()
+  local view = q.current() --[[@as any]]
   q.submit(view)
   helpers.wait_for(function() return true end, 500)
   restore2()
