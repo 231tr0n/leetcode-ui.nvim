@@ -3,19 +3,34 @@ local root = vim.fs.normalize(vim.fs.dirname(script) .. '/..')
 vim.opt.runtimepath:prepend(root)
 
 local mini = vim.fn.expand('~/.local/share/nvim/site/pack/core/opt/mini.nvim')
-if vim.uv.fs_stat(mini .. '/lua/mini/doc.lua') then
-  vim.opt.runtimepath:append(mini)
-end
+if vim.uv.fs_stat(mini .. '/lua/mini/doc.lua') then vim.opt.runtimepath:append(mini) end
 
 if _G.MiniDoc == nil then require('mini.doc').setup() end
 
 local modules = {
-  'leetcode-ui', 'leetcode-ui.config', 'leetcode-ui.auth', 'leetcode-ui.browser',
-  'leetcode-ui.api', 'leetcode-ui.api.question', 'leetcode-ui.api.runner', 'leetcode-ui.api.stats',
-  'leetcode-ui.api.queries', 'leetcode-ui.net', 'leetcode-ui.storage', 'leetcode-ui.parser',
-  'leetcode-ui.buffer', 'leetcode-ui.console', 'leetcode-ui.solution', 'leetcode-ui.question',
-  'leetcode-ui.picker', 'leetcode-ui.stats_view', 'leetcode-ui.menu',
-  'leetcode-ui.runner.common', 'leetcode-ui.runner.langs.python3', 'leetcode-ui.async', 'leetcode-ui.openers',
+  'leetcode-ui',
+  'leetcode-ui.config',
+  'leetcode-ui.auth',
+  'leetcode-ui.browser',
+  'leetcode-ui.api',
+  'leetcode-ui.api.question',
+  'leetcode-ui.api.runner',
+  'leetcode-ui.api.stats',
+  'leetcode-ui.api.queries',
+  'leetcode-ui.net',
+  'leetcode-ui.storage',
+  'leetcode-ui.parser',
+  'leetcode-ui.buffer',
+  'leetcode-ui.console',
+  'leetcode-ui.solution',
+  'leetcode-ui.question',
+  'leetcode-ui.picker',
+  'leetcode-ui.stats_view',
+  'leetcode-ui.menu',
+  'leetcode-ui.runner.common',
+  'leetcode-ui.runner.langs.python3',
+  'leetcode-ui.async',
+  'leetcode-ui.openers',
 }
 
 local inputs = {}
