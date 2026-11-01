@@ -37,4 +37,32 @@ T['get_current_view']['nil outside views'] = function()
   eq(ok, true)
 end
 
+T['scratch'] = new_set()
+
+T['scratch']['creates buffer'] = function()
+  local buffer = helpers.mod('buffer')
+  local bufnr = buffer.scratch('leetcode-ui://t', { ft = 'txt' })
+  eq(type(bufnr), 'number')
+  eq(vim.api.nvim_buf_is_valid(bufnr), true)
+end
+
+T['spans_write'] = new_set()
+
+T['spans_write']['writes text'] = function()
+  local buffer = helpers.mod('buffer')
+  local bufnr = buffer.scratch('leetcode-ui://t2', { ft = 'txt' })
+  buffer.spans_write(bufnr, { { { text = 'hello' } } }, false)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  eq(lines[1], 'hello')
+end
+
+T['maybe_delete'] = new_set()
+
+T['maybe_delete']['deletes buffer'] = function()
+  local buffer = helpers.mod('buffer')
+  local bufnr = buffer.scratch('leetcode-ui://t3', { ft = 'txt' })
+  buffer.maybe_delete(bufnr)
+  eq(vim.api.nvim_buf_is_valid(bufnr), false)
+end
+
 return T
