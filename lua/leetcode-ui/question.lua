@@ -106,6 +106,7 @@ LeetCodeQuestionView.show_tab = function(view, name)
   view.active = name
   vim.api.nvim_win_set_buf(view.winid, bufnr)
   pcall(vim.api.nvim_set_option_value, 'number', name == 'code', { win = view.winid })
+  pcall(vim.api.nvim_set_current_win, view.winid)
   LeetCodeQuestionView.render_winbar(view)
 end
 
@@ -179,10 +180,29 @@ LeetCodeQuestionView.prepare_buffers = function(view)
     switch_language = { rhs = function() LeetCodeQuestionView.switch_language(view) end, desc = 'Switch language' },
     add_test = {
       rhs = function()
-        local input = vim.fn.input('New testcase input: ')
+        local input = vim.fn.input('New testcase input (use \\n for multiple lines): ')
         if input ~= '' then view.console:add_case(input) end
       end,
       desc = 'Add testcase',
+    },
+    delete_test = {
+      rhs = function() view.console:delete_case() end,
+      desc = 'Delete testcase',
+    },
+    edit_test = {
+      rhs = function()
+        local input = vim.fn.input('Edit testcase input (use \\n for multiple lines): ')
+        if input ~= '' then view.console:edit_case(nil, input) end
+      end,
+      desc = 'Edit testcase',
+    },
+    next_case = {
+      rhs = function() view.console:select_next() end,
+      desc = 'Next testcase',
+    },
+    prev_case = {
+      rhs = function() view.console:select_prev() end,
+      desc = 'Previous testcase',
     },
     close = { rhs = function() LeetCodeQuestionView.close(view) end, desc = 'Close question' },
   })
@@ -260,6 +280,7 @@ LeetCodeQuestionView.populate_info = function(view)
   local keys = config.config.keys or {}
   table.insert(lines, {})
   table.insert(lines, { { text = 'Keys:', hl = 'LeetCodeTitle' } })
+  table.insert(lines, { { text = '  (multi-line input: use \\n)', hl = 'LeetCodeDim' } })
   local key_rows = {
     { 'Run tests', keys.run },
     { 'Submit', keys.submit },
@@ -346,6 +367,7 @@ LeetCodeQuestionView.toggle_info = function(view) LeetCodeQuestionView.show_tab(
 LeetCodeQuestionView.reset_code = function(view)
   if view.console ~= nil then view.console:render() end
   solution.reset(view)
+  pcall(vim.api.nvim_set_current_win, view.winid)
   vim.notify('(leetcode-ui) Code reset to starter snippet', vim.log.levels.INFO)
 end
 
@@ -432,12 +454,14 @@ LeetCodeQuestionView.run = function(view, index)
           correct = bit == '1' and 1 or 0,
           total = bit == '1' and 1 or 0,
           stdout = (result.stdouts or {})[i] or result.pretty_stdout,
+          is_submit = false,
         }
       else
         case.result = { status = result.status, message = result.message, runtime_ms = result.runtime_ms }
       end
       view.console:case_result(i, case.result)
     end
+    pcall(vim.api.nvim_set_current_win, view.winid)
   end)
 end
 
@@ -488,7 +512,10 @@ LeetCodeQuestionView.submit = function(view)
       end
     )
 
+    view.console.submission_result = result
     view.console:render()
+    LeetCodeQuestionView.show_tab(view, 'console')
+    pcall(vim.api.nvim_set_current_win, view.winid)
     if result.ok then
       api.update_list_status(view.slug, 'solved')
     elseif view.entry ~= nil and view.entry.status == 'solved' then

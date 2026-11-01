@@ -47,6 +47,29 @@ LeetCodeConsole.render = function(console)
 
   local header = { { text = LeetCodeConsole.header, hl = 'LeetCodeTitle' } }
   table.insert(lines, header)
+  table.insert(lines, { { text = '  (use \\n for multi-line input)', hl = 'LeetCodeDim' } })
+
+  if console.submission_result ~= nil then
+    local sr = console.submission_result
+    local icon = sr.ok and '✔' or '✘'
+    local hl = sr.ok and 'LeetCodeOk' or 'LeetCodeErr'
+    table.insert(lines, {
+      { text = 'Submission: ', hl = 'LeetCodeDim' },
+      { text = icon .. ' ' .. (sr.status or ''), hl = hl },
+    })
+    if sr.runtime_ms ~= nil then
+      table.insert(lines, {
+        {
+          text = ('  Runtime: %d ms  Memory: %.2f MB'):format(
+            tonumber(sr.runtime_ms or 0),
+            (sr.memory_mb or 0) / (1024 * 1024)
+          ),
+          hl = 'LeetCodeDim',
+        },
+      })
+    end
+    table.insert(lines, {})
+  end
 
   for i, case in ipairs(console.cases) do
     local icon, icon_hl = 'unknown', 'LeetCodeDim'
@@ -124,9 +147,55 @@ end
 ---@param console table
 ---@param input string
 LeetCodeConsole.add_case = function(console, input)
+  input = input or ''
+  -- Allow multi-line test cases to be entered on a single prompt line using
+  -- the literal sequence "\n" (e.g. "[2,7,11,15]\n9").
+  input = input:gsub('\\\\n', '\n')
   local cases = console.cases or {}
-  table.insert(cases, { input = input or '', status = 'unknown', result = nil, running = false, index = #cases + 1 })
+  table.insert(cases, { input = input, status = 'unknown', result = nil, running = false, index = #cases + 1 })
   console.cases = cases
+  console.selected = #cases
+  console:render()
+end
+
+LeetCodeConsole.delete_case = function(console, index)
+  index = index or console.selected
+  local cases = console.cases or {}
+  if index == nil or index < 1 or index > #cases then return end
+  if #cases <= 1 then return end
+  table.remove(cases, index)
+  for i, case in ipairs(cases) do
+    case.index = i
+  end
+  console.cases = cases
+  if console.selected > #cases then console.selected = #cases end
+  if console.selected < 1 then console.selected = 1 end
+  console:render()
+end
+
+LeetCodeConsole.edit_case = function(console, index, input)
+  index = index or console.selected
+  local case = (console.cases or {})[index]
+  if case == nil then return end
+  input = input or ''
+  input = input:gsub('\\\\n', '\n')
+  case.input = input
+  case.status = 'unknown'
+  case.result = nil
+  console:render()
+end
+
+LeetCodeConsole.select_next = function(console)
+  local cases = console.cases or {}
+  if #cases == 0 then return end
+  console.selected = (console.selected % #cases) + 1
+  console:render()
+end
+
+LeetCodeConsole.select_prev = function(console)
+  local cases = console.cases or {}
+  if #cases == 0 then return end
+  console.selected = ((console.selected - 2) % #cases) + 1
   console:render()
 end
 
@@ -138,11 +207,11 @@ LeetCodeConsole.case_result = function(console, index, result)
   case.result = result
 
   local correct, total = result.correct or 0, result.total or 0
-  if result.status == 'Accepted' then
-    case.status = 'passed'
-  elseif result.status == 'Compile Error' then
+  if result.status == 'Compile Error' then
     case.status = 'error'
-  elseif result.compare ~= nil and (correct == 0 and total == 0) then
+  elseif result.is_submit == true then
+    case.status = result.status == 'Accepted' and 'passed' or 'failed'
+  elseif result.compare ~= nil then
     -- Per-case compare bit: last char of `compare_result`.
     case.status = result.compare:sub(-1) == '1' and 'passed' or 'failed'
   elseif correct == total and total > 0 then

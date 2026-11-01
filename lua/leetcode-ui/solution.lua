@@ -153,6 +153,7 @@ LeetCodeSolution.format = function(view)
     if out.code == 0 and type(out.stdout) == 'string' and out.stdout ~= '' then
       vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, vim.split(out.stdout, '\n'))
       LeetCodeSolution.save_draft(view)
+      pcall(vim.api.nvim_set_current_win, view.winid)
       return
     end
   end
@@ -161,6 +162,7 @@ LeetCodeSolution.format = function(view)
   local ok = pcall(vim.lsp.buf.format, { bufnr = view.code_bufnr, async = false })
   if not ok then vim.notify('(leetcode-ui) No formatter available for this buffer', vim.log.levels.WARN) end
   LeetCodeSolution.save_draft(view)
+  pcall(vim.api.nvim_set_current_win, view.winid)
 end
 
 ---Restore the starter snippet, discarding typed changes (draft too).

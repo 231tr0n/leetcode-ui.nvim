@@ -116,6 +116,10 @@ local default_config = {
     format_code = '<F3>',
     switch_language = '<F4>',
     add_test = '<F5>',
+    delete_test = '<F7>',
+    edit_test = '<F8>',
+    next_case = '<F9>',
+    prev_case = '<F10>',
     close = '<F6>',
   },
 }
@@ -189,6 +193,10 @@ LeetCodeConfig.setup_config = function(config)
     format_code = true,
     switch_language = true,
     add_test = true,
+    delete_test = true,
+    edit_test = true,
+    next_case = true,
+    prev_case = true,
     close = true,
   }
   for name, value in pairs(config.keys) do
