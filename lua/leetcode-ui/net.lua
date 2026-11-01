@@ -1,25 +1,20 @@
+--- *LeetCodeNet*
+---
+---@tag LeetCodeNet
+
 -- |leetcode-ui-net| HTTP layer on top of `curl`.
---------------------------------------------------------------------------------
 -- Notes:
 -- - |leetcode-ui-net.request()| works both inside a coroutine (yields until the
 --   request finishes) and on the main thread (uses blocking `vim.system`).
 -- - Transient failures (403/429/5xx) are retried with short backoff: LeetCode's
 --   middleware occasionally returns those for otherwise valid requests.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeNet = {}
 
 -- Helper functionality ==============================================================================================
 
----Assemble `curl` arguments for a request.
----
----@param opts table Request options (|leetcode-ui-net.request()|).
----@param header_file string Path to store response headers in.
----@param body_file string Path to store response body in.
----@return table Curl argument list.
----@private
-H.curl_args = function(opts, header_file, body_file)
+LeetCodeNet.curl_args = function(opts, header_file, body_file)
   local args = {
     '--silent',
     '--show-error',
@@ -35,7 +30,7 @@ H.curl_args = function(opts, header_file, body_file)
   }
 
   for _, header in ipairs(opts.headers or {}) do
-    vim.list_extend(args, { '-H', header })
+    vim.list_extend(args, { '-LeetCodeNet', header })
   end
 
   if opts.body ~= nil and opts.body ~= '' then vim.list_extend(args, { '--data-binary', '@-' }) end
@@ -46,13 +41,7 @@ H.curl_args = function(opts, header_file, body_file)
   return args
 end
 
----Parse raw response header stream (`-D` file) into status and headers.
----
----@param text string Raw header file contents.
----@return number status
----@return table headers Lowercased name -> value.
----@private
-H.parse_headers = function(text)
+LeetCodeNet.parse_headers = function(text)
   local status, headers = 0, {}
 
   for _, line in ipairs(vim.split(text, '[\r\n]+')) do
@@ -70,14 +59,7 @@ H.parse_headers = function(text)
   return status, headers
 end
 
----Read response files and clean them up.
----
----@param header_file string
----@param body_file string
----@return table|nil Response with `status`, `headers`, `body`; nil when no valid
----   HTTP response was produced (transport failure).
----@private
-H.read_response = function(header_file, body_file)
+LeetCodeNet.read_response = function(header_file, body_file)
   local ok, header_text = pcall(vim.fn.readblob, header_file)
   local body_lines = vim.fn.readfile(body_file)
   local body = table.concat(body_lines, '\n')
@@ -87,7 +69,7 @@ H.read_response = function(header_file, body_file)
 
   if not ok or header_text == nil then return nil end
 
-  local status, headers = H.parse_headers(header_text)
+  local status, headers = LeetCodeNet.parse_headers(header_text)
   if status == 0 then return nil end
 
   return { status = status, headers = headers, body = body }
@@ -111,9 +93,9 @@ end
 ---@param opts table Request options.
 ---@return table|nil Response
 ---@return string|nil Error
-H.request = function(opts)
-  if coroutine.running() then return H.request_async(opts) end
-  return H.request_sync(opts)
+LeetCodeNet.request = function(opts)
+  if coroutine.running() then return LeetCodeNet.request_async(opts) end
+  return LeetCodeNet.request_sync(opts)
 end
 
 ---JSON request shorthand (`POST` with JSON headers and body).
@@ -124,8 +106,8 @@ end
 ---@param cookie_file string|nil Cookie jar path passed through to curl.
 ---@return table|nil Response
 ---@return string|nil Error
-H.request_json = function(url, body, headers, cookie_file)
-  return H.request({
+LeetCodeNet.request_json = function(url, body, headers, cookie_file)
+  return LeetCodeNet.request({
     url = url,
     method = 'POST',
     headers = headers or {},
@@ -137,13 +119,13 @@ end
 ---Blocking request used on the main thread.
 ---
 ---@private
-H.request_sync = function(opts)
+LeetCodeNet.request_sync = function(opts)
   local retries = opts.retries or 3
   local res = nil
 
   for attempt = 0, retries do
-    res = H.request_once(opts)
-    if res ~= nil and not H.should_retry(res.status) then return res, nil end
+    res = LeetCodeNet.request_once(opts)
+    if res ~= nil and not LeetCodeNet.should_retry(res.status) then return res, nil end
     if attempt < retries then vim.wait(200 * (attempt + 1)) end
   end
 
@@ -155,30 +137,30 @@ end
 ---@param opts table
 ---@return table|nil Response
 ---@private
-H.request_once = function(opts)
+LeetCodeNet.request_once = function(opts)
   local header_file = vim.fn.tempname() .. '.headers'
   local body_file = vim.fn.tempname() .. '.body'
 
   local out = vim
-    .system(H.curl_args(opts, header_file, body_file), {
+    .system(LeetCodeNet.curl_args(opts, header_file, body_file), {
       text = true,
       stdin = opts.body,
     })
     :wait()
 
   if out.code ~= 0 then
-    local res = H.read_response(header_file, body_file)
+    local res = LeetCodeNet.read_response(header_file, body_file)
     if res ~= nil then return res end
     return nil
   end
 
-  return H.read_response(header_file, body_file)
+  return LeetCodeNet.read_response(header_file, body_file)
 end
 
 ---Coroutine-compatible retrying request.
 ---
 ---@private
-H.request_async = function(opts)
+LeetCodeNet.request_async = function(opts)
   local co = coroutine.running()
   local retries = opts.retries or 3
   local attempt = 0
@@ -194,13 +176,13 @@ H.request_async = function(opts)
     local header_file = vim.fn.tempname() .. '.headers'
     local body_file = vim.fn.tempname() .. '.body'
 
-    vim.system(H.curl_args(opts, header_file, body_file), {
+    vim.system(LeetCodeNet.curl_args(opts, header_file, body_file), {
       text = true,
       stdin = opts.body,
     }, function(out)
-      local res = H.read_response(header_file, body_file)
+      local res = LeetCodeNet.read_response(header_file, body_file)
 
-      local transient = res ~= nil and H.should_retry(res.status)
+      local transient = res ~= nil and LeetCodeNet.should_retry(res.status)
       if transient and attempt <= retries then
         vim.defer_fn(try, 200 * attempt)
         return
@@ -223,6 +205,6 @@ end
 ---
 ---@param status number
 ---@return boolean
-H.should_retry = function(status) return status == 403 or status == 429 or status >= 500 end
+LeetCodeNet.should_retry = function(status) return status == 403 or status == 429 or status >= 500 end
 
-return H
+return LeetCodeNet

@@ -1,5 +1,8 @@
+--- *LeetCodeRunnerApi*
+---
+---@tag LeetCodeRunnerApi
+
 -- |leetcode-ui-api-runner| Test-run (interpret) and submit flows.
---------------------------------------------------------------------------------
 -- Flow: POST local code to LeetCode, then poll `/submissions/detail/{id}/check/`
 -- until a `status_code` arrives; normalize into a shared result model consumed
 -- by |leetcode-ui-console|.
@@ -8,16 +11,15 @@
 --   { status = 'Accepted'|..., ok = bool, message = string|nil,
 --     runtime_ms, memory_mb, correct, total, compare = '1010'|nil,
 --     stdouts = { string, ... }, pretty_stdout = string|nil, raw = item }
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeRunnerApi = {}
 
 local api = require('leetcode-ui.api')
 
 -- Helper data =======================================================================================================
 
-H.status_messages = {
+LeetCodeRunnerApi.status_messages = {
   [10] = 'Accepted',
   [11] = 'Wrong Answer',
   [12] = 'Memory Limit Exceeded',
@@ -31,23 +33,15 @@ H.status_messages = {
 
 -- Helper functionality ==============================================================================================
 
----Non-blocking sleep usable inside coroutines.
----
----@param ms number
-H.sleep = function(ms)
+LeetCodeRunnerApi.sleep = function(ms)
   local co = coroutine.running()
   vim.defer_fn(function() coroutine.resume(co) end, ms)
   coroutine.yield()
 end
 
----Normalize a `/check/` response item into the shared result model.
----
----@param item table Raw check response.
----@param is_submit boolean
----@return table Normalized result.
-H.normalize = function(item, is_submit)
+LeetCodeRunnerApi.normalize = function(item, is_submit)
   local code = item.status_code
-  local status = H.status_messages[code] or 'Finished'
+  local status = LeetCodeRunnerApi.status_messages[code] or 'Finished'
   local ok = status == 'Accepted'
   local message = nil
 
@@ -87,7 +81,7 @@ end
 ---@param data_input string|nil Case input: one testcase string or all joined.
 ---@return table|nil Normalized result
 ---@return string|nil err
-H.interpret = function(question, code, data_input)
+LeetCodeRunnerApi.interpret = function(question, code, data_input)
   local path = ('/problems/%s/interpret_solution/'):format(question.title_slug)
   local body = vim.json.encode({
     lang = question.lang_slug or question.lang,
@@ -100,7 +94,7 @@ H.interpret = function(question, code, data_input)
   if err ~= nil or res == nil then return nil, err or 'Empty response' end
   if res.interpret_id == nil then return nil, 'Failed to start test run' end
 
-  return H.listen(res.interpret_id, false)
+  return LeetCodeRunnerApi.listen(res.interpret_id, false)
 end
 
 ---Submit a solution.
@@ -109,7 +103,7 @@ end
 ---@param code string User typed code.
 ---@return table|nil Normalized result
 ---@return string|nil err
-H.submit = function(question, code)
+LeetCodeRunnerApi.submit = function(question, code)
   local path = ('/problems/%s/submit/'):format(question.title_slug)
   local body = vim.json.encode({
     lang = question.lang_slug or question.lang,
@@ -121,7 +115,7 @@ H.submit = function(question, code)
   if err ~= nil or res == nil then return nil, err or 'Empty response' end
   if res.submission_id == nil then return nil, 'Failed to submit solution' end
 
-  return H.listen(res.submission_id, true)
+  return LeetCodeRunnerApi.listen(res.submission_id, true)
 end
 
 ---Poll the check endpoint until judging finishes.
@@ -130,7 +124,7 @@ end
 ---@param is_submit boolean
 ---@return table|nil Normalized result
 ---@return string|nil err
-H.listen = function(id, is_submit)
+LeetCodeRunnerApi.listen = function(id, is_submit)
   local path = ('/submissions/detail/%s/check/'):format(id)
   local interval = (is_submit and 900 or 450)
   local deadline = vim.uv.now() + 120000
@@ -139,11 +133,11 @@ H.listen = function(id, is_submit)
     local res, err = api.rest('GET', path)
     if err ~= nil then return nil, err end
 
-    if type(res) == 'table' and res.status_code ~= nil then return H.normalize(res, is_submit), nil end
+    if type(res) == 'table' and res.status_code ~= nil then return LeetCodeRunnerApi.normalize(res, is_submit), nil end
 
     if vim.uv.now() > deadline then return nil, 'Judging timed out' end
 
-    H.sleep(interval)
+    LeetCodeRunnerApi.sleep(interval)
   end
 end
 
@@ -153,9 +147,9 @@ end
 ---@param lang_slug string
 ---@return table|nil detail
 ---@return string|nil err
-H.latest_submission = function(question, lang_slug)
+LeetCodeRunnerApi.latest_submission = function(question, lang_slug)
   local path = ('/submissions/latest/?qid=%s&lang=%s'):format(question.id, lang_slug)
   return api.rest('GET', path)
 end
 
-return H
+return LeetCodeRunnerApi

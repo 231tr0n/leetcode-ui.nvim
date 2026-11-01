@@ -1,43 +1,32 @@
+--- *LeetCodeConsole*
+---
+---@tag LeetCodeConsole
+
 -- |leetcode-ui-console| Test case console UI.
---------------------------------------------------------------------------------
 -- A scrollable bottom pane showing one row per test case: case number, status
 -- icon, and a result line (runtime/memory/stdout) once judging finishes.
 -- State is a plain table; |leetcode-ui-question| drives it from results of
 -- |leetcode-ui-api-runner|.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeConsole = {}
 
 local config = require('leetcode-ui.config')
 local buffer = require('leetcode-ui.buffer')
 
 -- Helper data =======================================================================================================
 
----Spinner frames for the running state.
-H.spinner = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
+LeetCodeConsole.spinner = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
 
----Console header text.
-H.header = 'Testcase'
+LeetCodeConsole.header = 'Testcase'
 
 -- Helper functionality ==============================================================================================
 
----Create a console UI object for a question view.
----
----Fields:
----  cases     - array of `{ input = string, status = string, result = table|nil }`
----  selected  - 1-based index of the focused case.
----
----@param view table Question view (|leetcode-ui-question|).
----@return table console
-H.new = function(view)
-  return setmetatable({ view = view, cases = {}, selected = 1, timer = nil, frame = 1 }, { __index = H })
+LeetCodeConsole.new = function(view)
+  return setmetatable({ view = view, cases = {}, selected = 1, timer = nil, frame = 1 }, { __index = LeetCodeConsole })
 end
 
----Initialize known test cases from the question detail.
----
----@param testcase_list table Raw input strings, one per case.
-H.set_cases = function(console, testcase_list)
+LeetCodeConsole.set_cases = function(console, testcase_list)
   local cases = {}
   for _, input in ipairs(testcase_list) do
     table.insert(cases, { input = input, status = 'unknown', result = nil, running = false, index = #cases + 1 })
@@ -49,21 +38,20 @@ H.set_cases = function(console, testcase_list)
   console.selected = 1
 end
 
----Render the console buffer.
-H.render = function(console)
+LeetCodeConsole.render = function(console)
   if console.bufnr == nil then return end
 
   local icons = config.config.icons.case
   local lines = {}
 
-  local header = { { text = H.header, hl = 'LeetCodeTitle' } }
+  local header = { { text = LeetCodeConsole.header, hl = 'LeetCodeTitle' } }
   table.insert(lines, header)
 
   for i, case in ipairs(console.cases) do
     local icon, icon_hl = 'unknown', 'LeetCodeDim'
 
     if case.running then
-      icon, icon_hl = H.spinner[console.frame], 'LeetCodeWarn'
+      icon, icon_hl = LeetCodeConsole.spinner[console.frame], 'LeetCodeWarn'
     elseif case.status == 'passed' then
       icon, icon_hl = icons.passed, 'LeetCodeOk'
     elseif case.status == 'failed' then
@@ -103,10 +91,7 @@ H.render = function(console)
   buffer.spans_write(console.bufnr, lines, false)
 end
 
----Mark a case as running and (re)start the spinner.
----
----@param index number
-H.case_running = function(console, index)
+LeetCodeConsole.case_running = function(console, index)
   local case = console.cases[index]
   if case == nil then return end
   case.running = true
@@ -116,11 +101,7 @@ H.case_running = function(console, index)
   console:start_spinner()
 end
 
----Feed a finished result for a case.
----
----@param index number
----@param result table Normalized |leetcode-ui-api-runner| result.
-H.case_result = function(console, index, result)
+LeetCodeConsole.case_result = function(console, index, result)
   local case = console.cases[index]
   if case == nil then return end
 
@@ -144,8 +125,7 @@ H.case_result = function(console, index, result)
   console:render()
 end
 
----Start (or restart) the spinner animation timer.
-H.start_spinner = function(console)
+LeetCodeConsole.start_spinner = function(console)
   if console.timer ~= nil then return end
 
   console.frame = 1
@@ -174,14 +154,13 @@ H.start_spinner = function(console)
         console:render()
         return
       end
-      console.frame = (console.frame % #H.spinner) + 1
+      console.frame = (console.frame % #LeetCodeConsole.spinner) + 1
       console:render()
     end)
   end)
 end
 
----Stop the spinner timer, if any.
-H.stop_spinner = function(console)
+LeetCodeConsole.stop_spinner = function(console)
   if console.timer ~= nil then
     console.timer:stop()
     console.timer:close()
@@ -189,8 +168,7 @@ H.stop_spinner = function(console)
   end
 end
 
----Create buffer + split window, below the solution window.
-H.open = function(console)
+LeetCodeConsole.open = function(console)
   if console.bufnr ~= nil then return end
 
   console.bufnr = buffer.scratch('leetcode-ui://console/' .. (console.view.slug or ''), { ft = 'txt' })
@@ -211,15 +189,14 @@ H.open = function(console)
   console:render()
 end
 
----Close the console window.
-H.close = function(console)
+LeetCodeConsole.close = function(console)
   buffer.close(console.winid)
   console.winid = nil
   console.bufnr = nil
   console:stop_spinner()
 end
 
-H.toggle = function(console)
+LeetCodeConsole.toggle = function(console)
   if console.bufnr ~= nil then
     console:close()
   else
@@ -227,4 +204,4 @@ H.toggle = function(console)
   end
 end
 
-return H
+return LeetCodeConsole

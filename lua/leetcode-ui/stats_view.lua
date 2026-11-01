@@ -1,10 +1,12 @@
+--- *LeetCodeStatsView*
+---
+---@tag LeetCodeStatsView
+
 -- |leetcode-ui-stats-view| Statistics view.
---------------------------------------------------------------------------------
 -- Progress meters by difficulty, language breakdown, and skill tags, plus a
 -- signed-in session line. Requires cookies; renders guidance when anonymous.
---------------------------------------------------------------------------------
 
-local H = {}
+local LeetCodeStatsView = {}
 
 local buffer = require('leetcode-ui.buffer')
 local auth = require('leetcode-ui.auth')
@@ -12,27 +14,16 @@ local stats = require('leetcode-ui.api.stats')
 
 -- Helper functionality =============================================================================================
 
----Difficulties and their highlight groups.
-H.difficulty_hl = { Easy = 'LeetCodeEasy', Medium = 'LeetCodeMedium', Hard = 'LeetCodeHard' }
+LeetCodeStatsView.difficulty_hl = { Easy = 'LeetCodeEasy', Medium = 'LeetCodeMedium', Hard = 'LeetCodeHard' }
 
----Run a function in a coroutine (error-safe driver, mirrors question.h).
----
----@private
-H.as = function(fn) return require('leetcode-ui.async').run(fn) end
+LeetCodeStatsView.as = function(fn) return require('leetcode-ui.async').run(fn) end
 
----A progress meter line.
----
----@param label string Difficulty label.
----@param solved number
----@param total number
----@param width number|nil
----@return table Line spans.
-H.meter = function(label, solved, total, width)
+LeetCodeStatsView.meter = function(label, solved, total, width)
   width = width or 28
   local ratio = total > 0 and math.min(solved / total, 1) or 0
   local filled = math.floor(ratio * width + 0.5)
 
-  local hl = H.difficulty_hl[label] or 'LeetCodeTitle'
+  local hl = LeetCodeStatsView.difficulty_hl[label] or 'LeetCodeTitle'
   return {
     { text = ('%-8s'):format(label), hl = hl },
     { text = ('%3d/%-3d'):format(solved, total), hl = 'LeetCodeTitle' },
@@ -42,11 +33,7 @@ H.meter = function(label, solved, total, width)
   }
 end
 
----Language breakdown section spans.
----
----@param rows table [{language_name, problems_solved}]
----@return table lines
-H.language_lines = function(rows)
+LeetCodeStatsView.language_lines = function(rows)
   local lines = { { { text = 'Languages', hl = 'LeetCodeTitle' } } }
 
   table.sort(rows or {}, function(a, b) return (a.problems_solved or 0) > (b.problems_solved or 0) end)
@@ -59,11 +46,7 @@ H.language_lines = function(rows)
   return lines
 end
 
----Skills section spans.
----
----@param tags table tagProblemCounts result.
----@return table lines
-H.skills_lines = function(tags)
+LeetCodeStatsView.skills_lines = function(tags)
   tags = tags or {}
   local lines = { { { text = 'Skills', hl = 'LeetCodeTitle' } } }
 
@@ -91,11 +74,8 @@ H.skills_lines = function(tags)
   return lines
 end
 
----Fetch all stats and render into `bufnr`.
----
----@param bufnr number
-H.render_stats = function(bufnr)
-  H.as(function()
+LeetCodeStatsView.render_stats = function(bufnr)
+  LeetCodeStatsView.as(function()
     local solved, solved_err = stats.solved()
     local langs = nil
     local skills = nil
@@ -111,15 +91,15 @@ H.render_stats = function(bufnr)
     local lines = { { { text = 'Progress   ', hl = 'LeetCodeTitle' }, { text = 'leetcode.com', hl = 'LeetCodeDim' } } }
     table.insert(lines, {})
     for _, difficulty in ipairs({ 'Easy', 'Medium', 'Hard' }) do
-      table.insert(lines, H.meter(difficulty, counts[difficulty] or 0, total[difficulty] or 0))
+      table.insert(lines, LeetCodeStatsView.meter(difficulty, counts[difficulty] or 0, total[difficulty] or 0))
     end
 
     if langs ~= nil then
       table.insert(lines, {})
-      vim.list_extend(lines, H.language_lines(langs))
+      vim.list_extend(lines, LeetCodeStatsView.language_lines(langs))
     end
 
-    if skills ~= nil then vim.list_extend(lines, H.skills_lines(skills)) end
+    if skills ~= nil then vim.list_extend(lines, LeetCodeStatsView.skills_lines(skills)) end
 
     -- Failure note at the end (helps when partially signed in / flaky net).
     local err = solved_err
@@ -135,28 +115,30 @@ end
 -- Public API ========================================================================================================
 
 ---Open the statistics split.
-H.open = function()
-  if H.bufnr == nil then H.bufnr = buffer.scratch('leetcode-ui://stats', { ft = 'txt' }) end
+LeetCodeStatsView.open = function()
+  if LeetCodeStatsView.bufnr == nil then
+    LeetCodeStatsView.bufnr = buffer.scratch('leetcode-ui://stats', { ft = 'txt' })
+  end
 
-  buffer.open_split(H.bufnr, {
+  buffer.open_split(LeetCodeStatsView.bufnr, {
     pos = 'left',
     width = 62,
     focus = true,
   })
 
-  buffer.keymaps(H.bufnr, {
+  buffer.keymaps(LeetCodeStatsView.bufnr, {
     close = {
-      rhs = function() H.close() end,
+      rhs = function() LeetCodeStatsView.close() end,
       desc = 'Close statistics',
     },
   })
 
-  H.render_stats(H.bufnr)
+  LeetCodeStatsView.render_stats(LeetCodeStatsView.bufnr)
 end
 
 ---Session details (user + streak) in a notification.
-H.session = function()
-  H.as(function()
+LeetCodeStatsView.session = function()
+  LeetCodeStatsView.as(function()
     local session, err = auth.verify()
     if err ~= nil then
       vim.schedule(function() vim.notify('(leetcode-ui) ' .. err, vim.log.levels.WARN) end)
@@ -181,9 +163,9 @@ H.session = function()
 end
 
 ---Close the statistics buffer, if open.
-H.close = function()
-  local winid = vim.fn.bufwinnr(H.bufnr or -1)
+LeetCodeStatsView.close = function()
+  local winid = vim.fn.bufwinnr(LeetCodeStatsView.bufnr or -1)
   if winid ~= -1 then vim.api.nvim_win_close(vim.fn.win_getid(winid), false) end
 end
 
-return H
+return LeetCodeStatsView

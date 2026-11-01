@@ -1,13 +1,15 @@
+--- *LeetCodeApi*
+---
+---@tag LeetCodeApi
+
 -- |leetcode-ui-api| GraphQL and REST plumbing.
---------------------------------------------------------------------------------
--- `H.graphql` runs a query and returns decoded `data` (or an error message built
--- from GraphQL `errors`). `H.rest` covers non-GraphQL REST endpoints. Both work
+-- `LeetCodeApi.graphql` runs a query and returns decoded `data` (or an error message built
+-- from GraphQL `errors`). `LeetCodeApi.rest` covers non-GraphQL REST endpoints. Both work
 -- inside coroutines; calling them on the main thread falls back to blocking
 -- requests.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeApi = {}
 
 local config = require('leetcode-ui.config')
 local net = require('leetcode-ui.net')
@@ -15,16 +17,9 @@ local auth = require('leetcode-ui.auth')
 
 -- Helper functionality ==============================================================================================
 
----Site base URL from options.
----
----@return string like "https://leetcode.com"
-H.base_url = function() return ('https://%s'):format(config.config.url) end
+LeetCodeApi.base_url = function() return ('https://%s'):format(config.config.url) end
 
----Whether decoded JSON is nil-like (LeetCode sometimes returns JSON `null`).
----
----@param value any
----@return boolean
-H.is_nillish = function(value) return value == nil or (type(value) == 'userdata' and value == vim.NIL) end
+LeetCodeApi.is_nillish = function(value) return value == nil or (type(value) == 'userdata' and value == vim.NIL) end
 
 -- Public API ========================================================================================================
 
@@ -34,10 +29,10 @@ H.is_nillish = function(value) return value == nil or (type(value) == 'userdata'
 ---@param variables table|nil Query variables.
 ---@return table|nil data Decoded `data` field.
 ---@return string|nil err Error message.
-H.graphql = function(query, variables)
+LeetCodeApi.graphql = function(query, variables)
   local body = vim.json.encode({ query = query, variables = variables or {} })
   local res, err = net.request({
-    url = H.base_url() .. '/graphql/',
+    url = LeetCodeApi.base_url() .. '/graphql/',
     method = 'POST',
     headers = auth.headers(),
     body = body,
@@ -72,9 +67,9 @@ end
 ---@param headers table|nil Extra raw headers.
 ---@return table|nil data Decoded JSON body (nil for HTML or empty).
 ---@return string|nil err
-H.rest = function(method, path, body, headers)
+LeetCodeApi.rest = function(method, path, body, headers)
   local res, err = net.request({
-    url = H.base_url() .. path,
+    url = LeetCodeApi.base_url() .. path,
     method = method,
     body = body,
     headers = auth.headers(headers),
@@ -99,6 +94,9 @@ end
 ---
 ---@param title_slug string
 ---@return string
-H.problems_url = function(title_slug) return ('%s/problems/%s/'):format(H.base_url(), title_slug) end
+LeetCodeApi.problems_url = function(title_slug)
+  local base = LeetCodeApi.base_url()
+  return base .. '/problems/' .. title_slug .. '/'
+end
 
-return H
+return LeetCodeApi

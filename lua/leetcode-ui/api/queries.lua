@@ -1,13 +1,15 @@
+--- *LeetCodeQueries*
+---
+---@tag LeetCodeQueries
+
 -- |leetcode-ui-api-queries| All GraphQL queries in one place.
---------------------------------------------------------------------------------
 -- Field names are kept in sync with LeetCode's API (verified live on 2026-11).
 -- Lua identifiers use snake_case fields aliased from their camelCase names.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeQueries = {}
 
-H.auth = [[
+LeetCodeQueries.auth = [[
       query globalData {
         userStatus {
           id: userId
@@ -19,7 +21,7 @@ H.auth = [[
       }
 ]]
 
-H.qot = [[
+LeetCodeQueries.qot = [[
       query questionOfToday {
         todayRecord: activeDailyCodingChallengeQuestion {
           question {
@@ -30,7 +32,7 @@ H.qot = [[
       }
 ]]
 
-H.question = [[
+LeetCodeQueries.question = [[
       query getQuestionDetail($titleSlug: String!) {
         question(titleSlug: $titleSlug) {
           id: questionId
@@ -64,7 +66,7 @@ H.question = [[
       }
 ]]
 
-H.problems = [[
+LeetCodeQueries.problems = [[
       query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
         problemsetQuestionList: questionList(
           categorySlug: $categorySlug
@@ -91,7 +93,7 @@ H.problems = [[
       }
 ]]
 
-H.random_question = [[
+LeetCodeQueries.random_question = [[
       query randomQuestion($categorySlug: String, $filters: QuestionListFilterInput) {
         randomQuestion(categorySlug: $categorySlug, filters: $filters) {
           title_slug: titleSlug
@@ -100,7 +102,7 @@ H.random_question = [[
       }
 ]]
 
-H.solved = [[
+LeetCodeQueries.solved = [[
       query globalSolvedCounts($username: String!) {
         allQuestionsCount {
           difficulty
@@ -117,7 +119,7 @@ H.solved = [[
       }
 ]]
 
-H.calendar = [[
+LeetCodeQueries.calendar = [[
       query userCalendar($username: String!, $year: Int) {
         matchedUser(username: $username) {
           calendar: userCalendar(year: $year) {
@@ -141,7 +143,7 @@ H.calendar = [[
       }
 ]]
 
-H.skills = [[
+LeetCodeQueries.skills = [[
       query skillStats($username: String!) {
         matchedUser(username: $username) {
           tag_problems_counts: tagProblemCounts {
@@ -165,7 +167,7 @@ H.skills = [[
       }
 ]]
 
-H.languages = [[
+LeetCodeQueries.languages = [[
       query languageStats($username: String!) {
         matchedUser(username: $username) {
           language_problem_count: languageProblemCount {
@@ -176,7 +178,7 @@ H.languages = [[
       }
 ]]
 
-H.streak = [[
+LeetCodeQueries.streak = [[
       query getStreakCounter {
         streakCounter {
           streak_count: streakCount
@@ -186,4 +188,4 @@ H.streak = [[
       }
 ]]
 
-return H
+return LeetCodeQueries

@@ -1,5 +1,8 @@
+--- *LeetCodeRunner*
+---
+---@tag LeetCodeRunner
+
 -- |leetcode-ui-runner-common| Local runner plumbing.
---------------------------------------------------------------------------------
 -- Machinery shared by language harnesses:
 --   - decode the question `metaData` (params, return type, systemDesign form),
 --   - split testcase `data_input` into raw parameter lines,
@@ -7,24 +10,19 @@
 --   - spawn the local run and normalize results.
 --
 -- Language harness contract (modules under `runner/langs/<slug>`):
---   H.available()        -> boolean, note
---   H.run(dir, question, code, meta, params, data_input) -> argv
+--   LeetCodeRunner.available()        -> boolean, note
+--   LeetCodeRunner.run(dir, question, code, meta, params, data_input) -> argv
 --     Create all workspace files under `dir`; return argv for vim.system().
 --     Both `params` (decoded meta) and `data_input` (raw testcase lines) are
 --     passed; harnesses may weave either into their files.
---------------------------------------------------------------------------------
 
-local H = {}
+local LeetCodeRunner = {}
 
 local config = require('leetcode-ui.config')
 
 -- Helper functionality =============================================================================================
 
----Decode the normalized question `meta` into a runner description.
----
----@param question table
----@return table { mode = 'normal'|'systemdesign'|'manual', name, params, return_type, class_name, methods }
-H.meta = function(question)
+LeetCodeRunner.meta = function(question)
   local meta = question.meta or {}
   if meta.manual then return { mode = 'manual' } end
 
@@ -48,11 +46,7 @@ H.meta = function(question)
   }
 end
 
----Split the `data_input` testcase into raw parameter lines.
----
----@param data_input string|nil Multi-line testcase string.
----@return table|nil raw lines; nil for an empty input.
-H.data_lines = function(data_input)
+LeetCodeRunner.data_lines = function(data_input)
   if data_input == nil or data_input == '' then return nil end
   local lines = vim.split(vim.trim(data_input), '\n')
   for i, line in ipairs(lines) do
@@ -61,17 +55,11 @@ H.data_lines = function(data_input)
   return lines
 end
 
----Resolve the local harness for a language.
----
----@param lang_slug string
----@param question table
----@return table|nil harness module, when locally applicable.
----@return string|nil note Why no local run is offered.
-H.harness = function(lang_slug, question)
+LeetCodeRunner.harness = function(lang_slug, question)
   local local_runner = config.config.local_runner
   if local_runner == false then return nil, 'local runner disabled' end
 
-  local meta = H.meta(question)
+  local meta = LeetCodeRunner.meta(question)
   if meta.mode == 'manual' then return nil, 'manual testcase problem' end
 
   local no_local = config.config.no_local or {}
@@ -87,19 +75,12 @@ H.harness = function(lang_slug, question)
   return harness, nil
 end
 
----Asynchronously run the local harness over a testcase.
----
----@param question table Question detail.
----@param lang_slug string
----@param code string User typed code.
----@param data_input string|nil Testcase (nil = empty params).
----@param on_done fun(result: table|nil, err: string|nil) Callback in the main loop.
-H.run_local = function(question, lang_slug, code, data_input, on_done)
-  local harness, note = H.harness(lang_slug, question)
+LeetCodeRunner.run_local = function(question, lang_slug, code, data_input, on_done)
+  local harness, note = LeetCodeRunner.harness(lang_slug, question)
   if harness == nil then return on_done(nil, note or 'no local runner') end
 
-  local meta = H.meta(question)
-  local params = H.data_lines(data_input)
+  local meta = LeetCodeRunner.meta(question)
+  local params = LeetCodeRunner.data_lines(data_input)
 
   local dir = vim.fn.tempname() .. '-lcrun'
   vim.fn.mkdir(dir, 'p')
@@ -114,17 +95,12 @@ H.run_local = function(question, lang_slug, code, data_input, on_done)
   vim.system(argv, { text = true, timeout = config.config.runner_timeout * 1000 }, function(out)
     vim.schedule(function()
       vim.fn.delete(dir, 'rf')
-      on_done(H.normalize(out, started), nil)
+      on_done(LeetCodeRunner.normalize(out, started), nil)
     end)
   end)
 end
 
----Normalize a `vim.system` result.
----
----@param out table vim.system callback result.
----@param started number uv.hrtime() at spawn.
----@return table { status = 'ran'|'error', message, runtime_ms, raw }
-H.normalize = function(out, started)
+LeetCodeRunner.normalize = function(out, started)
   local stdout = out.stdout or ''
   local stderr = out.stderr or ''
   local text = vim.trim(stderr ~= '' and stderr or stdout)
@@ -143,4 +119,4 @@ H.normalize = function(out, started)
   return { status = ok and 'ran' or 'error', message = text, runtime_ms = elapsed_ms, raw = out }
 end
 
-return H
+return LeetCodeRunner

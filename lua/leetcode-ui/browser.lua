@@ -1,5 +1,8 @@
+--- *LeetCodeBrowser*
+---
+---@tag LeetCodeBrowser
+
 -- |leetcode-ui-browser| Automatic cookie import from browsers.
---------------------------------------------------------------------------------
 -- Supported (Linux):
 --   firefox  - ~/.mozilla/firefox/<profile>/cookies.sqlite (plain SQLite)
 --   google-chrome/chromium/microsoft-edge/brave - "Cookies" SQLite; legacy
@@ -11,30 +14,27 @@
 -- Browser DBs are COPIED to a temporary directory before reading, so browser
 -- locks are untouched. Only rows for the two LeetCode cookie names on
 -- `%.leetcode.com` hosts are queried; decrypted values never hit the disk.
---------------------------------------------------------------------------------
 
-local H = {}
+local LeetCodeBrowser = {}
 
 local config = require('leetcode-ui.config')
 
 -- Helper data =======================================================================================================
 
----Names of cookies the plugin needs, in query order.
-H.cookie_names = { 'LEETCODE_SESSION', 'csrftoken' }
+LeetCodeBrowser.cookie_names = { 'LEETCODE_SESSION', 'csrftoken' }
 
----Chromium-based browser roots (checked in list order).
-H.chromium_roots = {
+LeetCodeBrowser.chromium_roots = {
   chrome = vim.fs.joinpath(vim.env.HOME or '', '.config', 'google-chrome'),
   brave = vim.fs.joinpath(vim.env.HOME or '', '.config', 'BraveSoftware', 'Brave-Browser'),
   edge = vim.fs.joinpath(vim.env.HOME or '', '.config', 'microsoft-edge'),
   chromium = vim.fs.joinpath(vim.env.HOME or '', '.config', 'chromium'),
 }
 
----Whether `browser` is a Chromium-based one (uses `encrypted_value` blobs).
-H.is_chromium = function(browser) return H.chromium_roots[browser] ~= nil and browser ~= 'firefox' end
+LeetCodeBrowser.is_chromium = function(browser)
+  return LeetCodeBrowser.chromium_roots[browser] ~= nil and browser ~= 'firefox'
+end
 
----The embedded reader script. Runs standalone: `python3 SCRIPT <kind> <db>`.
-H.python_script = [[
+LeetCodeBrowser.python_script = [[
 import json, os, shutil, sqlite3, sys, tempfile
 
 KIND, DB = sys.argv[1], sys.argv[2]
@@ -71,12 +71,7 @@ print(json.dumps(read(DB, sql, host_like + NAMES)))
 
 -- Helper functionality ==============================================================================================
 
----Locate the most recently modified cookie database for a browser.
----
----@param browser string
----@return string|nil db path.
----@private
-H.cookie_db = function(browser)
+LeetCodeBrowser.cookie_db = function(browser)
   local overridden = (config.config.browser_paths or {})[browser]
   if overridden ~= nil and overridden ~= '' then
     local path = vim.fs.normalize(overridden)
@@ -115,7 +110,7 @@ H.cookie_db = function(browser)
       vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.mozilla', 'firefox', '*', 'cookies.sqlite'), true, true)
     )
   else
-    local root = H.chromium_roots[browser]
+    local root = LeetCodeBrowser.chromium_roots[browser]
     vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root or '', '*', 'Cookies'), true, true))
   end
   if #candidates == 0 then return nil end
@@ -128,16 +123,13 @@ H.cookie_db = function(browser)
   return candidates[1]
 end
 
----Configured browser selection.
----
----@return string|nil browser key, nil when disabled or not found.
-H.selected = function()
+LeetCodeBrowser.selected = function()
   local browser = config.config.browser
   if browser == nil or browser == 'none' then return nil end
 
   if browser == 'auto' then
     for _, key in ipairs({ 'firefox', 'chrome', 'brave', 'edge', 'chromium' }) do
-      if H.cookie_db(key) ~= nil then return key end
+      if LeetCodeBrowser.cookie_db(key) ~= nil then return key end
     end
     return nil
   end
@@ -145,18 +137,11 @@ H.selected = function()
   return browser
 end
 
----Hex string to raw bytes.
----
----@param hex string
----@return string
-H.unhex = function(hex)
+LeetCodeBrowser.unhex = function(hex)
   return (hex:gsub('%x%x', function(pair) return string.char(tonumber(pair, 16)) end))
 end
 
----Chromium v10 AES key derivation (first 32 hex chars of an HMAC-SHA1 block).
----
----@return string|nil key_hex
-H.derive_key = function()
+LeetCodeBrowser.derive_key = function()
   local message = 'saltysalt' .. string.char(0, 0, 0, 1)
   local out = vim
     .system({ 'openssl', 'dgst', '-sha1', '-hmac', 'peanuts' }, {
@@ -172,20 +157,15 @@ H.derive_key = function()
   return hex:sub(1, 32)
 end
 
----Decrypt one Chromium `v10` cookie blob.
----
----@param blob_hex string|nil Hex of hex-encoded blob.
----@return string|nil value nil/'': nothing usable.
----@return string|nil err Message only for unsupported versions or failures.
-H.decrypt_blob = function(blob_hex)
+LeetCodeBrowser.decrypt_blob = function(blob_hex)
   if blob_hex == nil or blob_hex == '' then return nil, nil end
 
-  local raw = H.unhex(blob_hex:lower())
+  local raw = LeetCodeBrowser.unhex(blob_hex:lower())
   if raw:sub(1, 3) ~= 'v10' then
     return nil, ('blob version %q is not supported (keyring-protected)'):format(raw:sub(1, 3))
   end
 
-  local key_hex = H.derive_key()
+  local key_hex = LeetCodeBrowser.derive_key()
   if key_hex == nil then return nil, 'openssl is unavailable' end
 
   local ct_file = vim.fn.tempname() .. '.lcv10'
@@ -217,17 +197,15 @@ H.decrypt_blob = function(blob_hex)
   return value, nil
 end
 
----Read all LeetCode cookies from a browser database.
----
----@param browser string
----@return table|nil cookies name -> value
----@return string|nil err Collected warning/error messages.
-H.read_cookies = function(browser)
-  local db = H.cookie_db(browser)
+LeetCodeBrowser.read_cookies = function(browser)
+  local db = LeetCodeBrowser.cookie_db(browser)
   if db == nil then return nil, ('No %s cookie database found'):format(browser) end
 
   local out = vim
-    .system(vim.list_extend({ 'python3', '-c', H.python_script, browser, db }, H.cookie_names), { text = true })
+    .system(
+      vim.list_extend({ 'python3', '-c', LeetCodeBrowser.python_script, browser, db }, LeetCodeBrowser.cookie_names),
+      { text = true }
+    )
     :wait()
   if out.code ~= 0 then return nil, ('sqlite reader failed: %s'):format(vim.trim(out.stderr or 'unknown error')) end
 
@@ -239,8 +217,8 @@ H.read_cookies = function(browser)
     local name = row.name
     local value = row.value
 
-    if H.is_chromium(browser) and (value == nil or value == '') then
-      local plain, derr = H.decrypt_blob(row.blob)
+    if LeetCodeBrowser.is_chromium(browser) and (value == nil or value == '') then
+      local plain, derr = LeetCodeBrowser.decrypt_blob(row.blob)
       if derr ~= nil then table.insert(warnings, ('%s: %s'):format(name or 'cookie', derr)) end
       value = plain
     end
@@ -257,18 +235,18 @@ end
 ---Resolved browser cookies (session cache, 5 minute TTL).
 ---
 ---@return table|nil cookies name -> value or nil
-H.get_cookies = function()
-  local cache = H.cache or {}
+LeetCodeBrowser.get_cookies = function()
+  local cache = LeetCodeBrowser.cache or {}
   if cache.at ~= nil and (os.time() - cache.at) <= 300 then return cache.value end
 
-  local browser = H.selected()
+  local browser = LeetCodeBrowser.selected()
   if browser == nil then
-    H.cache = { value = nil, at = os.time() }
+    LeetCodeBrowser.cache = { value = nil, at = os.time() }
     return nil
   end
 
-  local cookies, err = H.read_cookies(browser)
-  H.cache = { value = cookies, at = os.time(), err = err, browser = browser }
+  local cookies, err = LeetCodeBrowser.read_cookies(browser)
+  LeetCodeBrowser.cache = { value = cookies, at = os.time(), err = err, browser = browser }
 
   if err ~= nil then vim.notify('(leetcode-ui) browser cookies: ' .. err, vim.log.levels.WARN) end
 
@@ -276,6 +254,6 @@ H.get_cookies = function()
 end
 
 ---Reset the cache (e.g. forced refresh after login changes).
-H.reset = function() H.cache = nil end
+LeetCodeBrowser.reset = function() LeetCodeBrowser.cache = nil end
 
-return H
+return LeetCodeBrowser

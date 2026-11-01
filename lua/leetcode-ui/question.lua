@@ -1,18 +1,19 @@
+--- *LeetCodeQuestionView*
+---
+---@tag LeetCodeQuestionView
+
 -- |leetcode-ui-question| Question view: description + code + console panes.
---------------------------------------------------------------------------------
 -- Layout:
 --   ┌──────────────────┬─────────────────────┐
 --   │  description     │  code (editable)    │
 --   │  (spans, ro)     │  draft-backed       │
 --   └──────────────────┴─────────────────────┘
 --                       │  console (toggle X) │
---------------------------------------------------------------------------------
--- State for open views lives in |H.views| keyed by slug; key handlers are
+-- State for open views lives in |LeetCodeQuestionView.views| keyed by slug; key handlers are
 -- closures bound to their view. Run/submit/judging runs inside a coroutine.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeQuestionView = {}
 
 local config = require('leetcode-ui.config')
 local api = require('leetcode-ui.api.question')
@@ -25,23 +26,13 @@ local Console = require('leetcode-ui.console')
 
 -- Helper data =======================================================================================================
 
----Open question views by slug.
-H.views = {}
+LeetCodeQuestionView.views = {}
 
 -- Helper functionality =============================================================================================
 
----Run a function in a coroutine (error-safe async driver).
----
----Wrap into |leetcode-ui-async|.
----
----@param fn function Body; may call the coroutine-aware API and runner.
-H.as = function(fn) return require('leetcode-ui.async').run(fn) end
+LeetCodeQuestionView.as = function(fn) return require('leetcode-ui.async').run(fn) end
 
----View description lines: header stats + rendered content.
----
----@param view table
----@return table lines
-H.describe = function(view)
+LeetCodeQuestionView.describe = function(view)
   local detail = view.detail
   local icons = config.config.icons.status
 
@@ -74,10 +65,7 @@ H.describe = function(view)
   return lines
 end
 
----Open the description pane.
----
----@param view table
-H.open_description = function(view)
+LeetCodeQuestionView.open_description = function(view)
   if view.desc_winid ~= nil and vim.api.nvim_win_is_valid(view.desc_winid) then return end
 
   view.desc_winid = buffer.open_split(view.desc_bufnr, {
@@ -88,21 +76,18 @@ H.open_description = function(view)
   vim.api.nvim_set_option_value('cursorline', true, { win = view.desc_winid })
 end
 
----Create buffers for a view (description + code).
----
----@param view table
-H.prepare_buffers = function(view)
+LeetCodeQuestionView.prepare_buffers = function(view)
   if view.desc_bufnr == nil or not vim.api.nvim_buf_is_valid(view.desc_bufnr) then
     view.desc_bufnr = buffer.scratch('leetcode-ui://question/' .. view.slug, { ft = 'markdown' })
-    buffer.spans_write(view.desc_bufnr, H.describe(view), false)
+    buffer.spans_write(view.desc_bufnr, LeetCodeQuestionView.describe(view), false)
 
     buffer.keymaps(view.desc_bufnr, {
       toggle_question = {
-        rhs = function() H.toggle_description(view) end,
+        rhs = function() LeetCodeQuestionView.toggle_description(view) end,
         desc = 'Toggle description',
       },
       close = {
-        rhs = function() H.close(view) end,
+        rhs = function() LeetCodeQuestionView.close(view) end,
         desc = 'Close question',
       },
     })
@@ -121,15 +106,15 @@ H.prepare_buffers = function(view)
 
   buffer.keymaps(view.code_bufnr, {
     run = {
-      rhs = function() H.run(view) end,
+      rhs = function() LeetCodeQuestionView.run(view) end,
       desc = 'Run test case',
     },
     submit = {
-      rhs = function() H.submit(view) end,
+      rhs = function() LeetCodeQuestionView.submit(view) end,
       desc = 'Submit solution',
     },
     toggle_question = {
-      rhs = function() H.toggle_description(view) end,
+      rhs = function() LeetCodeQuestionView.toggle_description(view) end,
       desc = 'Toggle description',
     },
     toggle_console = {
@@ -137,36 +122,33 @@ H.prepare_buffers = function(view)
       desc = 'Toggle console',
     },
     toggle_information = {
-      rhs = function() H.toggle_info(view) end,
+      rhs = function() LeetCodeQuestionView.toggle_info(view) end,
       desc = 'Toggle information',
     },
     reset_code = {
-      rhs = function() H.reset_code(view) end,
+      rhs = function() LeetCodeQuestionView.reset_code(view) end,
       desc = 'Reset code',
     },
     switch_language = {
-      rhs = function() H.switch_language(view) end,
+      rhs = function() LeetCodeQuestionView.switch_language(view) end,
       desc = 'Switch language',
     },
     close = {
-      rhs = function() H.close(view) end,
+      rhs = function() LeetCodeQuestionView.close(view) end,
       desc = 'Close question',
     },
   })
 end
 
----Open (or focus) a question view.
----
----@param title_slug string
-H.open = function(title_slug)
-  H.as(function()
+LeetCodeQuestionView.open = function(title_slug)
+  LeetCodeQuestionView.as(function()
     local fetch, fetch_err = api.get_detail(title_slug)
     if fetch_err ~= nil or fetch == nil then
       vim.notify('(leetcode-ui) ' .. (fetch_err or 'Empty response'), vim.log.levels.ERROR)
       return
     end
 
-    local view = H.views[title_slug]
+    local view = LeetCodeQuestionView.views[title_slug]
     if view == nil then
       view = {
         slug = title_slug,
@@ -175,7 +157,7 @@ H.open = function(title_slug)
         lang = config.config.lang,
         console = nil,
       }
-      H.views[title_slug] = view
+      LeetCodeQuestionView.views[title_slug] = view
     else
       view.detail = fetch
     end
@@ -183,25 +165,23 @@ H.open = function(title_slug)
     view.console = view.console or Console.new(view)
     view.console:set_cases(fetch.testcases)
 
-    H.prepare_buffers(view)
+    LeetCodeQuestionView.prepare_buffers(view)
     solution.open(view)
-    H.open_description(view)
+    LeetCodeQuestionView.open_description(view)
     vim.api.nvim_set_current_win(view.code_winid)
   end)
 end
 
----Toggle the description window.
-H.toggle_description = function(view)
+LeetCodeQuestionView.toggle_description = function(view)
   if view.desc_winid ~= nil then
     buffer.close(view.desc_winid)
     view.desc_winid = nil
   else
-    H.open_description(view)
+    LeetCodeQuestionView.open_description(view)
   end
 end
 
----Small floating info pane: id, language, tags, submit stats.
-H.open_info = function(view)
+LeetCodeQuestionView.open_info = function(view)
   if view.info_winid ~= nil and vim.api.nvim_win_is_valid(view.info_winid) then return end
 
   view.info_bufnr = view.info_bufnr or buffer.scratch('leetcode-ui://info/' .. view.slug, { ft = 'txt' })
@@ -263,7 +243,7 @@ H.open_info = function(view)
   })
 end
 
-H.close_info = function(view)
+LeetCodeQuestionView.close_info = function(view)
   if view.info_winid ~= nil and vim.api.nvim_win_is_valid(view.info_winid) then
     local bufnr = vim.api.nvim_win_get_buf(view.info_winid)
     vim.api.nvim_win_close(view.info_winid, false)
@@ -272,23 +252,21 @@ H.close_info = function(view)
   view.info_winid = nil
 end
 
-H.toggle_info = function(view)
+LeetCodeQuestionView.toggle_info = function(view)
   if view.info_winid == nil then
-    H.open_info(view)
+    LeetCodeQuestionView.open_info(view)
   else
-    H.close_info(view)
+    LeetCodeQuestionView.close_info(view)
   end
 end
 
----Reset typed code to the starter snippet.
-H.reset_code = function(view)
+LeetCodeQuestionView.reset_code = function(view)
   if view.console ~= nil then view.console:render() end
   solution.reset(view)
   vim.notify('(leetcode-ui) Code reset to starter snippet', vim.log.levels.INFO)
 end
 
----Pick a language via the configured picker and switch.
-H.switch_language = function(view)
+LeetCodeQuestionView.switch_language = function(view)
   local langs = solution.languages(view)
   local picker = require('leetcode-ui.picker')
   picker.select(langs, ' Switch language ', function(choice)
@@ -302,14 +280,14 @@ end
 ---
 ---@param slug string
 ---@return table|nil
-H.get_view = function(slug) return H.views[slug] end
+LeetCodeQuestionView.get_view = function(slug) return LeetCodeQuestionView.views[slug] end
 
 ---Currently focused question view (via the code or description buffer).
 ---
 ---@return table|nil
-H.current = function()
+LeetCodeQuestionView.current = function()
   local bufnr = vim.api.nvim_get_current_buf()
-  for _, view in pairs(H.views) do
+  for _, view in pairs(LeetCodeQuestionView.views) do
     if bufnr == view.code_bufnr or bufnr == view.desc_bufnr then return view end
   end
   return nil
@@ -322,8 +300,8 @@ end
 ---
 ---@param view table
 ---@param index number|nil 1-based case index, nil = run all.
-H.run = function(view, index)
-  H.as(function()
+LeetCodeQuestionView.run = function(view, index)
+  LeetCodeQuestionView.as(function()
     solution.save_draft(view)
     local code = solution.code(view)
 
@@ -393,8 +371,8 @@ end
 ---Submit the solution to LeetCode.
 ---
 ---@param view table
-H.submit = function(view)
-  H.as(function()
+LeetCodeQuestionView.submit = function(view)
+  LeetCodeQuestionView.as(function()
     solution.save_draft(view)
     local code = solution.code(view)
 
@@ -443,12 +421,12 @@ end
 ---Close a view: close panes, delete buffers, drop state.
 ---
 ---@param view table
-H.close = function(view)
+LeetCodeQuestionView.close = function(view)
   solution.save_draft(view)
 
   if view.console ~= nil then view.console:close() end
 
-  H.close_info(view)
+  LeetCodeQuestionView.close_info(view)
 
   if view.desc_winid ~= nil then
     buffer.close(view.desc_winid)
@@ -466,7 +444,7 @@ H.close = function(view)
   local console = view.console
   if console ~= nil then console.bufnr = nil end
 
-  H.views[view.slug] = nil
+  LeetCodeQuestionView.views[view.slug] = nil
 end
 
-return H
+return LeetCodeQuestionView

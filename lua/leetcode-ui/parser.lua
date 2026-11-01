@@ -1,5 +1,8 @@
+--- *LeetCodeParser*
+---
+---@tag LeetCodeParser
+
 -- |leetcode-ui-parser| Question HTML content to styled buffer spans.
---------------------------------------------------------------------------------
 -- `content` HTML from the API renders to a list of lines; each line is a list
 -- of `{ text, hl }` spans with highlight group names:
 --   LeetCodeHeader, LeetCodeTitle (bold), LeetCodeItalic, LeetCodeCode,
@@ -8,14 +11,13 @@
 -- Supported markup: headings, paragraphs, nested/ordered lists, code spans and
 -- blocks, links, tables, blockquotes, superscripts/subscripts (via Unicode
 -- glyphs), and common HTML entities.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeParser = {}
 
 -- Helper data =======================================================================================================
 
-H.entities = {
+LeetCodeParser.entities = {
   nbsp = ' ',
   lt = '<',
   gt = '>',
@@ -39,7 +41,7 @@ H.entities = {
   ne = '≠',
 }
 
-H.sup_chars = {
+LeetCodeParser.sup_chars = {
   ['0'] = '⁰',
   ['1'] = '¹',
   ['2'] = '²',
@@ -60,7 +62,7 @@ H.sup_chars = {
   x = 'ˣ',
 }
 
-H.sub_chars = {
+LeetCodeParser.sub_chars = {
   ['0'] = '₀',
   ['1'] = '₁',
   ['2'] = '₂',
@@ -83,24 +85,15 @@ H.sub_chars = {
 
 -- Helper functionality ==============================================================================================
 
----Decode HTML entities, including numeric variants.
----
----@param s string
----@return string
-H.decode_entities = function(s)
+LeetCodeParser.decode_entities = function(s)
   local utf8_char = (type(utf8) == 'table' and utf8.char) or string.char
   s = s:gsub('&#x(%x+);', function(hex) return utf8_char(tonumber(hex, 16) or 0) end)
   s = s:gsub('&#(%d+);', function(dec) return utf8_char(tonumber(dec) or 0) end)
-  s = s:gsub('&([%w]+);', function(name) return H.entities[name] or ('&' .. name .. ';') end)
+  s = s:gsub('&([%w]+);', function(name) return LeetCodeParser.entities[name] or ('&' .. name .. ';') end)
   return s
 end
 
----Encode `<sup>`/`<sub>` contents into Unicode glyph runs.
----
----@param text string Inner HTML of the script tag.
----@param glyphs table H.sup_chars/H.sub_chars.
----@return string
-H.encode_script = function(text, glyphs)
+LeetCodeParser.encode_script = function(text, glyphs)
   local parts = {}
   for char in text:gmatch('[%w%-%+%=%(%)%%]') do
     table.insert(parts, glyphs[char] or char)
@@ -108,18 +101,20 @@ H.encode_script = function(text, glyphs)
   return table.concat(parts)
 end
 
----Canonical pre-processing of question HTML before tokenization.
----
----@param html string
----@return string
-H.preprocess = function(html)
+LeetCodeParser.preprocess = function(html)
   -- Strip invisible/pointless blocks.
   html = html:gsub('<%s*style[^>]->.-</%s*style%s->', '')
   html = html:gsub('<%s*script[^>]->.-</%s*script%s->', '')
 
   -- Unicode-ify simple superscripts/subscripts before anything else.
-  html = html:gsub('<sup>%s*([^<]-)%s*</sup>', function(text) return H.encode_script(text, H.sup_chars) end)
-  html = html:gsub('<sub>%s*([^<]-)%s*</sub>', function(text) return H.encode_script(text, H.sub_chars) end)
+  html = html:gsub(
+    '<sup>%s*([^<]-)%s*</sup>',
+    function(text) return LeetCodeParser.encode_script(text, LeetCodeParser.sup_chars) end
+  )
+  html = html:gsub(
+    '<sub>%s*([^<]-)%s*</sub>',
+    function(text) return LeetCodeParser.encode_script(text, LeetCodeParser.sub_chars) end
+  )
 
   -- Break markers.
   html = html:gsub('<%s*br%s*/?>', '\n')
@@ -127,11 +122,7 @@ H.preprocess = function(html)
   return html
 end
 
----Tokenize HTML into text and tag events.
----
----@param html string Preprocessed HTML.
----@return table tokens Each `{ text = string }` or `{ tag = string, attrs = string }`.
-H.tokenize = function(html)
+LeetCodeParser.tokenize = function(html)
   local tokens = {}
   local position = 1
 
@@ -149,12 +140,7 @@ H.tokenize = function(html)
   return tokens
 end
 
----Extract an attribute value from a raw attribute string.
----
----@param attrs string like ' src="x" alt="my alt"'
----@param name string
----@return string|nil
-H.attr = function(attrs, name) return ((attrs or ''):match('%s*' .. name .. '%s*=%s*"([^"]*)"')) end
+LeetCodeParser.attr = function(attrs, name) return ((attrs or ''):match('%s*' .. name .. '%s*=%s*"([^"]*)"')) end
 
 -- Public API ========================================================================================================
 
@@ -162,10 +148,10 @@ H.attr = function(attrs, name) return ((attrs or ''):match('%s*' .. name .. '%s*
 ---
 ---@param content string|nil Question HTML (nil renders a placeholder line).
 ---@return table lines Each line is a list of `{ text, hl }` spans.
-H.render = function(content)
+LeetCodeParser.render = function(content)
   if content == nil or content == '' then return { { { text = '(no description)', hl = 'LeetCodeDim' } } } end
 
-  local tokens = H.tokenize(H.preprocess(content))
+  local tokens = LeetCodeParser.tokenize(LeetCodeParser.preprocess(content))
 
   local lines = {}
   local spans = {}
@@ -182,7 +168,7 @@ H.render = function(content)
 
   local push = function(text)
     if text == nil or text == '' then return end
-    text = H.decode_entities(text)
+    text = LeetCodeParser.decode_entities(text)
     if text == '' then return end
     table.insert(spans, { text = text, hl = current_hl() })
   end
@@ -286,7 +272,7 @@ H.render = function(content)
       push('|')
       flush()
     elseif tag == 'img' then
-      local alt = H.attr(token.attrs, 'alt')
+      local alt = LeetCodeParser.attr(token.attrs, 'alt')
       if alt ~= nil and alt ~= '' then push('[image: ' .. alt .. ']') end
     end
     -- Unknown tags (p, div, span, font, ...) render as plain text flow.
@@ -300,7 +286,7 @@ end
 ---
 ---@param lines table
 ---@return number
-H.measure = function(lines)
+LeetCodeParser.measure = function(lines)
   local width = 0
   for _, line in ipairs(lines) do
     local chars = 0
@@ -312,4 +298,4 @@ H.measure = function(lines)
   return width
 end
 
-return H
+return LeetCodeParser

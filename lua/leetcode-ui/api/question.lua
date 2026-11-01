@@ -1,5 +1,8 @@
+--- *LeetCodeQuestion*
+---
+---@tag LeetCodeQuestion
+
 -- |leetcode-ui-api-question| Problem list, daily, random, and question detail.
---------------------------------------------------------------------------------
 -- Normalized shapes (snake_case, `vim.NIL` inputs sanitized):
 --   list entries: { title, title_slug, frontend_id, difficulty, ac_rate,
 --                   is_paid_only, status, topic_tags = { {name,slug}, ... } }
@@ -7,10 +10,9 @@
 --                   difficulty, content, hints, snippets = { lang_slug = {...} },
 --                   testcases = { string, ... }, meta = parsed metaData table,
 --                   stats = parsed `stats` table, similar = { ... } }
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeQuestion = {}
 
 local config = require('leetcode-ui.config')
 local api = require('leetcode-ui.api')
@@ -19,11 +21,7 @@ local storage = require('leetcode-ui.storage')
 
 -- Helper functionality ==============================================================================================
 
----Sanitize decoded GraphQL rows (`vim.NIL` -> nil, missing -> fallback).
----
----@param value any
----@return any
-H.clean = function(value)
+LeetCodeQuestion.clean = function(value)
   if api.is_nillish(value) then return nil end
   if type(value) ~= 'table' then return value end
 
@@ -32,17 +30,13 @@ H.clean = function(value)
     if type(entry) ~= 'table' and api.is_nillish(entry) then
       res[key] = nil
     else
-      res[key] = H.clean(entry)
+      res[key] = LeetCodeQuestion.clean(entry)
     end
   end
   return res
 end
 
----Parse JSON encoded response fields.
----
----@param s any JSON-encoded string or nil.
----@return any|nil
-H.decode_meta = function(s)
+LeetCodeQuestion.decode_meta = function(s)
   if s == nil or type(s) ~= 'string' or s == '' then return nil end
   local ok, data = pcall(vim.json.decode, s)
   if not ok then return nil end
@@ -55,7 +49,7 @@ end
 ---
 ---@param q table GraphQL row.
 ---@return table Normalized entry.
-H.normalize = function(q)
+LeetCodeQuestion.normalize = function(q)
   local status = q.status
   status = status == 'AC' and 'solved' or status
   status = status == 'null' and nil or status
@@ -84,7 +78,7 @@ end
 ---
 ---@return table|nil { total, questions }
 ---@return string|nil err
-H.get_list = function()
+LeetCodeQuestion.get_list = function()
   local cache = storage.read_cache()
   local edge = cache['cache_time'] or cache['saved'] or 0
   local fresh = (os.time() - edge) < (config.config.cooldown * 60)
@@ -99,8 +93,11 @@ H.get_list = function()
 
   local rows = data.problemsetQuestionList or {}
   local questions = {}
-  for _, q in ipairs(rows.questions or {}) do
-    table.insert(questions, H.normalize(H.clean(q)))
+  local qs = rows.questions
+  ---@cast qs table
+  if type(qs) ~= 'table' then qs = {} end
+  for _, q in ipairs(qs) do
+    table.insert(questions, LeetCodeQuestion.normalize(LeetCodeQuestion.clean(q) --[[@as table]]))
   end
 
   cache.problems = questions
@@ -117,14 +114,14 @@ end
 ---@param title_slug string
 ---@param opts table|nil { force = boolean } always re-check via list.
 ---@return table|nil entry
-H.find_in_list = function(title_slug, opts)
+LeetCodeQuestion.find_in_list = function(title_slug, opts)
   if opts == nil or not opts.force then
     for _, entry in ipairs((storage.read_cache()).problems or {}) do
       if entry.title_slug == title_slug then return entry end
     end
   end
 
-  local list, err = H.get_list()
+  local list, err = LeetCodeQuestion.get_list()
   if err ~= nil or list == nil then return nil end
   for _, entry in ipairs(list.questions) do
     if entry.title_slug == title_slug then return entry end
@@ -136,7 +133,7 @@ end
 ---
 ---@param title_slug string
 ---@param status string 'solved' | 'attempted' | nil
-H.update_list_status = function(title_slug, status)
+LeetCodeQuestion.update_list_status = function(title_slug, status)
   local cache = storage.read_cache()
   for _, entry in ipairs(cache.problems or {}) do
     if entry.title_slug == title_slug then entry.status = status end
@@ -148,7 +145,7 @@ end
 ---
 ---@return string|nil title_slug
 ---@return string|nil err
-H.get_daily = function()
+LeetCodeQuestion.get_daily = function()
   local data, err = api.graphql(queries.qot)
   if err ~= nil or data == nil then return nil, err or 'Empty response' end
 
@@ -163,7 +160,7 @@ end
 ---@param opts table|nil { difficulty = 'Easy'|'Medium'|'Hard' }
 ---@return string|nil title_slug
 ---@return string|nil err
-H.get_random = function(opts)
+LeetCodeQuestion.get_random = function(opts)
   local filters = {}
   if opts ~= nil and opts.difficulty ~= nil then filters.difficulty = opts.difficulty end
 
@@ -182,15 +179,17 @@ end
 ---@param title_slug string
 ---@return table|nil detail
 ---@return string|nil err
-H.get_detail = function(title_slug)
+LeetCodeQuestion.get_detail = function(title_slug)
   local data, err = api.graphql(queries.question, { titleSlug = title_slug })
   if err ~= nil or data == nil then return nil, err or 'Empty response' end
 
-  local q = H.clean(data.question or {})
+  local q = LeetCodeQuestion.clean(data.question or {}) --[[@as table]]
   if q.id == nil then return nil, ('Question "%s" not found'):format(title_slug) end
 
   local snippets = {}
-  for _, snippet in ipairs(q.code_snippets or {}) do
+  for _, snippet in
+    ipairs((q.code_snippets or {}) --[[@as table]])
+  do
     snippets[snippet.lang_slug] = { lang = snippet.lang, lang_slug = snippet.lang_slug, code = snippet.code }
   end
 
@@ -198,13 +197,13 @@ H.get_detail = function(title_slug)
   q.snippets = snippets
   q.testcases = q.testcase_list or {}
   q.testcase_list = nil
-  q.meta = H.decode_meta(q.meta_data)
+  q.meta = LeetCodeQuestion.decode_meta(q.meta_data)
   q.meta_data = nil
-  q.stats = H.decode_meta(q.stats)
+  q.stats = LeetCodeQuestion.decode_meta(q.stats)
   q.similar = q.similar or {}
   q.hints = q.hints or {}
 
   return q, nil
 end
 
-return H
+return LeetCodeQuestion

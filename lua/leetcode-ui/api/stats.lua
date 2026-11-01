@@ -1,11 +1,13 @@
+--- *LeetCodeStatsApi*
+---
+---@tag LeetCodeStatsApi
+
 -- |leetcode-ui-api-stats| User statistics wrappers.
---------------------------------------------------------------------------------
 -- Wrappers around the `matchedUser`-based queries: solved counts, calendar
 -- (streak + passive heatmap data), skills, language stats, and streak counter.
---------------------------------------------------------------------------------
 
 -- Module design:
-local H = {}
+local LeetCodeStatsApi = {}
 
 local api = require('leetcode-ui.api')
 local auth = require('leetcode-ui.auth')
@@ -13,11 +15,7 @@ local queries = require('leetcode-ui.api.queries')
 
 -- Helper functionality ==============================================================================================
 
----Authenticated username or error.
----
----@return string|nil username
----@return string|nil err
-H.username = function()
+LeetCodeStatsApi.username = function()
   local session, err = auth.verify()
   if err ~= nil or session == nil then return nil, err or 'No session' end
   if not session.signed_in or session.name == nil then return nil, 'Not signed in (check cookies)' end
@@ -30,8 +28,8 @@ end
 ---
 ---@return table|nil { all = {...}, easy = {...}, medium = {...}, hard = {...} }
 ---@return string|nil err
-H.solved = function()
-  local name, err = H.username()
+LeetCodeStatsApi.solved = function()
+  local name, err = LeetCodeStatsApi.username()
   if err ~= nil then return nil, err end
 
   local data, qerr = api.graphql(queries.solved, { username = name })
@@ -56,8 +54,8 @@ end
 ---@param year number|nil
 ---@return table|nil { calendar = {...}, beats = {...} }
 ---@return string|nil err
-H.calendar = function(year)
-  local name, err = H.username()
+LeetCodeStatsApi.calendar = function(year)
+  local name, err = LeetCodeStatsApi.username()
   if err ~= nil then return nil, err end
 
   local data, qerr = api.graphql(queries.calendar, { username = name, year = year })
@@ -81,8 +79,8 @@ end
 ---
 ---@return table|nil { advanced = {...}, intermediate = {...}, fundamental = {...} }
 ---@return string|nil err
-H.skills = function()
-  local name, err = H.username()
+LeetCodeStatsApi.skills = function()
+  local name, err = LeetCodeStatsApi.username()
   if err ~= nil then return nil, err end
 
   local data, qerr = api.graphql(queries.skills, { username = name })
@@ -95,8 +93,8 @@ end
 ---
 ---@return table|nil { { language_name, problems_solved }, ... }
 ---@return string|nil err
-H.languages = function()
-  local name, err = H.username()
+LeetCodeStatsApi.languages = function()
+  local name, err = LeetCodeStatsApi.username()
   if err ~= nil then return nil, err end
 
   local data, qerr = api.graphql(queries.languages, { username = name })
@@ -109,11 +107,11 @@ end
 ---
 ---@return table|nil { streak_count, days_skipped, today_completed }
 ---@return string|nil err
-H.streak = function()
+LeetCodeStatsApi.streak = function()
   local data, err = api.graphql(queries.streak)
   if err ~= nil or data == nil then return nil, err or 'Empty response' end
   if data.streakCounter == nil then return nil, 'Streak counter not available' end
   return data.streakCounter, nil
 end
 
-return H
+return LeetCodeStatsApi

@@ -1,5 +1,8 @@
+--- *LeetCodeRunnerPython*
+---
+---@tag LeetCodeRunnerPython
+
 -- |leetcode-ui-runner-lang| Local Python 3 harness (`runner/langs/python3`).
---------------------------------------------------------------------------------
 -- Wraps the user's `class Solution` with LeetCode-standard data structures,
 -- a decoder for raw testcase lines, and a `print()` of the serialized return
 -- value. SystemDesign problems drive the `classname` object through the method
@@ -10,16 +13,14 @@
 --   specs_json  - normal: array of param type strings
 --                 systemdesign: array of { name, types = {...} } per method
 --   mode        - 'normal' | 'systemdesign'
---------------------------------------------------------------------------------
 
-local H = {}
+local LeetCodeRunnerPython = {}
 
 local config = require('leetcode-ui.config')
 
 -- Helper data =======================================================================================================
 
----Harness prelude: structures and (de)serialization helpers.
-H.prelude = [=[
+LeetCodeRunnerPython.prelude = [=[
 from typing import *
 from collections import *
 from math import *    # noqa
@@ -125,8 +126,7 @@ def _lc_decode(kind, raw):
     return data
 ]=]
 
----Harness entry: normal call or systemDesign driver.
-H.normal_entry = [=[
+LeetCodeRunnerPython.normal_entry = [=[
 def __lc_main__():
     lines = json.loads(sys.argv[1])
     types = json.loads(sys.argv[2])
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     __lc_main__()
 ]=]
 
-H.system_entry = [=[
+LeetCodeRunnerPython.system_entry = [=[
 def __lc_main__():
     lines = json.loads(sys.argv[1])
     specs = json.loads(sys.argv[2])
@@ -164,39 +164,21 @@ if __name__ == '__main__':
 
 -- Helper functionality =============================================================================================
 
----Whether python3 is available.
----
----@return boolean
----@return string|nil note Error note on failure.
-H.available = function()
+LeetCodeRunnerPython.available = function()
   local binary = (config.config.binaries or {}).python3 or 'python3'
   if vim.fn.executable(binary) == 1 then return true, nil end
   return false, ('`%s` is not executable'):format(binary)
 end
 
----Assemble the main.py source.
----
----@param code string User typed code.
----@param kind string 'normal' | 'systemdesign'.
----@param opt table { name = string, return_type = string, class_name = string }
----@return string
-H.build = function(code, kind, opt)
-  local entry = kind == 'systemdesign' and H.system_entry or H.normal_entry
+LeetCodeRunnerPython.build = function(code, kind, opt)
+  local entry = kind == 'systemdesign' and LeetCodeRunnerPython.system_entry or LeetCodeRunnerPython.normal_entry
   local piece = entry:gsub('__lc_method__', opt.name or '')
   piece = piece:gsub('__lc_return__', opt.return_type or '')
   piece = piece:gsub('__lc_class__', opt.class_name or '')
-  return H.prelude .. '\n\n' .. code .. '\n\n' .. piece
+  return LeetCodeRunnerPython.prelude .. '\n\n' .. code .. '\n\n' .. piece
 end
 
----Create workspace files and return the run argv.
----
----@param dir string Scratch directory.
----@param _question table Question detail (unused in python3 harness).
----@param code string User typed code.
----@param params table Decoded meta (|runner/common|).
----@param data_lines table|nil Raw testcase lines.
----@return table argv
-H.run = function(dir, _question, code, params, data_lines)
+LeetCodeRunnerPython.run = function(dir, _question, code, params, data_lines)
   local binary = (config.config.binaries or {}).python3 or 'python3'
   local main = vim.fs.joinpath(dir, 'main.py')
 
@@ -210,7 +192,7 @@ H.run = function(dir, _question, code, params, data_lines)
       table.insert(specs, { name = method.name, types = types })
     end
 
-    local source = H.build(code, 'systemdesign', { class_name = params.class_name })
+    local source = LeetCodeRunnerPython.build(code, 'systemdesign', { class_name = params.class_name })
     vim.fn.writefile(vim.split(source, '\n'), main)
 
     return {
@@ -228,9 +210,9 @@ H.run = function(dir, _question, code, params, data_lines)
   end
   local types_json = vim.json.encode(types)
 
-  local source = H.build(code, 'normal', { name = params.name, return_type = params.return_type })
+  local source = LeetCodeRunnerPython.build(code, 'normal', { name = params.name, return_type = params.return_type })
   vim.fn.writefile(vim.split(source, '\n'), main)
   return { binary, main, vim.json.encode(data_lines or {}), types_json, 'normal' }
 end
 
-return H
+return LeetCodeRunnerPython
