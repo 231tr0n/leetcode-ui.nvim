@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -24,12 +28,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip curl luajit luarocks
           pip3 install --user pyright || true
-          # Install stylua and luacheck
           sudo luarocks install luacheck || true
           curl -fsSL https://github.com/JohnnyMorganz/StyLua/releases/download/v0.20.0/stylua-linux-x86_64.zip -o stylua.zip
           unzip -o stylua.zip -d /usr/local/bin
           chmod +x /usr/local/bin/stylua
-          # Install lua-language-server
           curl -fsSL https://github.com/LuaLS/lua-language-server/releases/download/3.13.9/lua-language-server-3.13.9-linux-x64.tar.gz -o lls.tar.gz
           mkdir -p /opt/lua-language-server
           tar -xzf lls.tar.gz -C /opt/lua-language-server
@@ -48,11 +50,6 @@ jobs:
 
       - name: LuaLS check
         run: |
-          export VIMRUNTIME=$(nvim --headless -u NONE -c "lua io.write(vim.env.VIMRUNTIME or '')" -c "qa!" 2>/dev/null || echo "")
-          # try to find runtime
-          if [ -z "$VIMRUNTIME" ]; then
-            find /usr -name "runtime" -path "*nvim*" 2>/dev/null | head -1
-          fi
           lua-language-server --check . --check_out_path /tmp/luals-check.json || true
           python3 -c "
 import json,sys
@@ -81,3 +78,5 @@ except Exception as e:
         with:
           commit_message: "docs: update generated help"
           file_pattern: doc/*.txt
+          commit_user_name: "231tr0n"
+          commit_user_email: "zeltronsrikar@gmail.com"
