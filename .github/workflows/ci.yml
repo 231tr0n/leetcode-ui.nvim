@@ -52,7 +52,7 @@ jobs:
           node-version: "lts/*"
 
       - name: Stylua check
-        run: stylua --check lua plugin tests scripts
+        run: stylua --check lua plugin tests scripts .luacheckrc
 
       - name: Prettier check
         run: npx --yes prettier --check .
