@@ -148,14 +148,14 @@ LeetCodeConfig.setup_config = function(config)
 
   if
     not vim.tbl_contains(
-      { 'auto', 'firefox', 'epiphany', 'chrome', 'brave', 'edge', 'chromium', 'none' },
+      { 'auto', 'firefox', 'epiphany', 'safari', 'chrome', 'brave', 'edge', 'chromium', 'none' },
       config.browser
     )
   then
     LeetCodeConfig.error(
       (
         'Unknown browser `%s`. Use one of "auto", "firefox", "epiphany", '
-        .. '"chrome", "brave", "edge", "chromium", "none".'
+        .. '"safari", "chrome", "brave", "edge", "chromium", "none".'
       ):format(config.browser)
     )
   end

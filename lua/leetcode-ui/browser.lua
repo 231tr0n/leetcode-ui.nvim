@@ -21,16 +21,52 @@ local config = require('leetcode-ui.config')
 
 -- Helper data =======================================================================================================
 
+LeetCodeBrowser.os_name = function()
+  local sysname = (vim.uv.os_uname() or {}).sysname or ''
+  if sysname == 'Darwin' then return 'macos' end
+  if sysname == 'Windows_NT' then return 'windows' end
+  return 'linux'
+end
+
+LeetCodeBrowser.home = function() return vim.env.HOME or vim.env.USERPROFILE or '' end
+
+-- (OS-aware helpers above)
+
 LeetCodeBrowser.cookie_names = { 'LEETCODE_SESSION', 'csrftoken' }
 
-LeetCodeBrowser.chromium_roots = {
-  chrome = vim.fs.joinpath(vim.env.HOME or '', '.config', 'google-chrome'),
-  brave = vim.fs.joinpath(vim.env.HOME or '', '.config', 'BraveSoftware', 'Brave-Browser'),
-  edge = vim.fs.joinpath(vim.env.HOME or '', '.config', 'microsoft-edge'),
-  chromium = vim.fs.joinpath(vim.env.HOME or '', '.config', 'chromium'),
-}
+LeetCodeBrowser.is_chromium = function(browser)
+  return browser == 'chrome' or browser == 'brave' or browser == 'edge' or browser == 'chromium'
+end
 
-LeetCodeBrowser.is_chromium = function(browser) return LeetCodeBrowser.chromium_roots[browser] ~= nil end
+LeetCodeBrowser.chromium_root = function(browser)
+  local osname = LeetCodeBrowser.os_name()
+  local home = LeetCodeBrowser.home()
+  local name_map = {
+    chrome = {
+      linux = { '.config', 'google-chrome' },
+      macos = { 'Library', 'Application Support', 'Google', 'Chrome' },
+      windows = { 'AppData', 'Local', 'Google', 'Chrome', 'User Data' },
+    },
+    brave = {
+      linux = { '.config', 'BraveSoftware', 'Brave-Browser' },
+      macos = { 'Library', 'Application Support', 'BraveSoftware', 'Brave-Browser' },
+      windows = { 'AppData', 'Local', 'BraveSoftware', 'Brave-Browser', 'User Data' },
+    },
+    edge = {
+      linux = { '.config', 'microsoft-edge' },
+      macos = { 'Library', 'Application Support', 'Microsoft Edge' },
+      windows = { 'AppData', 'Local', 'Microsoft', 'Edge', 'User Data' },
+    },
+    chromium = {
+      linux = { '.config', 'chromium' },
+      macos = { 'Library', 'Application Support', 'Chromium' },
+      windows = { 'AppData', 'Local', 'Chromium', 'User Data' },
+    },
+  }
+  local parts = (name_map[browser] or {})[osname]
+  if parts == nil then return nil end
+  return vim.fs.joinpath(home, unpack(parts))
+end
 
 LeetCodeBrowser.python_script = [[
 import json, os, shutil, sqlite3, sys, tempfile
@@ -65,6 +101,75 @@ else:
         'WHERE host_key LIKE ? AND name IN (?, ?)'
 
 print(json.dumps(read(DB, sql, host_like + NAMES)))
+]]
+LeetCodeBrowser.safari_script = [[
+import json, struct, sys
+from io import BytesIO
+
+path = sys.argv[1]
+names = set(sys.argv[2:])
+
+try:
+    with open(path, 'rb') as f:
+        data = f.read()
+except IOError:
+    print(json.dumps({}))
+    sys.exit(0)
+
+if data[:4] != b'cook':
+    print(json.dumps({}))
+    sys.exit(0)
+
+num_pages = struct.unpack('>I', data[4:8])[0]
+off = 8
+page_sizes = list(struct.unpack('>' + 'I' * num_pages, data[off:off + 4 * num_pages]))
+off += 4 * num_pages
+
+pages = []
+for ps in page_sizes:
+    pages.append(data[off:off + ps])
+    off += ps
+
+result = {}
+
+def read_str(buf, o):
+    buf.seek(o - 4)
+    out = b''
+    ch = buf.read(1)
+    while ch and ch != b'\x00':
+        out += ch
+        ch = buf.read(1)
+    return out.decode('utf-8', 'replace')
+
+for page in pages:
+    p = BytesIO(page)
+    p.read(4)
+    num_cookies = struct.unpack('<I', p.read(4))[0]
+    offsets = [struct.unpack('<I', p.read(4))[0] for _ in range(num_cookies)]
+    p.read(4)
+    for offset in offsets:
+        p.seek(offset)
+        cookie_size = struct.unpack('<I', p.read(4))[0]
+        cookie = BytesIO(p.read(cookie_size))
+        cookie.read(4)
+        cookie.read(4)
+        cookie.read(4)
+        url_off = struct.unpack('<I', cookie.read(4))[0]
+        name_off = struct.unpack('<I', cookie.read(4))[0]
+        path_off = struct.unpack('<I', cookie.read(4))[0]
+        value_off = struct.unpack('<I', cookie.read(4))[0]
+        cookie.read(8)
+        cookie.read(8)
+        cookie.read(8)
+
+        url = read_str(cookie, url_off)
+        name = read_str(cookie, name_off)
+        value = read_str(cookie, value_off)
+
+        if 'leetcode' in url.lower() and name in names:
+            result[name] = value
+
+print(json.dumps(result))
 ]]
 
 -- Helper functionality ==============================================================================================
@@ -103,30 +208,48 @@ LeetCodeBrowser.cookie_db = function(browser)
 
   local candidates = {}
   if browser == 'firefox' then
-    vim.list_extend(
-      candidates,
-      vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.mozilla', 'firefox', '*', 'cookies.sqlite'), true, true)
-    )
-    vim.list_extend(
-      candidates,
-      vim.fn.glob(
-        vim.fs.joinpath(vim.env.HOME or '', '.config', 'mozilla', 'firefox', '*', 'cookies.sqlite'),
-        true,
-        true
+    local osname = LeetCodeBrowser.os_name()
+    local home = LeetCodeBrowser.home()
+    if osname == 'macos' then
+      vim.list_extend(
+        candidates,
+        vim.fn.glob(
+          vim.fs.joinpath(home, 'Library', 'Application Support', 'Firefox', 'Profiles', '*', 'cookies.sqlite'),
+          true,
+          true
+        )
       )
-    )
+    elseif osname == 'windows' then
+      local appdata = vim.env.APPDATA or home
+      vim.list_extend(
+        candidates,
+        vim.fn.glob(vim.fs.joinpath(appdata, 'Mozilla', 'Firefox', 'Profiles', '*', 'cookies.sqlite'), true, true)
+      )
+    else
+      vim.list_extend(
+        candidates,
+        vim.fn.glob(vim.fs.joinpath(home, '.mozilla', 'firefox', '*', 'cookies.sqlite'), true, true)
+      )
+      vim.list_extend(
+        candidates,
+        vim.fn.glob(vim.fs.joinpath(home, '.config', 'mozilla', 'firefox', '*', 'cookies.sqlite'), true, true)
+      )
+    end
   elseif browser == 'epiphany' then
+    local home = LeetCodeBrowser.home()
     vim.list_extend(
       candidates,
-      vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.local', 'share', 'epiphany', 'cookies.sqlite'), true, true)
+      vim.fn.glob(vim.fs.joinpath(home, '.local', 'share', 'epiphany', 'cookies.sqlite'), true, true)
     )
-    vim.list_extend(
-      candidates,
-      vim.fn.glob(vim.fs.joinpath(vim.env.HOME or '', '.config', 'epiphany', 'cookies.sqlite'), true, true)
-    )
+    vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(home, '.config', 'epiphany', 'cookies.sqlite'), true, true))
+  elseif browser == 'safari' then
+    local home = LeetCodeBrowser.home()
+    local p = vim.fs.joinpath(home, 'Library', 'Cookies', 'Cookies.binarycookies')
+    if vim.uv.fs_stat(p) ~= nil then table.insert(candidates, p) end
   else
-    local root = LeetCodeBrowser.chromium_roots[browser]
+    local root = LeetCodeBrowser.chromium_root(browser)
     vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root or '', '*', 'Cookies'), true, true))
+    vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root or '', '*', 'Network', 'Cookies'), true, true))
   end
   if #candidates == 0 then return nil end
 
@@ -143,7 +266,7 @@ LeetCodeBrowser.selected = function()
   if browser == nil or browser == 'none' then return nil end
 
   if browser == 'auto' then
-    for _, key in ipairs({ 'firefox', 'epiphany', 'chrome', 'brave', 'edge', 'chromium' }) do
+    for _, key in ipairs({ 'firefox', 'epiphany', 'safari', 'chrome', 'brave', 'edge', 'chromium' }) do
       if LeetCodeBrowser.cookie_db(key) ~= nil then return key end
     end
     return nil
@@ -257,6 +380,18 @@ LeetCodeBrowser.decrypt_blob = function(blob_hex, browser)
 end
 
 LeetCodeBrowser.read_cookies = function(browser)
+  if browser == 'safari' then
+    local db = LeetCodeBrowser.cookie_db(browser)
+    if db == nil then return nil, 'No Safari cookie file found' end
+    local out = vim
+      .system({ 'python3', '-c', LeetCodeBrowser.safari_script, db, 'LEETCODE_SESSION', 'csrftoken' }, { text = true })
+      :wait()
+    if out.code ~= 0 then return nil, ('safari reader failed: %s'):format(vim.trim(out.stderr or 'unknown error')) end
+    local ok, cookies = pcall(vim.json.decode, vim.trim(out.stdout or ''))
+    if not ok or type(cookies) ~= 'table' then return nil, 'safari reader returned invalid JSON' end
+    return cookies, nil
+  end
+
   local db = LeetCodeBrowser.cookie_db(browser)
   if db == nil then return nil, ('No %s cookie database found'):format(browser) end
 
