@@ -7,9 +7,13 @@ local root = vim.fs.normalize(vim.fs.dirname(script) .. '/..')
 vim.opt.runtimepath:prepend(root)
 
 local mini = vim.fn.expand('~/.local/share/nvim/site/pack/core/opt/mini.nvim')
-if vim.uv.fs_stat(mini .. '/lua/mini/doc.lua') then vim.opt.runtimepath:append(mini) end
+if vim.uv.fs_stat(mini .. '/lua/mini/doc.lua') then
+  vim.opt.runtimepath:append(mini)
+end
 
-if _G.MiniDoc == nil then require('mini.doc').setup() end
+if _G.MiniDoc == nil then
+  require('mini.doc').setup()
+end
 
 local modules = {
   'leetcode-ui',
@@ -40,10 +44,11 @@ local modules = {
 local inputs = {}
 for _, mod in ipairs(modules) do
   local path = vim.fs.joinpath(root, 'lua', mod:gsub('%.', '/') .. '.lua')
-  if vim.fn.filereadable(path) == 1 then table.insert(inputs, path) end
+  if vim.fn.filereadable(path) == 1 then
+    table.insert(inputs, path)
+  end
 end
 
 MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), {})
-
 vim.cmd('helptags ' .. vim.fs.joinpath(root, 'doc'))
 vim.cmd('qa!')
