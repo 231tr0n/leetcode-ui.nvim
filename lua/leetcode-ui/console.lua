@@ -1,4 +1,6 @@
---- *LeetCodeConsole* Test case console UI
+--- *leetcode-ui-console* Test case console UI
+---
+---@tag LeetCodeConsole
 ---
 
 -- |leetcode-ui-console| Test case console UI.

@@ -1,4 +1,6 @@
---- *LeetCode* LeetCode UI for Neovim
+--- *leetcode-ui* LeetCode UI for Neovim
+---
+---@tag LeetCode
 ---
 
 -- |leetcode-ui| Root module of the |leetcode-ui| plugin.

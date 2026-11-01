@@ -1,4 +1,6 @@
---- *LeetCodeQueries* All GraphQL queries
+--- *leetcode-ui-api-queries* All GraphQL queries
+---
+---@tag LeetCodeQueries
 ---
 
 -- |leetcode-ui-api-queries| All GraphQL queries in one place.

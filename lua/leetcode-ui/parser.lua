@@ -1,4 +1,6 @@
---- *LeetCodeParser* Question HTML content to styled buffer spans
+--- *leetcode-ui-parser* Question HTML content to styled buffer spans
+---
+---@tag LeetCodeParser
 ---
 
 -- |leetcode-ui-parser| Question HTML content to styled buffer spans.

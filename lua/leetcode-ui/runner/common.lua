@@ -1,4 +1,6 @@
---- *LeetCodeRunner* Local runner plumbing
+--- *leetcode-ui-runner-common* Local runner plumbing
+---
+---@tag LeetCodeRunner
 ---
 
 -- |leetcode-ui-runner-common| Local runner plumbing.

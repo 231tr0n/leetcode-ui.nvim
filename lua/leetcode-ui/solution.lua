@@ -1,4 +1,6 @@
---- *LeetCodeSolution* Code editor buffer of a question view
+--- *leetcode-ui-solution* Code editor buffer of a question view
+---
+---@tag LeetCodeSolution
 ---
 
 -- |leetcode-ui-solution| Code editor buffer of a question view.

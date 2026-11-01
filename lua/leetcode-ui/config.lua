@@ -1,4 +1,6 @@
---- *LeetCodeConfig* Configuration for leetcode-ui
+--- *leetcode-ui-config* Configuration for leetcode-ui
+---
+---@tag LeetCodeConfig
 ---
 
 -- |leetcode-ui-config| Structure and helpers for the main |leetcode-ui| module.

@@ -1,4 +1,6 @@
-*LeetCode* LeetCode UI for Neovim
+                                                                      *LeetCode*
+
+*leetcode-ui* LeetCode UI for Neovim
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.setup()*
@@ -57,7 +59,9 @@ the focused question view.
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeConfig* Configuration for leetcode-ui
+                                                                *LeetCodeConfig*
+
+*leetcode-ui-config* Configuration for leetcode-ui
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeConfig.error()*
@@ -101,7 +105,9 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeAuth* Session handling based on LeetCode cookies
+                                                                  *LeetCodeAuth*
+
+*leetcode-ui-auth* Session handling based on LeetCode cookies
 
 ------------------------------------------------------------------------------
                                                          *LeetCodeAuth.verify()*
@@ -153,7 +159,9 @@ session cache (cookie expired / user changed config).
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeBrowser* Automatic cookie import from browsers
+                                                               *LeetCodeBrowser*
+
+*leetcode-ui-browser* Automatic cookie import from browsers
 
 ------------------------------------------------------------------------------
                                                  *LeetCodeBrowser.get_cookies()*
@@ -171,7 +179,9 @@ the cache (e.g. forced refresh after login changes).
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeQuestion* Problem list, daily, random, and question detail
+                                                              *LeetCodeQuestion*
+
+*leetcode-ui-api-question* Problem list, daily, random, and question detail
 
 ------------------------------------------------------------------------------
                                                   *LeetCodeQuestion.normalize()*
@@ -253,7 +263,9 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeRunnerApi* Test-run and submit flows
+                                                             *LeetCodeRunnerApi*
+
+*leetcode-ui-api-runner* Test-run and submit flows
 
 ------------------------------------------------------------------------------
                                                  *LeetCodeRunnerApi.interpret()*
@@ -311,7 +323,9 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeStatsApi* User statistics wrappers
+                                                              *LeetCodeStatsApi*
+
+*leetcode-ui-api-stats* User statistics wrappers
 
 ------------------------------------------------------------------------------
                                                      *LeetCodeStatsApi.solved()*
@@ -368,12 +382,16 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeQueries* All GraphQL queries
+                                                               *LeetCodeQueries*
+
+*leetcode-ui-api-queries* All GraphQL queries
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeNet* HTTP layer on top of curl
+                                                                   *LeetCodeNet*
+
+*leetcode-ui-net* HTTP layer on top of curl
 
 ------------------------------------------------------------------------------
                                                          *LeetCodeNet.request()*
@@ -426,12 +444,16 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeStorage* Local caching and solution drafts
+                                                               *LeetCodeStorage*
+
+*leetcode-ui-storage* Local caching and solution drafts
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeParser* Question HTML content to styled buffer spans
+                                                                *LeetCodeParser*
+
+*leetcode-ui-parser* Question HTML content to styled buffer spans
 
 ------------------------------------------------------------------------------
                                                        *LeetCodeParser.render()*
@@ -456,7 +478,9 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeBuffer* Buffer lifecycle and rendering helpers
+                                                                *LeetCodeBuffer*
+
+*leetcode-ui-buffer* Buffer lifecycle and rendering helpers
 
 ------------------------------------------------------------------------------
                                                    *LeetCodeBuffer.open_float()*
@@ -472,7 +496,9 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeConsole* Test case console UI
+                                                               *LeetCodeConsole*
+
+*leetcode-ui-console* Test case console UI
 
 ------------------------------------------------------------------------------
                                                     *LeetCodeConsole.add_case()*
@@ -486,7 +512,9 @@ Parameters ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeSolution* Code editor buffer of a question view
+                                                              *LeetCodeSolution*
+
+*leetcode-ui-solution* Code editor buffer of a question view
 
 ------------------------------------------------------------------------------
                                                      *LeetCodeSolution.format()*
@@ -507,7 +535,9 @@ Parameters ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeQuestionView* Question view
+                                                          *LeetCodeQuestionView*
+
+*leetcode-ui-question* Question view
 
 ------------------------------------------------------------------------------
                                                *LeetCodeQuestionView.get_view()*
@@ -558,7 +588,9 @@ Parameters ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodePicker* Problem picking
+                                                                *LeetCodePicker*
+
+*leetcode-ui-picker* Problem picking
 
 ------------------------------------------------------------------------------
                                                        *LeetCodePicker.select()*
@@ -594,7 +626,9 @@ Parameters ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeStatsView* Statistics view
+                                                             *LeetCodeStatsView*
+
+*leetcode-ui-stats-view* Statistics view
 
 ------------------------------------------------------------------------------
                                                       *LeetCodeStatsView.open()*
@@ -614,7 +648,9 @@ the statistics buffer, if open.
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeMenu* Main menu view
+                                                                  *LeetCodeMenu*
+
+*leetcode-ui-menu* Main menu view
 
 ------------------------------------------------------------------------------
                                                            *LeetCodeMenu.open()*
@@ -624,17 +660,23 @@ the statistics buffer, if open.
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeRunner* Local runner plumbing
+                                                                *LeetCodeRunner*
+
+*leetcode-ui-runner-common* Local runner plumbing
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeRunnerPython* Python3 local runner
+                                                          *LeetCodeRunnerPython*
+
+*leetcode-ui-runner-python3* Python3 local runner
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
-*LeetCodeAsync* Tiny coroutine driver
+                                                                 *LeetCodeAsync*
+
+*leetcode-ui-async* Tiny coroutine driver
 
 
  vim:tw=78:ts=8:noet:ft=help:norl:

@@ -1,4 +1,6 @@
---- *LeetCodeQuestionView* Question view
+--- *leetcode-ui-question* Question view
+---
+---@tag LeetCodeQuestionView
 ---
 
 -- |leetcode-ui-question| Question view: description + code + console panes.

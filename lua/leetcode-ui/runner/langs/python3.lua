@@ -1,4 +1,6 @@
---- *LeetCodeRunnerPython* Python3 local runner
+--- *leetcode-ui-runner-python3* Python3 local runner
+---
+---@tag LeetCodeRunnerPython
 ---
 
 -- |leetcode-ui-runner-lang| Local Python 3 harness (`runner/langs/python3`).

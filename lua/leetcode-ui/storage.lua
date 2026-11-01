@@ -1,4 +1,6 @@
---- *LeetCodeStorage* Local caching and solution drafts
+--- *leetcode-ui-storage* Local caching and solution drafts
+---
+---@tag LeetCodeStorage
 ---
 
 -- |leetcode-ui-storage| Local caching and solution drafts.

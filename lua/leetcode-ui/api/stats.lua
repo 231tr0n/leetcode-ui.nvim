@@ -1,4 +1,6 @@
---- *LeetCodeStatsApi* User statistics wrappers
+--- *leetcode-ui-api-stats* User statistics wrappers
+---
+---@tag LeetCodeStatsApi
 ---
 
 -- |leetcode-ui-api-stats| User statistics wrappers.

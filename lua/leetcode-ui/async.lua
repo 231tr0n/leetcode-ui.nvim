@@ -1,4 +1,6 @@
---- *LeetCodeAsync* Tiny coroutine driver
+--- *leetcode-ui-async* Tiny coroutine driver
+---
+---@tag LeetCodeAsync
 ---
 
 -- |leetcode-ui-async| Tiny coroutine driver for UI actions.

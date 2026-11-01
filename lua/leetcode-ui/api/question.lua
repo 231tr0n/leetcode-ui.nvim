@@ -1,4 +1,6 @@
---- *LeetCodeQuestion* Problem list, daily, random, and question detail
+--- *leetcode-ui-api-question* Problem list, daily, random, and question detail
+---
+---@tag LeetCodeQuestion
 ---
 
 -- |leetcode-ui-api-question| Problem list, daily, random, and question detail.

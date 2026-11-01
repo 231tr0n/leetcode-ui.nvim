@@ -1,4 +1,6 @@
---- *LeetCodeStatsView* Statistics view
+--- *leetcode-ui-stats-view* Statistics view
+---
+---@tag LeetCodeStatsView
 ---
 
 -- |leetcode-ui-stats-view| Statistics view.

@@ -1,4 +1,6 @@
---- *LeetCodeRunnerApi* Test-run and submit flows
+--- *leetcode-ui-api-runner* Test-run and submit flows
+---
+---@tag LeetCodeRunnerApi
 ---
 
 -- |leetcode-ui-api-runner| Test-run (interpret) and submit flows.

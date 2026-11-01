@@ -1,4 +1,6 @@
---- *LeetCodeAuth* Session handling based on LeetCode cookies
+--- *leetcode-ui-auth* Session handling based on LeetCode cookies
+---
+---@tag LeetCodeAuth
 ---
 
 -- |leetcode-ui-auth| Session handling based on LeetCode cookies.

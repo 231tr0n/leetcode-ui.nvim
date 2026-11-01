@@ -1,4 +1,6 @@
---- *LeetCodeMenu* Main menu view
+--- *leetcode-ui-menu* Main menu view
+---
+---@tag LeetCodeMenu
 ---
 
 -- |leetcode-ui-menu| Main menu view.
