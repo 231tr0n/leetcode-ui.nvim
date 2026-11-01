@@ -71,9 +71,13 @@ T['common']['meta systemdesign mode'] = function()
     meta = {
       classname = 'MyCalendar',
       methods = {
-        { name = 'book', params = { { name = 'start', type = 'integer' }, { name = 'end', type = 'integer' } }, ['return'] = {
-          type = 'boolean',
-        } },
+        {
+          name = 'book',
+          params = { { name = 'start', type = 'integer' }, { name = 'end', type = 'integer' } },
+          ['return'] = {
+            type = 'boolean',
+          },
+        },
       },
     },
   }
