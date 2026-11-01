@@ -26,8 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip curl luajit luarocks
-          pip3 install --user pyright || true
+          sudo apt-get install -y python3 python3-pip curl luajit luarocks unzip
           sudo luarocks install luacheck || true
           curl -fsSL https://github.com/JohnnyMorganz/StyLua/releases/download/v0.20.0/stylua-linux-x86_64.zip -o stylua.zip
           unzip -o stylua.zip -d /usr/local/bin
@@ -51,17 +50,7 @@ jobs:
       - name: LuaLS check
         run: |
           lua-language-server --check . --check_out_path /tmp/luals-check.json || true
-          python3 -c "
-import json,sys
-try:
-    d=json.load(open('/tmp/luals-check.json'))
-    c=sum(len(v) for v in d.values())
-    print('luals problems', c)
-    sys.exit(1 if c>0 else 0)
-except Exception as e:
-    print(e)
-    sys.exit(0)
-"
+          python3 -c "import json,sys; d=json.load(open('/tmp/luals-check.json')); c=sum(len(v) for v in d.values()); print('luals problems', c); sys.exit(1 if c>0 else 0)"
 
       - name: Run tests
         run: timeout 600 nvim --headless -u scripts/minitest.lua
