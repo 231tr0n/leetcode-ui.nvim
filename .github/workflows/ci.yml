@@ -17,7 +17,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,18 +57,3 @@ jobs:
 
       - name: Run tests
         run: timeout 600 nvim --headless -u scripts/minitest.lua
-
-      - name: Generate docs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p doc
-          timeout 300 nvim --headless -u scripts/minidoc.lua || true
-
-      - name: Commit and push docs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "docs: update generated help"
-          file_pattern: doc/*.txt
-          commit_user_name: "231tr0n"
-          commit_user_email: "zeltronsrikar@gmail.com"
