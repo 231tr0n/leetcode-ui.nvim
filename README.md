@@ -4,7 +4,7 @@ A minimal Neovim UI for solving LeetCode problems.
 
 ## Features
 
-- Browse and pick LeetCode problems (mini.pick or vim.ui.select)
+- Browse and pick LeetCode problems (mini.pick or `vim.ui.select`)
 - View problem descriptions with HTML parsing
 - Edit and run solutions locally or against LeetCode's judge
 - Submit solutions
@@ -13,7 +13,7 @@ A minimal Neovim UI for solving LeetCode problems.
 
 ## Installation
 
-Using [lazy.nvim](https://github.com/folke/lazy.nvim):
+### [lazy.nvim](https://github.com/folke/lazy.nvim)
 
 ```lua
 {
@@ -25,6 +25,20 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
+### [vim.pack](https://neovim.io/doc/user/pack.html) (Neovim 0.12+)
+
+```lua
+vim.pack.add({
+  { src = "https://github.com/echasnovski/mini.nvim" },
+  { src = "https://github.com/231tr0n/leetcode-ui.nvim" },
+})
+require("leetcode-ui").setup({})
+```
+
+### Other plugin managers
+
+Works with any plugin manager that can clone Git repositories. Make sure `mini.nvim` is available on your runtimepath.
+
 ## Usage
 
 ```vim
@@ -35,6 +49,8 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 :LeetCode daily
 :LeetCode stats
 ```
+
+Selection is done via `vim.ui.select` when no picker is available.
 
 ## Requirements
 
