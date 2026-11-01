@@ -1,0 +1,1476 @@
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                       *H.langs*
+                                   `H.langs`
+language metadata keyed by `langSlug` (the API language slug).
+
+Type ~
+`(table<string, table>)`
+
+------------------------------------------------------------------------------
+                                                                  *H.highlights*
+                                 `H.highlights`
+highlight groups (applied by `H.create_hl()`).
+
+Type ~
+`(table<string, table>)`
+
+------------------------------------------------------------------------------
+                                                                *default_config*
+                                `default_config`
+config: all options with defaults.
+
+# Setup ~
+
+  require('leetcode-ui').setup({
+    -- Strings: site domain and default language slug.
+    url = 'leetcode.com',
+    lang = 'golang',
+
+    -- Subset of language slugs offered in pickers. nil = all `H.langs`.
+    languages = nil,
+
+    -- Cookies: set here or via environment variables of the same name.
+    cookies = { LEETCODE_SESSION = nil, csrftoken = nil },
+
+    -- Runner: `local_runner` enables offline execution, `binaries` may
+    -- override tool paths (keyed by language slug), `runner_timeout` is in
+    -- seconds, `no_local` lists language slugs forced online.
+    local_runner = true,
+    binaries = {},
+    runner_timeout = 30,
+    no_local = {},
+
+    -- UI geometry, in lines/columns.
+    console_height = 10,
+    description_width = 60,
+
+    -- Picker: 'mini' (mini.pick), 'builtin' (vim.ui.select) or 'auto'.
+    picker = 'auto',
+
+    -- Problem list cache lifetime, in minutes.
+    cooldown = 60,
+
+    -- Hide premium-only problems from listings.
+    hide_premium = false,
+
+    -- Icons: status (problem list), case (console), stats (statistics).
+    icons = {
+      status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
+      case = { passed = '✔', failed = '✘', unknown = '○', err = '✗' },
+      stats = { user = ' ', link = '→', stat = '≡', lang = '⌘' },
+    },
+
+    -- Buffer-local solution keymaps.
+    keys = { ... },
+  })
+
+NOTE: nested options (`icons`, `keys`, ...) are replaced whole on setup, not
+deep-merged; mirror the default structure and override single fields.
+
+Type ~
+`(table)`
+
+------------------------------------------------------------------------------
+                                                                      *H.config*
+                                   `H.config`
+option set used across the module.
+
+Type ~
+`(table)`
+
+------------------------------------------------------------------------------
+                                                                     *H.error()*
+                           `H.error`({msg}, {notify})
+out either as |vim.notify()| or as a Lua error.
+
+Parameters ~
+{msg} `(string)`
+{notify} `(boolean|nil)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                     *H.setup()*
+                               `H.setup`({opts})
+up |leetcode-ui| configuration.
+
+# Setup ~
+
+  require('leetcode-ui').setup({
+    lang = 'golang',
+    cookies = { LEETCODE_SESSION = 'eyJ...' },
+  })
+
+# Default config ~
+
+  All options and their defaults are documented above |leetcode-ui.setup()|.
+
+Parameters ~
+{opts} `(table|nil)` User configuration.
+
+------------------------------------------------------------------------------
+                                                                  *H.get_lang()*
+                              `H.get_lang`({slug})
+LeetCode language metadata.
+
+Parameters ~
+{slug} `(string)` LeetCode language slug, like 'cpp'.
+Return ~
+`(table|nil)` Language info (`H.langs[slug]`) or nil if unknown.
+
+------------------------------------------------------------------------------
+                                                              *H.lang_enabled()*
+                            `H.lang_enabled`({slug})
+`slug` is among the configured picker languages.
+
+Parameters ~
+{slug} `(string)`
+Return ~
+`(boolean)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+Class ~
+{lc.auth.Session}
+Fields ~
+{checked} `(boolean|nil)`
+{signed_in} `(boolean)`
+{name} `(string|nil)`
+{is_premium} `(boolean|nil)`
+{user_id} `(string|nil)`
+
+------------------------------------------------------------------------------
+                                                               *H.cookie_file()*
+                               `H.cookie_file`()
+to the configured cookie jar, or nil.
+
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                                  *H.jar_csrf()*
+                              `H.jar_csrf`({path})
+`csrftoken` from a Netscape-format cookie jar file.
+
+are tab-separated: domain, flag, path, secure, expiry, name, value.
+Parameters ~
+{path} `(string)`
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                                   *H.cookies()*
+                                 `H.cookies`()
+cookies from options, environment, and browsers.
+
+order per cookie: explicit `cookie_file` (handled separately by the
+> `cookies` config > env vars > automatic browser import.
+
+Return ~
+`(table)` name -> value with only non-empty entries.
+
+------------------------------------------------------------------------------
+                                                               *H.has_session()*
+                               `H.has_session`()
+Return ~
+`(boolean)`
+
+------------------------------------------------------------------------------
+                                                                      *H.csrf()*
+                                   `H.csrf`()
+`csrftoken` value for the `X-CSRFToken` header.
+
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                                   *H.headers()*
+                              `H.headers`({opts})
+header array used for every API request.
+
+Parameters ~
+{opts} `(table|nil)` Extra headers appended verbatim.
+Return ~
+`(table)` Raw `'Name: value'` header strings.
+
+------------------------------------------------------------------------------
+                                                             *H.handle_status()*
+                            `H.handle_status`({res})
+response status validation against authentication state.
+
+Parameters ~
+{res} `(table|nil)` Response from |leetcode-ui-net.request()|.
+Return ~
+`(table|nil)` res Response, or nil when rejected.
+Return ~
+`(string|nil)` err Error message.
+
+------------------------------------------------------------------------------
+                                                                    *H.verify()*
+                                  `H.verify`()
+current session against LeetCode, caching state.
+
+Return ~
+`(table|nil)` session
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                              *H.is_signed_in()*
+                               `H.is_signed_in`()
+cookies are configured and marked valid.
+
+Return ~
+`(boolean)`
+
+------------------------------------------------------------------------------
+                                                                      *H.name()*
+                                   `H.name`()
+authenticated display name or nil.
+
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                                *H.is_premium()*
+                                `H.is_premium`()
+unlock flag (nil until checked).
+
+Return ~
+`(boolean|nil)`
+
+------------------------------------------------------------------------------
+                                                                 *H.is_logged()*
+                                `H.is_logged`()
+cookies are configured at all (not dictating validity).
+
+Return ~
+`(boolean)`
+
+------------------------------------------------------------------------------
+                                                                     *H.reset()*
+                                  `H.reset`()
+session cache (cookie expired / user changed config).
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                *H.cookie_names*
+                                `H.cookie_names`
+of cookies the plugin needs, in query order.
+
+------------------------------------------------------------------------------
+                                                              *H.chromium_roots*
+                               `H.chromium_roots`
+browser roots (checked in list order).
+
+------------------------------------------------------------------------------
+                                                               *H.is_chromium()*
+                           `H.is_chromium`({browser})
+`browser` is a Chromium-based one (uses `encrypted_value` blobs).
+
+------------------------------------------------------------------------------
+                                                               *H.python_script*
+                               `H.python_script`
+embedded reader script. Runs standalone: `python3 SCRIPT <kind> <db>`.
+
+------------------------------------------------------------------------------
+                                                                  *H.selected()*
+                                 `H.selected`()
+browser selection.
+
+Return ~
+`(string|nil)` browser key, nil when disabled or not found.
+
+------------------------------------------------------------------------------
+                                                                     *H.unhex()*
+                                `H.unhex`({hex})
+string to raw bytes.
+
+Parameters ~
+{hex} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                *H.derive_key()*
+                                `H.derive_key`()
+v10 AES key derivation (first 32 hex chars of an HMAC-SHA1 block).
+
+Return ~
+`(string|nil)` key_hex
+
+------------------------------------------------------------------------------
+                                                              *H.decrypt_blob()*
+                          `H.decrypt_blob`({blob_hex})
+one Chromium `v10` cookie blob.
+
+Parameters ~
+{blob_hex} `(string|nil)` Hex of hex-encoded blob.
+Return ~
+`(string|nil)` value nil/'': nothing usable.
+Return ~
+`(string|nil)` err Message only for unsupported versions or failures.
+
+------------------------------------------------------------------------------
+                                                              *H.read_cookies()*
+                          `H.read_cookies`({browser})
+all LeetCode cookies from a browser database.
+
+Parameters ~
+{browser} `(string)`
+Return ~
+`(table|nil)` cookies name -> value
+Return ~
+`(string|nil)` err Collected warning/error messages.
+
+------------------------------------------------------------------------------
+                                                               *H.get_cookies()*
+                               `H.get_cookies`()
+browser cookies (session cache, 5 minute TTL).
+
+Return ~
+`(table|nil)` cookies name -> value or nil
+
+------------------------------------------------------------------------------
+                                                                     *H.reset()*
+                                  `H.reset`()
+the cache (e.g. forced refresh after login changes).
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                     *H.clean()*
+                               `H.clean`({value})
+decoded GraphQL rows (`vim.NIL` -> nil, missing -> fallback).
+
+Parameters ~
+{value} `(any)`
+Return ~
+`(any)`
+
+------------------------------------------------------------------------------
+                                                               *H.decode_meta()*
+                              `H.decode_meta`({s})
+JSON encoded response fields.
+
+Parameters ~
+{s} `(any)` JSON-encoded string or nil.
+Return ~
+`(any|nil)`
+
+------------------------------------------------------------------------------
+                                                                 *H.normalize()*
+                               `H.normalize`({q})
+a single `questionList` row.
+
+Parameters ~
+{q} `(table)` GraphQL row.
+Return ~
+`(table)` Normalized entry.
+
+------------------------------------------------------------------------------
+                                                                  *H.get_list()*
+                                 `H.get_list`()
+the full problem list (single bulk query), cached in storage.
+
+for |leetcode-ui-opt.cooldown| minutes per domain; temporarily refined
+solved marks after successful submissions inside this session.
+
+Return ~
+`(table|nil)` { total, questions }
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                              *H.find_in_list()*
+                     `H.find_in_list`({title_slug}, {opts})
+a cached list entry by slug; falls back to a fetch-through.
+
+Parameters ~
+{title_slug} `(string)`
+{opts} `(table|nil)` { force = boolean } always re-check via list.
+Return ~
+`(table|nil)` entry
+
+------------------------------------------------------------------------------
+                                                        *H.update_list_status()*
+                 `H.update_list_status`({title_slug}, {status})
+the cached list status for one question.
+
+Parameters ~
+{title_slug} `(string)`
+{status} `(string)` 'solved' | 'attempted' | nil
+
+------------------------------------------------------------------------------
+                                                                 *H.get_daily()*
+                                `H.get_daily`()
+daily question slug.
+
+Return ~
+`(string|nil)` title_slug
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                *H.get_random()*
+                             `H.get_random`({opts})
+question slug.
+
+Parameters ~
+{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+Return ~
+`(string|nil)` title_slug
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                 *H.get_infos()*
+                          `H.get_infos`({title_slug})
+and normalize a question detail.
+
+Parameters ~
+{title_slug} `(string)`
+Return ~
+`(table|nil)` detail
+Return ~
+`(string|nil)` err
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                     *H.sleep()*
+                                `H.sleep`({ms})
+sleep usable inside coroutines.
+
+Parameters ~
+{ms} `(number)`
+
+------------------------------------------------------------------------------
+                                                                 *H.normalize()*
+                       `H.normalize`({item}, {is_submit})
+a `/check/` response item into the shared result model.
+
+Parameters ~
+{item} `(table)` Raw check response.
+{is_submit} `(boolean)`
+Return ~
+`(table)` Normalized result.
+
+------------------------------------------------------------------------------
+                                                                 *H.interpret()*
+                `H.interpret`({question}, {code}, {data_input})
+a test (interpret request, not counted as a submission).
+
+Parameters ~
+{question} `(table)` Normalized detail (|leetcode-ui-api-question|).
+{code} `(string)` User typed code.
+{data_input} `(string|nil)` Case input: one testcase string or all joined.
+Return ~
+`(table|nil)` Normalized result
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                    *H.submit()*
+                         `H.submit`({question}, {code})
+a solution.
+
+Parameters ~
+{question} `(table)` Normalized detail.
+{code} `(string)` User typed code.
+Return ~
+`(table|nil)` Normalized result
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                    *H.listen()*
+                         `H.listen`({id}, {is_submit})
+the check endpoint until judging finishes.
+
+Parameters ~
+{id} `(string)` interpret_id or submission_id.
+{is_submit} `(boolean)`
+Return ~
+`(table|nil)` Normalized result
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                         *H.latest_submission()*
+                 `H.latest_submission`({question}, {lang_slug})
+stored submission for a question and language.
+
+Parameters ~
+{question} `(table)` Normalized detail.
+{lang_slug} `(string)`
+Return ~
+`(table|nil)` detail
+Return ~
+`(string|nil)` err
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                  *H.username()*
+                                 `H.username`()
+username or error.
+
+Return ~
+`(string|nil)` username
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                    *H.solved()*
+                                  `H.solved`()
+counts by difficulty against totals.
+
+Return ~
+`(table|nil)` { all = {...}, easy = {...}, medium = {...}, hard = {...} }
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                  *H.calendar()*
+                              `H.calendar`({year})
+data for the activity heatmap, plus solving percentiles.
+
+Parameters ~
+{year} `(number|nil)`
+Return ~
+`(table|nil)` { calendar = {...}, beats = {...} }
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                    *H.skills()*
+                                  `H.skills`()
+tag statistics.
+
+Return ~
+`(table|nil)` { advanced = {...}, intermediate = {...}, fundamental = {...} }
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                 *H.languages()*
+                                `H.languages`()
+problems per language.
+
+Return ~
+`(table|nil)` { { language_name, problems_solved }, ... }
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                                    *H.streak()*
+                                  `H.streak`()
+counter for the current session user.
+
+Return ~
+`(table|nil)` { streak_count, days_skipped, today_completed }
+Return ~
+`(string|nil)` err
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                   *H.request()*
+                              `H.request`({opts})
+an HTTP request.
+
+
+- `url` (string, required)
+- `method` (`'GET'|'POST'|'PUT'|'DELETE'`, default `'GET'`)
+- `headers` (array of raw `'Name: value'` strings)
+- `body` (string|nil raw request body)
+- `timeout` (number seconds, default 30)
+- `retries` (number of transient-failure retries, default 3)
+
+`{status, headers, body}` and an error string on transport failure.
+a coroutine, yields until the request completes.
+
+Parameters ~
+{opts} `(table)` Request options.
+Return ~
+`(table|nil)` Response
+Return ~
+`(string|nil)` Error
+
+------------------------------------------------------------------------------
+                                                              *H.request_json()*
+           `H.request_json`({url}, {body}, {headers}, {cookie_file})
+request shorthand (`POST` with JSON headers and body).
+
+Parameters ~
+{url} `(string)`
+{body} `(string)` Encoded JSON.
+{headers} `(table|nil)` Extra raw header strings.
+{cookie_file} `(string|nil)` Cookie jar path passed through to curl.
+Return ~
+`(table|nil)` Response
+Return ~
+`(string|nil)` Error
+
+------------------------------------------------------------------------------
+                                                              *H.should_retry()*
+                           `H.should_retry`({status})
+a status should trigger a retry.
+
+Parameters ~
+{status} `(number)`
+Return ~
+`(boolean)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                        *H.root*
+                                    `H.root`
+storage directory.
+
+------------------------------------------------------------------------------
+                                                                *H.cache_file()*
+                                `H.cache_file`()
+to the cache file.
+
+------------------------------------------------------------------------------
+                                                                *H.read_cache()*
+                                `H.read_cache`()
+the whole cache file.
+
+Return ~
+`(table)`
+
+------------------------------------------------------------------------------
+                                                               *H.write_cache()*
+                            `H.write_cache`({data})
+the whole cache file.
+
+Parameters ~
+{data} `(table)`
+
+------------------------------------------------------------------------------
+                                                                *H.draft_file()*
+                   `H.draft_file`({title_slug}, {lang_slug})
+file path for a question and language.
+
+Parameters ~
+{title_slug} `(string)`
+{lang_slug} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                *H.read_draft()*
+                   `H.read_draft`({title_slug}, {lang_slug})
+a draft if it exists.
+
+Parameters ~
+{title_slug} `(string)`
+{lang_slug} `(string)`
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                               *H.write_draft()*
+               `H.write_draft`({title_slug}, {lang_slug}, {code})
+a draft.
+
+Parameters ~
+{title_slug} `(string)`
+{lang_slug} `(string)`
+{code} `(string|nil)` Save nil to delete the draft.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                           *H.decode_entities()*
+                            `H.decode_entities`({s})
+HTML entities, including numeric variants.
+
+Parameters ~
+{s} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                             *H.encode_script()*
+                      `H.encode_script`({text}, {glyphs})
+`<sup>`/`<sub>` contents into Unicode glyph runs.
+
+Parameters ~
+{text} `(string)` Inner HTML of the script tag.
+{glyphs} `(table)` H.sup_chars/H.sub_chars.
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                *H.preprocess()*
+                             `H.preprocess`({html})
+pre-processing of question HTML before tokenization.
+
+Parameters ~
+{html} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                  *H.tokenize()*
+                              `H.tokenize`({html})
+HTML into text and tag events.
+
+Parameters ~
+{html} `(string)` Preprocessed HTML.
+Return ~
+`(table)` tokens Each `{ text = string }` or `{ tag = string, attrs = string }`.
+
+------------------------------------------------------------------------------
+                                                                      *H.attr()*
+                           `H.attr`({attrs}, {name})
+an attribute value from a raw attribute string.
+
+Parameters ~
+{attrs} `(string)` like ' src="x" alt="my alt"'
+{name} `(string)`
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                                    *H.render()*
+                             `H.render`({content})
+question HTML into highlightable lines.
+
+Parameters ~
+{content} `(string|nil)` Question HTML (nil renders a placeholder line).
+Return ~
+`(table)` lines Each line is a list of `{ text, hl }` spans.
+
+------------------------------------------------------------------------------
+                                                                   *H.measure()*
+                              `H.measure`({lines})
+character count of rendered lines (used for pane sizing).
+
+Parameters ~
+{lines} `(table)`
+Return ~
+`(number)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                   *H.scratch()*
+                          `H.scratch`({name}, {opts})
+(or reuse) a hidden scratch buffer.
+
+Parameters ~
+{name} `(string)` Unique buffer name.
+{opts} `(table|nil)` { ft = string, listed = boolean }
+Return ~
+`(number)` bufnr
+
+------------------------------------------------------------------------------
+                                                                *H.open_split()*
+                        `H.open_split`({bufnr}, {opts})
+a split window for a buffer.
+
+Parameters ~
+{bufnr} `(number)`
+{opts} `(table|nil)` { pos = 'left'|'right'|'above'|'below', width = number, height = number, focus = boolean, name = string }
+Return ~
+`(number)` winid
+
+------------------------------------------------------------------------------
+                                                                     *H.close()*
+                               `H.close`({winid})
+a window safely (deletes its scratch buffer too when empty).
+
+Parameters ~
+{winid} `(number|nil)`
+
+------------------------------------------------------------------------------
+                                                               *H.spans_write()*
+                `H.spans_write`({bufnr}, {lines}, {modifiable})
+span lines into a buffer, applying per-span highlights.
+
+Parameters ~
+{bufnr} `(number)`
+{lines} `(table)` List of lines; each is a list of `{ text, hl }`.
+{modifiable} `(boolean|nil)` Temporarily allow modification (default true).
+
+------------------------------------------------------------------------------
+                                                            *H.spans_to_texts()*
+                          `H.spans_to_texts`({lines})
+span lines to plain text lines (for |nvim_buf_set_lines()|).
+
+Parameters ~
+{lines} `(table)`
+Return ~
+`(table)`
+
+------------------------------------------------------------------------------
+                                                                    *H.keymap()*
+                   `H.keymap`({bufnr}, {lhs}, {rhs}, {desc})
+keymap.
+
+Parameters ~
+{bufnr} `(number)`
+{lhs} `(string)`
+{rhs} `(string|function)`
+{desc} `(string|nil)`
+
+------------------------------------------------------------------------------
+                                                                   *H.keymaps()*
+                        `H.keymaps`({bufnr}, {mappings})
+the plugin's configured keys on a buffer.
+
+Parameters ~
+{bufnr} `(number)`
+{mappings} `(table)` key -> { rhs = string|function, desc = string, keys_name = string }
+
+------------------------------------------------------------------------------
+                                                              *H.maybe_delete()*
+                           `H.maybe_delete`({bufnr})
+a buffer if it still exists.
+
+Parameters ~
+{bufnr} `(number|nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                     *H.spinner*
+                                  `H.spinner`
+frames for the running state.
+
+------------------------------------------------------------------------------
+                                                                      *H.header*
+                                   `H.header`
+header text.
+
+------------------------------------------------------------------------------
+                                                                       *H.new()*
+                                `H.new`({view})
+a console UI object for a question view.
+
+
+ cases     - array of `{ input = string, status = string, result = table|nil }`
+ selected  - 1-based index of the focused case.
+
+Parameters ~
+{view} `(table)` Question view (|leetcode-ui-question|).
+Return ~
+`(table)` console
+
+------------------------------------------------------------------------------
+                                                                 *H.set_cases()*
+                   `H.set_cases`({console}, {testcase_list})
+known test cases from the question detail.
+
+Parameters ~
+{testcase_list} `(table)` Raw input strings, one per case.
+
+------------------------------------------------------------------------------
+                                                                    *H.render()*
+                             `H.render`({console})
+the console buffer.
+
+------------------------------------------------------------------------------
+                                                              *H.case_running()*
+                      `H.case_running`({console}, {index})
+a case as running and (re)start the spinner.
+
+Parameters ~
+{index} `(number)`
+
+------------------------------------------------------------------------------
+                                                               *H.case_result()*
+                 `H.case_result`({console}, {index}, {result})
+a finished result for a case.
+
+Parameters ~
+{index} `(number)`
+{result} `(table)` Normalized |leetcode-ui-api-runner| result.
+
+------------------------------------------------------------------------------
+                                                             *H.start_spinner()*
+                          `H.start_spinner`({console})
+(or restart) the spinner animation timer.
+
+------------------------------------------------------------------------------
+                                                              *H.stop_spinner()*
+                          `H.stop_spinner`({console})
+the spinner timer, if any.
+
+------------------------------------------------------------------------------
+                                                                      *H.open()*
+                              `H.open`({console})
+buffer + split window, below the solution window.
+
+------------------------------------------------------------------------------
+                                                                     *H.close()*
+                              `H.close`({console})
+the console window.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                   *H.filetypes*
+                                 `H.filetypes`
+filetype per language slug.
+
+------------------------------------------------------------------------------
+                                                                  *H.filetype()*
+                           `H.filetype`({lang_slug})
+filetype for a language slug.
+
+Parameters ~
+{lang_slug} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                   *H.snippet()*
+                              `H.snippet`({view})
+snippet for the view's language.
+
+Parameters ~
+{view} `(table)` Question view.
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                 *H.languages()*
+                             `H.languages`({view})
+language slugs for the question, honoring `languages` filter.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(table)` Ordered slug list starting with the active one.
+
+------------------------------------------------------------------------------
+                                                                      *H.open()*
+                          `H.open`({view}, {win_opts})
+the code buffer (fresh or reusing an existing one) and open its split.
+
+Parameters ~
+{view} `(table)` Question view.
+{win_opts} `(table|nil)` { focus = boolean }
+
+------------------------------------------------------------------------------
+                                                                *H.save_draft()*
+                             `H.save_draft`({view})
+the typed code as a draft.
+
+Parameters ~
+{view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                                                      *H.code()*
+                                `H.code`({view})
+code currently in the buffer.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                     *H.reset()*
+                               `H.reset`({view})
+the starter snippet, discarding typed changes (draft too).
+
+Parameters ~
+{view} `(table)` Question view.
+
+------------------------------------------------------------------------------
+                                                           *H.switch_language()*
+                    `H.switch_language`({view}, {lang_slug})
+the buffer's language, preserving the previous draft.
+
+Parameters ~
+{view} `(table)` Question view.
+{lang_slug} `(string)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                       *H.views*
+                                   `H.views`
+question views by slug.
+
+------------------------------------------------------------------------------
+                                                                        *H.as()*
+                                  `H.as`({fn})
+a function in a coroutine (error-safe async driver).
+
+into |leetcode-ui-async|.
+
+Parameters ~
+{fn} `(function)` Body; may call the coroutine-aware API and runner.
+
+------------------------------------------------------------------------------
+                                                                  *H.describe()*
+                              `H.describe`({view})
+description lines: header stats + rendered content.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                                          *H.open_description()*
+                          `H.open_description`({view})
+the description pane.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                           *H.prepare_buffers()*
+                          `H.prepare_buffers`({view})
+buffers for a view (description + code).
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                                      *H.open()*
+                             `H.open`({title_slug})
+(or focus) a question view.
+
+Parameters ~
+{title_slug} `(string)`
+
+------------------------------------------------------------------------------
+                                                        *H.toggle_description()*
+                         `H.toggle_description`({view})
+the description window.
+
+------------------------------------------------------------------------------
+                                                                 *H.open_info()*
+                             `H.open_info`({view})
+floating info pane: id, language, tags, submit stats.
+
+------------------------------------------------------------------------------
+                                                                *H.reset_code()*
+                             `H.reset_code`({view})
+typed code to the starter snippet.
+
+------------------------------------------------------------------------------
+                                                           *H.switch_language()*
+                          `H.switch_language`({view})
+a language via the configured picker and switch.
+
+------------------------------------------------------------------------------
+                                                                  *H.get_view()*
+                              `H.get_view`({slug})
+or last opened question view for a slug.
+
+Parameters ~
+{slug} `(string)`
+Return ~
+`(table|nil)`
+
+------------------------------------------------------------------------------
+                                                                   *H.current()*
+                                 `H.current`()
+focused question view (via the code or description buffer).
+
+Return ~
+`(table|nil)`
+
+------------------------------------------------------------------------------
+                                                                       *H.run()*
+                            `H.run`({view}, {index})
+test cases against LeetCode (interpret, not a submission).
+
+argument runs every known case; `index` runs a single one. Without any
+cases the first example testcase is used.
+
+Parameters ~
+{view} `(table)`
+{index} `(number|nil)` 1-based case index, nil = run all.
+
+------------------------------------------------------------------------------
+                                                                    *H.submit()*
+                               `H.submit`({view})
+the solution to LeetCode.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                                     *H.close()*
+                               `H.close`({view})
+a view: close panes, delete buffers, drop state.
+
+Parameters ~
+{view} `(table)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                              *H.format_entry()*
+                           `H.format_entry`({entry})
+one list entry for display.
+
+Parameters ~
+{entry} `(table)` Normalized list entry.
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                *H.pick_entry()*
+                  `H.pick_entry`({lines}, {entries}, {choice})
+an entry back from a formatted line.
+
+Parameters ~
+{lines} `(table)` Lines as picker showed them.
+{entries} `(table)` Entries in the same order.
+{choice} `(string|nil)`
+Return ~
+`(table|nil)` entry
+
+------------------------------------------------------------------------------
+                                                                    *H.launch()*
+                              `H.launch`({entry})
+a picked question.
+
+Parameters ~
+{entry} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                                            *H.problem_source()*
+                          `H.problem_source`({filter})
+source over the problem list.
+
+Parameters ~
+{filter} `(table|nil)` { difficulty = string|nil, hide_premium = boolean|nil }
+Return ~
+`(table)` items Formatted lines.
+Return ~
+`(table)` entries Parallel normalized entries.
+
+------------------------------------------------------------------------------
+                                                                    *H.select()*
+                   `H.select`({items}, {title}, {on_choice})
+select: mini.pick when present, else |vim.ui.select()|.
+
+Parameters ~
+{items} `(table)` Choice items.
+{title} `(string|nil)`
+{on_choice} `(function |`(item, idx))``|; both nil on cancellation.
+
+------------------------------------------------------------------------------
+                                                                   *H.problem()*
+                              `H.problem`({opts})
+list browser.
+
+Parameters ~
+{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+
+------------------------------------------------------------------------------
+                                                                     *H.daily()*
+                                  `H.daily`()
+today's daily question.
+
+------------------------------------------------------------------------------
+                                                                    *H.random()*
+                               `H.random`({opts})
+a random question.
+
+Parameters ~
+{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                               *H.difficulty_hl*
+                               `H.difficulty_hl`
+and their highlight groups.
+
+------------------------------------------------------------------------------
+                                                                     *H.meter()*
+                 `H.meter`({label}, {solved}, {total}, {width})
+progress meter line.
+
+Parameters ~
+{label} `(string)` Difficulty label.
+{solved} `(number)`
+{total} `(number)`
+{width} `(number|nil)`
+Return ~
+`(table)` Line spans.
+
+------------------------------------------------------------------------------
+                                                            *H.language_lines()*
+                           `H.language_lines`({rows})
+breakdown section spans.
+
+Parameters ~
+{rows} `(table)` [{language_name, problems_solved}]
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                                              *H.skills_lines()*
+                            `H.skills_lines`({tags})
+section spans.
+
+Parameters ~
+{tags} `(table)` tagProblemCounts result.
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                                              *H.render_stats()*
+                           `H.render_stats`({bufnr})
+all stats and render into `bufnr`.
+
+Parameters ~
+{bufnr} `(number)`
+
+------------------------------------------------------------------------------
+                                                                      *H.open()*
+                                   `H.open`()
+the statistics split.
+
+------------------------------------------------------------------------------
+                                                                   *H.session()*
+                                 `H.session`()
+details (user + streak) in a notification.
+
+------------------------------------------------------------------------------
+                                                                     *H.close()*
+                                  `H.close`()
+the statistics buffer, if open.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                      *H.rows()*
+                                   `H.rows`()
+rows: [ label, description, handler ].
+
+------------------------------------------------------------------------------
+                                                                    *H.render()*
+                                  `H.render`()
+the menu buffer.
+
+------------------------------------------------------------------------------
+                                                                   *H.bind_cr()*
+                                 `H.bind_cr`()
+`<CR>`-driven row execution by cursor line.
+
+------------------------------------------------------------------------------
+                                                                      *H.open()*
+                                   `H.open`()
+(or refocus) the menu.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                      *H.meta()*
+                              `H.meta`({question})
+the normalized question `meta` into a runner description.
+
+Parameters ~
+{question} `(table)`
+Return ~
+`(table)` { mode = 'normal'|'systemdesign'|'manual', name, params, return_type, class_name, methods }
+
+------------------------------------------------------------------------------
+                                                                *H.data_lines()*
+                          `H.data_lines`({data_input})
+the `data_input` testcase into raw parameter lines.
+
+Parameters ~
+{data_input} `(string|nil)` Multi-line testcase string.
+Return ~
+`(table|nil)` raw lines; nil for an empty input.
+
+------------------------------------------------------------------------------
+                                                                   *H.harness()*
+                      `H.harness`({lang_slug}, {question})
+the local harness for a language.
+
+Parameters ~
+{lang_slug} `(string)`
+{question} `(table)`
+Return ~
+`(table|nil)` harness module, when locally applicable.
+Return ~
+`(string|nil)` note Why no local run is offered.
+
+------------------------------------------------------------------------------
+                                                                 *H.run_local()*
+    `H.run_local`({question}, {lang_slug}, {code}, {data_input}, {on_done})
+run the local harness over a testcase.
+
+Parameters ~
+{question} `(table)` Question detail.
+{lang_slug} `(string)`
+{code} `(string)` User typed code.
+{data_input} `(string|nil)` Testcase (nil = empty params).
+{on_done} `(fun(result: table|nil, err: string|nil))` Callback in the main loop.
+
+------------------------------------------------------------------------------
+                                                                 *H.normalize()*
+                        `H.normalize`({out}, {started})
+a `vim.system` result.
+
+Parameters ~
+{out} `(table)` vim.system callback result.
+{started} `(number)` uv.hrtime() at spawn.
+Return ~
+`(table)` { status = 'ran'|'error', message, runtime_ms, raw }
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                     *H.prelude*
+                                  `H.prelude`
+prelude: structures and (de)serialization helpers.
+
+------------------------------------------------------------------------------
+                                                                *H.normal_entry*
+                                `H.normal_entry`
+entry: normal call or systemDesign driver.
+
+------------------------------------------------------------------------------
+                                                                 *H.available()*
+                                `H.available`()
+python3 is available.
+
+Return ~
+`(boolean)`
+Return ~
+`(string|nil)` note Error note on failure.
+
+------------------------------------------------------------------------------
+                                                                     *H.build()*
+                        `H.build`({code}, {kind}, {opt})
+the main.py source.
+
+Parameters ~
+{code} `(string)` User typed code.
+{kind} `(string)` 'normal' | 'systemdesign'.
+{opt} `(table)` { name = string, return_type = string, class_name = string }
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                                       *H.run()*
+          `H.run`({dir}, {_question}, {code}, {params}, {data_lines})
+workspace files and return the run argv.
+
+Parameters ~
+{dir} `(string)` Scratch directory.
+{_question} `(table)` Question detail (unused in python3 harness).
+{code} `(string)` User typed code.
+{params} `(table)` Decoded meta (|runner/common|).
+{data_lines} `(table|nil)` Raw testcase lines.
+Return ~
+`(table)` argv
+
+
+==============================================================================
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+                                                                       *H.run()*
+                                 `H.run`({fn})
+a function in a coroutine, reporting errors through |vim.notify()|.
+
+Parameters ~
+{fn} `(function)` Body; may call the coroutine-aware API and runner modules.
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
