@@ -147,6 +147,7 @@ end
 ---@param console table
 ---@param input string
 LeetCodeConsole.add_case = function(console, input)
+  if console.view ~= nil and console.view.busy then return end
   input = input or ''
   -- Allow multi-line test cases to be entered on a single prompt line using
   -- the literal sequence "\n" (e.g. "[2,7,11,15]\n9").
@@ -159,6 +160,7 @@ LeetCodeConsole.add_case = function(console, input)
 end
 
 LeetCodeConsole.delete_case = function(console, index)
+  if console.view ~= nil and console.view.busy then return end
   index = index or console.selected
   local cases = console.cases or {}
   if index == nil or index < 1 or index > #cases then return end
@@ -174,6 +176,7 @@ LeetCodeConsole.delete_case = function(console, index)
 end
 
 LeetCodeConsole.edit_case = function(console, index, input)
+  if console.view ~= nil and console.view.busy then return end
   index = index or console.selected
   local case = (console.cases or {})[index]
   if case == nil then return end
@@ -186,6 +189,7 @@ LeetCodeConsole.edit_case = function(console, index, input)
 end
 
 LeetCodeConsole.select_next = function(console)
+  if console.view ~= nil and console.view.busy then return end
   local cases = console.cases or {}
   if #cases == 0 then return end
   console.selected = (console.selected % #cases) + 1
@@ -193,6 +197,7 @@ LeetCodeConsole.select_next = function(console)
 end
 
 LeetCodeConsole.select_prev = function(console)
+  if console.view ~= nil and console.view.busy then return end
   local cases = console.cases or {}
   if #cases == 0 then return end
   console.selected = ((console.selected - 2) % #cases) + 1

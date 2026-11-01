@@ -248,6 +248,12 @@ LeetCodeConfig.setup = function(opts)
   LeetCodeConfig.apply_config(opts)
   LeetCodeConfig.create_hl()
 
+  if not LeetCodeConfig._hl_autocmd then
+    LeetCodeConfig._hl_autocmd = vim.api.nvim_create_autocmd('ColorScheme', {
+      callback = function() LeetCodeConfig.create_hl() end,
+    })
+  end
+
   LeetCodeConfig.is_setup = true
 end
 

@@ -91,7 +91,9 @@ end
 ---
 ---@param view table Question view.
 LeetCodeSolution.format = function(view)
+  if view == nil or view.busy then return end
   if view.code_bufnr == nil or not vim.api.nvim_buf_is_valid(view.code_bufnr) then return end
+  view.busy = true
 
   local code = LeetCodeSolution.code(view)
   local formatted = nil
@@ -153,6 +155,7 @@ LeetCodeSolution.format = function(view)
     if out.code == 0 and type(out.stdout) == 'string' and out.stdout ~= '' then
       vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, vim.split(out.stdout, '\n'))
       LeetCodeSolution.save_draft(view)
+      view.busy = false
       pcall(vim.api.nvim_set_current_win, view.winid)
       return
     end
@@ -161,6 +164,7 @@ LeetCodeSolution.format = function(view)
   -- Fall back to an attached LSP formatter.
   local ok = pcall(vim.lsp.buf.format, { bufnr = view.code_bufnr, async = false })
   if not ok then vim.notify('(leetcode-ui) No formatter available for this buffer', vim.log.levels.WARN) end
+  view.busy = false
   LeetCodeSolution.save_draft(view)
   pcall(vim.api.nvim_set_current_win, view.winid)
 end

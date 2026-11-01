@@ -74,6 +74,10 @@ end
 
 LeetCodeQuestionView.render_winbar = function(view)
   if view.winid == nil or not vim.api.nvim_win_is_valid(view.winid) then return end
+  if view.busy then
+    vim.api.nvim_set_option_value('winbar', '  LeetCode  │  (busy…)', { win = view.winid })
+    return
+  end
   local parts = {}
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do
     local label = LeetCodeQuestionView.tab_labels[tab]
@@ -85,6 +89,7 @@ LeetCodeQuestionView.render_winbar = function(view)
 end
 
 LeetCodeQuestionView.show_tab = function(view, name)
+  if view == nil or view.busy then return end
   if view.winid == nil or not vim.api.nvim_win_is_valid(view.winid) then return end
   if LeetCodeQuestionView.tab_labels[name] == nil then return end
 
@@ -111,6 +116,7 @@ LeetCodeQuestionView.show_tab = function(view, name)
 end
 
 LeetCodeQuestionView.cycle_tab = function(view, delta)
+  if view == nil or view.busy then return end
   local idx = 1
   for i, tab in ipairs(LeetCodeQuestionView.tabs) do
     if tab == view.active then
@@ -328,6 +334,7 @@ LeetCodeQuestionView.open = function(title_slug)
     end
 
     local view = LeetCodeQuestionView.views[title_slug]
+    if view ~= nil then view.busy = true end
     if view == nil then
       view = {
         slug = title_slug,
@@ -335,6 +342,7 @@ LeetCodeQuestionView.open = function(title_slug)
         entry = api.find_in_list(title_slug),
         lang = config.config.lang,
         console = nil,
+        busy = true,
       }
       LeetCodeQuestionView.views[title_slug] = view
     else
@@ -360,6 +368,7 @@ LeetCodeQuestionView.open = function(title_slug)
     view.desc_winid = view.winid
     view.code_winid = view.winid
     view.active = 'code'
+    view.busy = false
     pcall(vim.api.nvim_set_option_value, 'number', true, { win = view.winid })
     LeetCodeQuestionView.render_winbar(view)
     vim.api.nvim_set_current_win(view.winid)
@@ -370,18 +379,26 @@ LeetCodeQuestionView.toggle_description = function(view) LeetCodeQuestionView.sh
 LeetCodeQuestionView.toggle_info = function(view) LeetCodeQuestionView.show_tab(view, 'info') end
 
 LeetCodeQuestionView.reset_code = function(view)
+  if view == nil or view.busy then return end
+  view.busy = true
   if view.console ~= nil then view.console:render() end
   solution.reset(view)
+  view.busy = false
   pcall(vim.api.nvim_set_current_win, view.winid)
   vim.notify('(leetcode-ui) Code reset to starter snippet', vim.log.levels.INFO)
 end
 
 LeetCodeQuestionView.switch_language = function(view)
+  if view == nil or view.busy then return end
+  view.busy = true
   local langs = solution.languages(view)
   local picker = require('leetcode-ui.picker')
   picker.select(langs, ' Switch language ', function(choice)
     if choice ~= nil then solution.switch_language(view, choice) end
+    view.busy = false
   end)
+  -- If picker.select returns synchronously (no selection), clear busy.
+  view.busy = false
 end
 
 -- Public API ========================================================================================================
@@ -404,6 +421,8 @@ LeetCodeQuestionView.current = function()
 end
 
 LeetCodeQuestionView.run = function(view, index)
+  if view == nil or view.busy then return end
+  view.busy = true
   LeetCodeQuestionView.as(function()
     solution.save_draft(view)
     local code = solution.code(view)
@@ -414,7 +433,10 @@ LeetCodeQuestionView.run = function(view, index)
 
     local cases = view.console.cases
     if index ~= nil then
-      if cases[index] == nil then return end
+      if cases[index] == nil then
+        view.busy = false
+        return
+      end
       view.console:case_running(index)
       view.console:render()
       LeetCodeQuestionView.show_tab(view, 'console')
@@ -422,6 +444,7 @@ LeetCodeQuestionView.run = function(view, index)
       local result, err = runner.interpret(question, code, cases[index].input)
       if err ~= nil or result == nil then
         cases[index].running = false
+        view.busy = false
         vim.notify('(leetcode-ui) ' .. (err or 'Empty response'), vim.log.levels.ERROR)
         view.console:render()
         return
@@ -445,6 +468,7 @@ LeetCodeQuestionView.run = function(view, index)
       end
       vim.notify('(leetcode-ui) ' .. (err or 'Empty response'), vim.log.levels.ERROR)
       view.console:render()
+      view.busy = false
       return
     end
 
@@ -466,11 +490,14 @@ LeetCodeQuestionView.run = function(view, index)
       end
       view.console:case_result(i, case.result)
     end
+    view.busy = false
     pcall(vim.api.nvim_set_current_win, view.winid)
   end)
 end
 
 LeetCodeQuestionView.submit = function(view)
+  if view == nil or view.busy then return end
+  view.busy = true
   LeetCodeQuestionView.as(function()
     solution.save_draft(view)
     local code = solution.code(view)
@@ -481,10 +508,14 @@ LeetCodeQuestionView.submit = function(view)
 
     local result, err = runner.submit(question, code)
     if err ~= nil then
+      view.busy = false
       vim.notify('(leetcode-ui) ' .. err, vim.log.levels.ERROR)
       return
     end
-    if result == nil then return end
+    if result == nil then
+      view.busy = false
+      return
+    end
 
     local icons = config.config.icons.case
     local icon = ({ Accepted = icons.passed })[result.status] or icons.failed
@@ -520,6 +551,7 @@ LeetCodeQuestionView.submit = function(view)
     view.console.submission_result = result
     view.console:render()
     LeetCodeQuestionView.show_tab(view, 'console')
+    view.busy = false
     pcall(vim.api.nvim_set_current_win, view.winid)
     if result.ok then
       api.update_list_status(view.slug, 'solved')
