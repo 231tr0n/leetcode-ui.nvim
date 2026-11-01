@@ -122,6 +122,9 @@ local default_config = {
 
 LeetCodeConfig.config = default_config
 
+---Reset the public config table back to defaults (used by tests).
+LeetCodeConfig.reset = function() LeetCodeConfig.config = vim.deepcopy(default_config) end
+
 -- Helper functionality ==============================================================================================
 
 LeetCodeConfig.setup_config = function(config)

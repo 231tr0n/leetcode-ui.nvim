@@ -261,7 +261,7 @@ LeetCodeQuestionView.populate_info = function(view)
     )
   end
 
-  local keys = config.config.keys
+  local keys = config.config.keys or {}
   table.insert(lines, {})
   table.insert(lines, { { text = 'Keys:', hl = 'LeetCodeTitle' } })
   local key_rows = {
@@ -280,7 +280,7 @@ LeetCodeQuestionView.populate_info = function(view)
   for _, row in ipairs(key_rows) do
     table.insert(lines, {
       { text = ('  %-18s'):format(row[1]), hl = 'LeetCodeDim' },
-      { text = row[2], hl = 'LeetCodeCode' },
+      { text = row[2] or '', hl = 'LeetCodeCode' },
     })
   end
   buffer.spans_write(view.info_bufnr, lines, false)

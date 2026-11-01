@@ -59,6 +59,11 @@ the focused question view.
 *leetcode-ui-config* Configuration for leetcode-ui
 
 ------------------------------------------------------------------------------
+                                                        *LeetCodeConfig.reset()*
+                            `LeetCodeConfig.reset`()
+the public config table back to defaults (used by tests).
+
+------------------------------------------------------------------------------
                                                         *LeetCodeConfig.error()*
                     `LeetCodeConfig.error`({msg}, {notify})
 out either as |vim.notify()| or as a Lua error.

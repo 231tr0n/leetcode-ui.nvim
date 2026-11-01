@@ -29,7 +29,9 @@ H.setup = function(opts)
     cookies = {},
     local_runner = true,
   }
-  require('leetcode-ui.config').setup(vim.tbl_extend('force', base, opts or {}))
+  local config = require('leetcode-ui.config')
+  config.reset()
+  config.setup(vim.tbl_extend('force', base, opts or {}))
 
   -- Neutralize environment cookie sources.
   vim.env.LEETCODE_SESSION = nil
