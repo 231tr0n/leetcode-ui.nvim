@@ -470,17 +470,53 @@ Return ~
                                                                 *LeetCodeBuffer*
 *LeetCodeBuffer*
 
+------------------------------------------------------------------------------
+                                                   *LeetCodeBuffer.open_float()*
+                  `LeetCodeBuffer.open_float`({bufnr}, {opts})
+a centered floating window for a buffer.
+
+Parameters ~
+{bufnr} `(number)`
+{opts} `(table|nil)` { width = number, height = number, border = string, focus = boolean, title = string }
+Return ~
+`(number)` winid
+
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                                *LeetCodeConsole*
 *LeetCodeConsole*
 
+------------------------------------------------------------------------------
+                                                    *LeetCodeConsole.add_case()*
+                 `LeetCodeConsole.add_case`({console}, {input})
+a new test case with the given input.
+
+Parameters ~
+{console} `(table)`
+{input} `(string)`
+
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                               *LeetCodeSolution*
 *LeetCodeSolution*
+
+------------------------------------------------------------------------------
+                                                     *LeetCodeSolution.format()*
+                       `LeetCodeSolution.format`({view})
+the typed code using an available LSP/formatter.
+
+Parameters ~
+{view} `(table)` Question view.
+
+------------------------------------------------------------------------------
+                                                      *LeetCodeSolution.reset()*
+                        `LeetCodeSolution.reset`({view})
+the starter snippet, discarding typed changes (draft too).
+
+Parameters ~
+{view} `(table)` Question view.
 
 
 ==============================================================================

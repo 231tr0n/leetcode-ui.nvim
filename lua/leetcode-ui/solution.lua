@@ -51,13 +51,12 @@ LeetCodeSolution.languages = function(view)
 end
 
 LeetCodeSolution.open = function(view, win_opts)
-  view.code_winid = buffer.open_float(
+  view.code_winid = buffer.open_split(
     view.code_bufnr,
     vim.tbl_extend('force', {
+      pos = 'right',
       width = math.max(vim.o.columns - (config.config.description_width + 2), 40),
-      height = math.max(vim.o.lines - 4, 10),
       focus = true,
-      title = ' ' .. (view.slug or '') .. ' ',
     }, win_opts or {})
   )
 

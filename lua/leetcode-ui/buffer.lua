@@ -67,9 +67,10 @@ LeetCodeBuffer.open_float = function(bufnr, opts)
   opts = opts or {}
   local width = opts.width or config.config.float_width or 80
   local height = opts.height or config.config.float_height or 24
+  -- Let Neovim apply the configured default float border (`vim.o.winborder`)
+  -- unless an explicit border was requested.
   local border = opts.border
   if border == nil then border = config.config.float_border end
-  if border == nil then border = (vim.o.winborder ~= '' and vim.o.winborder) or nil end
 
   -- Clamp to screen.
   width = math.min(width, vim.o.columns - 4)
@@ -78,17 +79,18 @@ LeetCodeBuffer.open_float = function(bufnr, opts)
   local row = math.floor((vim.o.lines - height) / 2)
   local col = math.floor((vim.o.columns - width) / 2)
 
-  local winid = vim.api.nvim_open_win(bufnr, opts.focus ~= false, {
+  local win_opts = {
     relative = 'editor',
     row = row,
     col = col,
     width = width,
     height = height,
     style = 'minimal',
-    border = border,
     title = opts.title,
     title_pos = opts.title and 'center' or nil,
-  })
+  }
+  if border ~= nil then win_opts.border = border end
+  local winid = vim.api.nvim_open_win(bufnr, opts.focus ~= false, win_opts)
   return winid
 end
 
