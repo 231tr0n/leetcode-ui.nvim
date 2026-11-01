@@ -31,7 +31,6 @@ local modules = {
   'leetcode-ui.runner.common',
   'leetcode-ui.runner.langs.python3',
   'leetcode-ui.async',
-  'leetcode-ui.openers',
 }
 
 local inputs = {}

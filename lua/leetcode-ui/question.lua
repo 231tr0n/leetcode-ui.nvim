@@ -160,7 +160,7 @@ end
 ---@param title_slug string
 H.open = function(title_slug)
   H.as(function()
-    local fetch, fetch_err = api.get_infos(title_slug)
+    local fetch, fetch_err = api.get_detail(title_slug)
     if fetch_err ~= nil or fetch == nil then
       vim.notify('(leetcode-ui) ' .. (fetch_err or 'Empty response'), vim.log.levels.ERROR)
       return

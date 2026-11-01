@@ -182,7 +182,7 @@ end
 ---@param title_slug string
 ---@return table|nil detail
 ---@return string|nil err
-H.get_infos = function(title_slug)
+H.get_detail = function(title_slug)
   local data, err = api.graphql(queries.question, { titleSlug = title_slug })
   if err ~= nil or data == nil then return nil, err or 'Empty response' end
 

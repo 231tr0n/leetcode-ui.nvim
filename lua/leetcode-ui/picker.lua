@@ -12,6 +12,11 @@ local H = {}
 local config = require('leetcode-ui.config')
 local api = require('leetcode-ui.api.question')
 
+---Run a function in a coroutine (error-safe driver).
+---
+---@param fn function
+H.as = function(fn) return require('leetcode-ui.async').run(fn) end
+
 -- Helper functionality =============================================================================================
 
 ---Format one list entry for display.

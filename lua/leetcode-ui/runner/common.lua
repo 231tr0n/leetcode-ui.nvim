@@ -8,7 +8,7 @@
 --
 -- Language harness contract (modules under `runner/langs/<slug>`):
 --   H.available()        -> boolean, note
---   H.run(dir, question, code, params, data_input) -> argv
+--   H.run(dir, question, code, meta, params, data_input) -> argv
 --     Create all workspace files under `dir`; return argv for vim.system().
 --     Both `params` (decoded meta) and `data_input` (raw testcase lines) are
 --     passed; harnesses may weave either into their files.

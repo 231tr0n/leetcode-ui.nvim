@@ -14,35 +14,17 @@ local buffer = require('leetcode-ui.buffer')
 
 -- Helper data =======================================================================================================
 
----Vim filetype per language slug.
-H.filetypes = {
-  python3 = 'python',
-  golang = 'go',
-  mysql = 'sql',
-  mssql = 'sql',
-  oracle = 'sql',
-  cpp = 'cpp',
-  c = 'c',
-  ruby = 'ruby',
-  swift = 'swift',
-  typescript = 'typescript',
-  javascript = 'javascript',
-  php = 'php',
-  bash = 'sh',
-  dart = 'dart',
-  rust = 'rust',
-  racket = 'racket',
-  erlang = 'erlang',
-  elixir = 'elixir',
-}
-
 -- Helper functionality =============================================================================================
 
 ---Vim filetype for a language slug.
 ---
 ---@param lang_slug string
 ---@return string
-H.filetype = function(lang_slug) return H.filetypes[lang_slug] or lang_slug end
+H.filetype = function(lang_slug)
+  local info = config.get_lang(lang_slug)
+  if info ~= nil and info.ft ~= nil then return info.ft end
+  return lang_slug
+end
 
 ---Starter snippet for the view's language.
 ---

@@ -63,6 +63,9 @@ jobs:
       - name: LuaLS check
         run: lua-language-server --check . --check_out_path /tmp/luals-check.json
 
+      - name: Actionlint
+        uses: raven-actions/actionlint@v2
+
       - name: Run tests
         run: timeout 600 nvim --headless -u scripts/minitest.lua
 
