@@ -106,6 +106,8 @@ T['highlights']['difficulty groups exist'] = function()
   end
 end
 
+T['langs'] = new_set()
+
 T['langs']['get_lang returns metadata'] = function()
   local config = require('leetcode-ui.config')
   local info = config.get_lang('python3')
