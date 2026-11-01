@@ -39,8 +39,7 @@ end
 
 T['random'] = new_set()
 T['random']['calls picker with stubbed api'] = function()
-  local api = require('leetcode-ui.api.question')
-  helpers.with_stub('leetcode-ui.api.question', 'get_random', function() return 'two-sum', nil end, function()
+  helpers.with_stub('leetcode-ui.picker', 'random', function() end, function()
     local m = require('leetcode-ui')
     local ok = pcall(m.random)
     eq(ok, true)
@@ -49,8 +48,7 @@ end
 
 T['daily'] = new_set()
 T['daily']['calls picker with stubbed api'] = function()
-  local api = require('leetcode-ui.api.question')
-  helpers.with_stub('leetcode-ui.api.question', 'get_daily', function() return 'two-sum', nil end, function()
+  helpers.with_stub('leetcode-ui.picker', 'daily', function() end, function()
     local m = require('leetcode-ui')
     local ok = pcall(m.daily)
     eq(ok, true)
@@ -59,8 +57,7 @@ end
 
 T['list'] = new_set()
 T['list']['calls picker with stubbed api'] = function()
-  local api = require('leetcode-ui.api.question')
-  helpers.with_stub('leetcode-ui.api.question', 'get_list', function() return { total = 1, questions = {} }, nil end, function()
+  helpers.with_stub('leetcode-ui.picker', 'problem', function() end, function()
     local m = require('leetcode-ui')
     local ok = pcall(m.list)
     eq(ok, true)
