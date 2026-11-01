@@ -15,3 +15,4 @@ files["tests/helpers.lua"] = {
   ignore = { "121" },
 }
 ignore = { "631" }
+globals = { 'vim', 'utf8', 'MiniTest', 'MiniDoc' }
