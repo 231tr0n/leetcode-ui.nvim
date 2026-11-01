@@ -9,3 +9,8 @@ max_line_length = false
 
 max_comment_line_length = false
 max_line_length = 120
+
+-- Per-file overrides
+files["tests/helpers.lua"] = {
+  ignore = { "121" },
+}
