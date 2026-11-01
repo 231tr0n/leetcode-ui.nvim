@@ -68,6 +68,12 @@ LeetCodeConsole.render = function(console)
       { text = ('Case %d'):format(i), hl = i == console.selected and 'LeetCodeTitle' or nil },
     })
 
+    if case.input ~= nil and case.input ~= '' then
+      for _, input_line in ipairs(vim.split(case.input, '\n')) do
+        table.insert(lines, { { text = '    in:  ' .. input_line, hl = 'LeetCodeDim' } })
+      end
+    end
+
     if case.result ~= nil and case.status ~= 'unknown' and not case.running then
       local parts = { { text = '    ', hl = nil } }
       if case.result.runtime_ms ~= nil then
@@ -86,6 +92,17 @@ LeetCodeConsole.render = function(console)
         end
       end
       table.insert(lines, parts)
+
+      local output = case.result.stdout or case.result.pretty_stdout
+      if (output == nil or output == '') and case.result.message == nil then
+        -- Fall back to compare bit for run-all results.
+        if case.result.compare ~= nil then output = (case.result.compare == '1') and 'Accepted' or 'Wrong Answer' end
+      end
+      if output ~= nil and output ~= '' then
+        for _, output_line in ipairs(vim.split(output, '\n')) do
+          table.insert(lines, { { text = '    out: ' .. output_line, hl = 'LeetCodeDim' } })
+        end
+      end
     end
   end
 

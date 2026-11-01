@@ -71,6 +71,10 @@ LeetCodeRunnerApi.normalize = function(item, is_submit)
     compare = item.compare_result ~= vim.NIL and item.compare_result or nil,
     stdouts = item.std_output_list ~= vim.NIL and item.std_output_list or {},
     pretty_stdout = item.pretty_stdout ~= vim.NIL and item.pretty_stdout or nil,
+    input = item.input_formatted ~= vim.NIL and item.input_formatted
+      or (item.last_testcase ~= vim.NIL and item.last_testcase or nil),
+    expected_output = item.expected_output ~= vim.NIL and item.expected_output or nil,
+    code_output = item.code_output ~= vim.NIL and item.code_output or nil,
     lang = item.lang,
     is_submit = is_submit,
     raw = item,
@@ -132,7 +136,7 @@ end
 LeetCodeRunnerApi.listen = function(id, is_submit)
   local path = ('/submissions/detail/%s/check/'):format(id)
   local interval = (is_submit and 900 or 450)
-  local deadline = vim.uv.now() + 120000
+  local deadline = vim.uv.now() + 300000
 
   while true do
     local res, err = api.rest('GET', path)

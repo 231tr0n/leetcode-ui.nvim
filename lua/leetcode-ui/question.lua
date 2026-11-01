@@ -7,7 +7,7 @@
 -- single window with a winbar tab strip (no separate splits or floating panes).
 --
 -- Tabs (switch with the configured keys or <Tab>/<S-Tab>):
---   Description (Z) | Code (default) | Console (X) | Info (I)
+--   Description (D) | Code (C) | Console (X) | Info (I)
 --
 -- State for open views lives in |LeetCodeQuestionView.views| keyed by slug.
 
@@ -74,12 +74,21 @@ end
 
 LeetCodeQuestionView.render_winbar = function(view)
   if view.winid == nil or not vim.api.nvim_win_is_valid(view.winid) then return end
+  local keys = config.config.keys
+  local tab_keys = {
+    description = keys.toggle_question,
+    code = keys.toggle_code,
+    console = keys.toggle_console,
+    info = keys.toggle_information,
+  }
   local parts = {}
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do
     local label = LeetCodeQuestionView.tab_labels[tab]
+    local key = tab_keys[tab]
+    local text = key ~= nil and (label .. ' [' .. key .. ']') or label
     local hl = (tab == view.active) and 'LeetCodeTitle' or 'LeetCodeDim'
     local click = ('%%@v:lua.require("leetcode-ui.question").click_%s@'):format(tab)
-    table.insert(parts, ('%s%%#%s# %s %%#Normal#%%X'):format(click, hl, label))
+    table.insert(parts, ('%s%%#%s# %s %%#Normal#%%X'):format(click, hl, text))
   end
   vim.api.nvim_set_option_value('winbar', '  ' .. table.concat(parts, ' │ '), { win = view.winid })
 end
@@ -105,6 +114,7 @@ LeetCodeQuestionView.show_tab = function(view, name)
 
   view.active = name
   vim.api.nvim_win_set_buf(view.winid, bufnr)
+  pcall(vim.api.nvim_set_option_value, 'number', name == 'code', { win = view.winid })
   LeetCodeQuestionView.render_winbar(view)
 end
 
@@ -140,6 +150,7 @@ LeetCodeQuestionView.prepare_buffers = function(view)
         rhs = function() LeetCodeQuestionView.show_tab(view, 'description') end,
         desc = 'Description tab',
       },
+      toggle_code = { rhs = function() LeetCodeQuestionView.show_tab(view, 'code') end, desc = 'Code tab' },
       toggle_console = { rhs = function() LeetCodeQuestionView.show_tab(view, 'console') end, desc = 'Console tab' },
       toggle_information = { rhs = function() LeetCodeQuestionView.show_tab(view, 'info') end, desc = 'Info tab' },
       close = { rhs = function() LeetCodeQuestionView.close(view) end, desc = 'Close question' },
@@ -176,6 +187,7 @@ LeetCodeQuestionView.prepare_buffers = function(view)
       rhs = function() LeetCodeQuestionView.show_tab(view, 'description') end,
       desc = 'Description tab',
     },
+    toggle_code = { rhs = function() LeetCodeQuestionView.show_tab(view, 'code') end, desc = 'Code tab' },
     toggle_console = { rhs = function() LeetCodeQuestionView.show_tab(view, 'console') end, desc = 'Console tab' },
     toggle_information = { rhs = function() LeetCodeQuestionView.show_tab(view, 'info') end, desc = 'Info tab' },
     reset_code = { rhs = function() LeetCodeQuestionView.reset_code(view) end, desc = 'Reset code' },
@@ -248,12 +260,36 @@ LeetCodeQuestionView.populate_info = function(view)
       { { text = 'Tags:        ', hl = 'LeetCodeDim' }, { text = table.concat(tags, ', '), hl = 'LeetCodeLink' } }
     )
   end
+
+  local keys = config.config.keys
+  table.insert(lines, {})
+  table.insert(lines, { { text = 'Keys:', hl = 'LeetCodeTitle' } })
+  local key_rows = {
+    { 'Run tests', keys.run },
+    { 'Submit', keys.submit },
+    { 'Reset code', keys.reset_code },
+    { 'Format code', keys.format_code },
+    { 'Switch language', keys.switch_language },
+    { 'Add testcase', keys.add_test },
+    { 'Description tab', keys.toggle_question },
+    { 'Code tab', keys.toggle_code },
+    { 'Console tab', keys.toggle_console },
+    { 'Info tab', keys.toggle_information },
+    { 'Close', keys.close },
+  }
+  for _, row in ipairs(key_rows) do
+    table.insert(lines, {
+      { text = ('  %-18s'):format(row[1]), hl = 'LeetCodeDim' },
+      { text = row[2], hl = 'LeetCodeCode' },
+    })
+  end
   buffer.spans_write(view.info_bufnr, lines, false)
   buffer.keymaps(view.info_bufnr, {
     toggle_question = {
       rhs = function() LeetCodeQuestionView.show_tab(view, 'description') end,
       desc = 'Description tab',
     },
+    toggle_code = { rhs = function() LeetCodeQuestionView.show_tab(view, 'code') end, desc = 'Code tab' },
     toggle_console = { rhs = function() LeetCodeQuestionView.show_tab(view, 'console') end, desc = 'Console tab' },
     toggle_information = { rhs = function() LeetCodeQuestionView.show_tab(view, 'info') end, desc = 'Info tab' },
     close = { rhs = function() LeetCodeQuestionView.close(view) end, desc = 'Close question' },
@@ -313,6 +349,7 @@ LeetCodeQuestionView.open = function(title_slug)
     view.desc_winid = view.winid
     view.code_winid = view.winid
     view.active = 'code'
+    pcall(vim.api.nvim_set_option_value, 'number', true, { win = view.winid })
     LeetCodeQuestionView.render_winbar(view)
     vim.api.nvim_set_current_win(view.winid)
   end)
@@ -409,6 +446,7 @@ LeetCodeQuestionView.run = function(view, index)
           compare = bit,
           correct = bit == '1' and 1 or 0,
           total = bit == '1' and 1 or 0,
+          stdout = (result.stdouts or {})[i] or result.pretty_stdout,
         }
       else
         case.result = { status = result.status, message = result.message, runtime_ms = result.runtime_ms }
@@ -437,14 +475,28 @@ LeetCodeQuestionView.submit = function(view)
     local icons = config.config.icons.case
     local icon = ({ Accepted = icons.passed })[result.status] or icons.failed
 
+    local details = {}
+    if not result.ok then
+      if result.message ~= nil and result.message ~= '' then table.insert(details, result.message) end
+      if result.input ~= nil and result.input ~= '' then table.insert(details, 'Input: ' .. tostring(result.input)) end
+      if result.expected_output ~= nil and result.expected_output ~= '' then
+        table.insert(details, 'Expected: ' .. tostring(result.expected_output))
+      end
+      if result.code_output ~= nil and result.code_output ~= '' then
+        table.insert(details, 'Got: ' .. tostring(result.code_output))
+      end
+    end
+    local extra = #details > 0 and ('\n' .. table.concat(details, '\n')) or ''
+
     vim.schedule(
       function()
         vim.notify(
-          ('leetcode-ui: %s %s  Runtime: %d ms  Memory: %.2f MB'):format(
+          ('leetcode-ui: %s %s  Runtime: %d ms  Memory: %.2f MB%s'):format(
             icon,
             result.status,
             tonumber(result.runtime_ms or 0),
-            (result.memory_mb or 0) / (1024 * 1024)
+            (result.memory_mb or 0) / (1024 * 1024),
+            extra
           ),
           result.ok and vim.log.levels.INFO or vim.log.levels.WARN
         )
