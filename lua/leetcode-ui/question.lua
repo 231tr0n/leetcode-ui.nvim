@@ -78,7 +78,8 @@ LeetCodeQuestionView.render_winbar = function(view)
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do
     local label = LeetCodeQuestionView.tab_labels[tab]
     local hl = (tab == view.active) and 'LeetCodeTitle' or 'LeetCodeDim'
-    table.insert(parts, ('%%#%s# %s %%#Normal#'):format(hl, label))
+    local click = ('%%@v:lua.require("leetcode-ui.question").click_%s@'):format(tab)
+    table.insert(parts, ('%s%%#%s# %s %%#Normal#%%X'):format(click, hl, label))
   end
   vim.api.nvim_set_option_value('winbar', '  ' .. table.concat(parts, ' │ '), { win = view.winid })
 end
@@ -119,6 +120,14 @@ LeetCodeQuestionView.cycle_tab = function(view, delta)
   if idx > #LeetCodeQuestionView.tabs then idx = 1 end
   if idx < 1 then idx = #LeetCodeQuestionView.tabs end
   LeetCodeQuestionView.show_tab(view, LeetCodeQuestionView.tabs[idx])
+end
+
+-- Click handlers for the winbar tab strip (mouse support).
+for _, tab in ipairs(LeetCodeQuestionView.tabs) do
+  LeetCodeQuestionView['click_' .. tab] = function()
+    local view = LeetCodeQuestionView.current()
+    if view ~= nil then LeetCodeQuestionView.show_tab(view, tab) end
+  end
 end
 
 LeetCodeQuestionView.prepare_buffers = function(view)
