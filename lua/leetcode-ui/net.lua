@@ -63,7 +63,8 @@ end
 
 LeetCodeNet.read_response = function(header_file, body_file)
   local ok, header_text = pcall(vim.fn.readblob, header_file)
-  local body_lines = vim.fn.readfile(body_file)
+  local body_ok, body_lines = pcall(vim.fn.readfile, body_file)
+  if not body_ok or type(body_lines) ~= 'table' then body_lines = {} end
   local body = table.concat(body_lines, '\n')
 
   vim.fn.delete(header_file)

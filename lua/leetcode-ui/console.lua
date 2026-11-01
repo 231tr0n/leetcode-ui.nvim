@@ -201,15 +201,25 @@ LeetCodeConsole.open = function(console)
   if console.bufnr ~= nil and vim.api.nvim_buf_is_valid(console.bufnr) then return end
 
   console.bufnr = buffer.scratch('leetcode-ui://console/' .. (console.view.slug or ''), { ft = 'txt' })
+  vim.api.nvim_set_option_value('modifiable', false, { buf = console.bufnr })
 
   buffer.keymaps(console.bufnr, {
-    toggle_console = {
-      rhs = function() console:close() end,
-      desc = 'Close console',
+    close = {
+      rhs = function()
+        if console.view then require('leetcode-ui.question').close(console.view) end
+      end,
+      desc = 'Close question',
     },
   })
 
   console:render()
+
+  vim.keymap.set('n', '<Tab>', function()
+    if console.view then require('leetcode-ui.question').cycle_tab(console.view, 1) end
+  end, { buffer = console.bufnr, silent = true })
+  vim.keymap.set('n', '<S-Tab>', function()
+    if console.view then require('leetcode-ui.question').cycle_tab(console.view, -1) end
+  end, { buffer = console.bufnr, silent = true })
 end
 
 LeetCodeConsole.close = function(console)

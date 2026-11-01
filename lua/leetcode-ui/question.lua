@@ -6,8 +6,8 @@
 -- |leetcode-ui-question| Question view: description, code, console, and info in a
 -- single window with a winbar tab strip (no separate splits or floating panes).
 --
--- Tabs (switch with the configured keys or <Tab>/<S-Tab>):
---   Description (D) | Code (C) | Console (X) | Info (I)
+-- Tabs (switch via the winbar or <Tab>/<S-Tab>):
+--   Description | Code | Console | Info
 --
 -- State for open views lives in |LeetCodeQuestionView.views| keyed by slug.
 
@@ -74,21 +74,12 @@ end
 
 LeetCodeQuestionView.render_winbar = function(view)
   if view.winid == nil or not vim.api.nvim_win_is_valid(view.winid) then return end
-  local keys = config.config.keys
-  local tab_keys = {
-    description = keys.toggle_question,
-    code = keys.toggle_code,
-    console = keys.toggle_console,
-    info = keys.toggle_information,
-  }
   local parts = {}
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do
     local label = LeetCodeQuestionView.tab_labels[tab]
-    local key = tab_keys[tab]
-    local text = key ~= nil and (label .. ' [' .. key .. ']') or label
     local hl = (tab == view.active) and 'LeetCodeTitle' or 'LeetCodeDim'
-    local click = ('%%@v:lua.require("leetcode-ui.question").click_%s@'):format(tab)
-    table.insert(parts, ('%s%%#%s# %s %%#Normal#%%X'):format(click, hl, text))
+    local click = ('%%@v:lua.LeetCodeClick%s@'):format(tab:gsub('^%l', string.upper))
+    table.insert(parts, ('%s%%#%s# %s %%X%%#Normal#'):format(click, hl, label))
   end
   vim.api.nvim_set_option_value('winbar', '  ' .. table.concat(parts, ' │ '), { win = view.winid })
 end
@@ -138,21 +129,21 @@ for _, tab in ipairs(LeetCodeQuestionView.tabs) do
     local view = LeetCodeQuestionView.current()
     if view ~= nil then LeetCodeQuestionView.show_tab(view, tab) end
   end
+
+  local global_name = 'LeetCodeClick' .. tab:gsub('^%l', string.upper)
+  _G[global_name] = function()
+    local view = LeetCodeQuestionView.current()
+    if view ~= nil then LeetCodeQuestionView.show_tab(view, tab) end
+  end
 end
 
 LeetCodeQuestionView.prepare_buffers = function(view)
   if view.desc_bufnr == nil or not vim.api.nvim_buf_is_valid(view.desc_bufnr) then
     view.desc_bufnr = buffer.scratch('leetcode-ui://question/' .. view.slug, { ft = 'markdown' })
+    vim.api.nvim_set_option_value('modifiable', false, { buf = view.desc_bufnr })
     buffer.spans_write(view.desc_bufnr, LeetCodeQuestionView.describe(view), false)
 
     buffer.keymaps(view.desc_bufnr, {
-      toggle_question = {
-        rhs = function() LeetCodeQuestionView.show_tab(view, 'description') end,
-        desc = 'Description tab',
-      },
-      toggle_code = { rhs = function() LeetCodeQuestionView.show_tab(view, 'code') end, desc = 'Code tab' },
-      toggle_console = { rhs = function() LeetCodeQuestionView.show_tab(view, 'console') end, desc = 'Console tab' },
-      toggle_information = { rhs = function() LeetCodeQuestionView.show_tab(view, 'info') end, desc = 'Info tab' },
       close = { rhs = function() LeetCodeQuestionView.close(view) end, desc = 'Close question' },
     })
     vim.keymap.set(
@@ -183,13 +174,6 @@ LeetCodeQuestionView.prepare_buffers = function(view)
   buffer.keymaps(view.code_bufnr, {
     run = { rhs = function() LeetCodeQuestionView.run(view) end, desc = 'Run test case' },
     submit = { rhs = function() LeetCodeQuestionView.submit(view) end, desc = 'Submit solution' },
-    toggle_question = {
-      rhs = function() LeetCodeQuestionView.show_tab(view, 'description') end,
-      desc = 'Description tab',
-    },
-    toggle_code = { rhs = function() LeetCodeQuestionView.show_tab(view, 'code') end, desc = 'Code tab' },
-    toggle_console = { rhs = function() LeetCodeQuestionView.show_tab(view, 'console') end, desc = 'Console tab' },
-    toggle_information = { rhs = function() LeetCodeQuestionView.show_tab(view, 'info') end, desc = 'Info tab' },
     reset_code = { rhs = function() LeetCodeQuestionView.reset_code(view) end, desc = 'Reset code' },
     format_code = { rhs = function() solution.format(view) end, desc = 'Format code' },
     switch_language = { rhs = function() LeetCodeQuestionView.switch_language(view) end, desc = 'Switch language' },
@@ -201,6 +185,17 @@ LeetCodeQuestionView.prepare_buffers = function(view)
       desc = 'Add testcase',
     },
     close = { rhs = function() LeetCodeQuestionView.close(view) end, desc = 'Close question' },
+  })
+
+  vim.keymap.set('n', '<C-l>', function() LeetCodeQuestionView.switch_language(view) end, {
+    buffer = view.code_bufnr,
+    silent = true,
+    desc = 'Switch language (fallback)',
+  })
+  vim.keymap.set('i', '<C-l>', function() LeetCodeQuestionView.switch_language(view) end, {
+    buffer = view.code_bufnr,
+    silent = true,
+    desc = 'Switch language (fallback)',
   })
   vim.keymap.set(
     'n',
@@ -219,6 +214,7 @@ LeetCodeQuestionView.prepare_buffers = function(view)
   view.console:open()
   if view.info_bufnr == nil or not vim.api.nvim_buf_is_valid(view.info_bufnr) then
     view.info_bufnr = buffer.scratch('leetcode-ui://info/' .. view.slug, { ft = 'txt' })
+    vim.api.nvim_set_option_value('modifiable', false, { buf = view.info_bufnr })
   end
   LeetCodeQuestionView.populate_info(view)
 end
@@ -271,10 +267,6 @@ LeetCodeQuestionView.populate_info = function(view)
     { 'Format code', keys.format_code },
     { 'Switch language', keys.switch_language },
     { 'Add testcase', keys.add_test },
-    { 'Description tab', keys.toggle_question },
-    { 'Code tab', keys.toggle_code },
-    { 'Console tab', keys.toggle_console },
-    { 'Info tab', keys.toggle_information },
     { 'Close', keys.close },
   }
   for _, row in ipairs(key_rows) do
@@ -285,13 +277,6 @@ LeetCodeQuestionView.populate_info = function(view)
   end
   buffer.spans_write(view.info_bufnr, lines, false)
   buffer.keymaps(view.info_bufnr, {
-    toggle_question = {
-      rhs = function() LeetCodeQuestionView.show_tab(view, 'description') end,
-      desc = 'Description tab',
-    },
-    toggle_code = { rhs = function() LeetCodeQuestionView.show_tab(view, 'code') end, desc = 'Code tab' },
-    toggle_console = { rhs = function() LeetCodeQuestionView.show_tab(view, 'console') end, desc = 'Console tab' },
-    toggle_information = { rhs = function() LeetCodeQuestionView.show_tab(view, 'info') end, desc = 'Info tab' },
     close = { rhs = function() LeetCodeQuestionView.close(view) end, desc = 'Close question' },
   })
   vim.keymap.set(

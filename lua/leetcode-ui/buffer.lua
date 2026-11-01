@@ -38,6 +38,7 @@ LeetCodeBuffer.scratch = function(name, opts)
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = bufnr })
   if opts.ft ~= nil then vim.api.nvim_set_option_value('filetype', opts.ft, { buf = bufnr }) end
 
+  vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
   vim.api.nvim_buf_clear_namespace(bufnr, LeetCodeBuffer.ns, 0, -1)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, { '' })
   return bufnr

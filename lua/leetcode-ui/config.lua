@@ -112,11 +112,11 @@ local default_config = {
     toggle_code = 'C',
     toggle_console = 'X',
     toggle_information = 'I',
-    reset_code = 'S',
-    format_code = 'F',
-    switch_language = 'L',
-    add_test = 'A',
-    close = 'Q',
+    reset_code = '<F2>',
+    format_code = '<F3>',
+    switch_language = '<F4>',
+    add_test = '<F5>',
+    close = '<F6>',
   },
 }
 

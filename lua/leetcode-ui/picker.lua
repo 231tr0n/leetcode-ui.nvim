@@ -98,7 +98,13 @@ LeetCodePicker.select = function(items, title, on_choice)
   end
 
   if type(on_choice) == 'function' then
-    local idx = vim.tbl_indexof(items, choice)
+    local idx = nil
+    for i, item in ipairs(items) do
+      if item == choice then
+        idx = i
+        break
+      end
+    end
     on_choice(choice, idx)
   end
 end
@@ -109,24 +115,28 @@ end
 LeetCodePicker.problem = function(opts)
   opts = opts or {}
 
-  local lines, entries = LeetCodePicker.problem_source(opts)
+  LeetCodePicker.as(function()
+    local lines, entries = LeetCodePicker.problem_source(opts)
 
-  local ok, mini_pick = pcall(require, 'mini.pick')
-  if ok then
-    local choice = mini_pick.start({
-      source = { items = lines, name = 'LeetCode' },
-      matcher = { fuzzy = false, ignore_case = true },
-    })
-    if choice ~= nil then LeetCodePicker.launch(LeetCodePicker.pick_entry(lines, entries, choice)) end
-    return
-  end
+    vim.schedule(function()
+      local ok, mini_pick = pcall(require, 'mini.pick')
+      if ok then
+        local choice = mini_pick.start({
+          source = { items = lines, name = 'LeetCode' },
+          matcher = { fuzzy = false, ignore_case = true },
+        })
+        if choice ~= nil then LeetCodePicker.launch(LeetCodePicker.pick_entry(lines, entries, choice)) end
+        return
+      end
 
-  -- Fallback: builtin `vim.ui.select`.
-  vim.ui.select(
-    lines,
-    { prompt = 'LeetCode' },
-    function(choice) LeetCodePicker.launch(LeetCodePicker.pick_entry(lines, entries, choice)) end
-  )
+      -- Fallback: builtin `vim.ui.select`.
+      vim.ui.select(
+        lines,
+        { prompt = 'LeetCode' },
+        function(choice) LeetCodePicker.launch(LeetCodePicker.pick_entry(lines, entries, choice)) end
+      )
+    end)
+  end)
 end
 
 ---Open today's daily question.
