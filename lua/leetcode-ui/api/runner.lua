@@ -35,7 +35,11 @@ LeetCodeRunnerApi.status_messages = {
 -- Helper functionality ==============================================================================================
 
 LeetCodeRunnerApi.sleep = function(ms)
-  local co = coroutine.running()
+  local co, is_main = coroutine.running()
+  if co == nil or is_main then
+    vim.wait(ms or 0)
+    return
+  end
   vim.defer_fn(function() coroutine.resume(co) end, ms)
   coroutine.yield()
 end

@@ -163,6 +163,50 @@ T['question']['submit'] = function()
   q.close(view)
 end
 
+T['list'] = new_set()
+
+T['list']['opens problem on main thread'] = function()
+  local restore = stub_detail()
+  local mp = require('mini.pick') --[[@as any]]
+  local original_start = mp.start
+  mp.start = function(opts)
+    local o = opts --[[@as any]]
+    return ((o.source or {}).items or {})[1]
+  end
+  local picker = require('leetcode-ui.picker')
+  local ok = pcall(picker.problem, {})
+  eq(ok, true)
+  mp.start = original_start
+  restore()
+end
+
+T['list']['problem_source works on main thread'] = function()
+  local qmod = require('leetcode-ui.api.question') --[[@as any]]
+  local original_get_list = qmod.get_list
+  qmod.get_list = function()
+    return {
+      total = 1,
+      questions = {
+        {
+          title_slug = 'two-sum',
+          frontend_id = '1',
+          difficulty = 'Easy',
+          status = nil,
+          is_paid_only = false,
+          ac_rate = 50.5,
+          topic_tags = {},
+        },
+      },
+    },
+      nil
+  end
+  local picker = require('leetcode-ui.picker')
+  local lines, entries = picker.problem_source({})
+  eq(#lines, 1)
+  eq(#entries, 1)
+  qmod.get_list = original_get_list
+end
+
 T['stats'] = new_set()
 
 T['stats']['opens'] = function()

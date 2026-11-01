@@ -40,6 +40,31 @@ T['verify']['merges explicit cookies into jar'] = function()
   eq(jar.csrftoken, 'c1')
 end
 
+T['verify']['works on main thread with stubbed net'] = function()
+  local config = require('leetcode-ui.config')
+  config.setup({ browser = 'none', cookies = { LEETCODE_SESSION = 's1', csrftoken = 'c1' } })
+  local auth = require('leetcode-ui.auth')
+  auth.session = nil
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function(_opts)
+      return {
+        status = 200,
+        body = vim.json.encode({
+          data = { userStatus = { is_signed_in = true, id = 1, name = 'u', is_premium = false } },
+        }),
+      },
+        nil
+    end,
+    function()
+      local session, err = auth.verify()
+      eq(err, nil)
+      eq((session --[[@as any]]).signed_in, true)
+    end
+  )
+end
+
 T['handle_status'] = new_set()
 
 T['handle_status']['passes through 200'] = function()
