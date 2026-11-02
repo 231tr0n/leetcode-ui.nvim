@@ -1,19 +1,17 @@
 --- *leetcode-ui-parser* Question HTML content to styled buffer spans
 ---
----@tag LeetCodeParser
+--- `content` HTML from the API renders to a list of lines; each line is a list
+--- of `{ text, hl }` spans with highlight group names `LeetCodeHeader`,
+--- `LeetCodeTitle`, `LeetCodeItalic`, `LeetCodeCode`, `LeetCodeLink`, and
+--- `LeetCodeDim`.
 ---
+--- Supported markup: headings, paragraphs, nested and ordered lists, code spans
+--- and blocks, links, tables, blockquotes, superscripts/subscripts (via Unicode
+--- glyphs), and common HTML entities.
+---
+---@tag LeetCodeParser
+---@toc_entry HTML parser
 
--- |leetcode-ui-parser| Question HTML content to styled buffer spans.
--- `content` HTML from the API renders to a list of lines; each line is a list
--- of `{ text, hl }` spans with highlight group names:
---   LeetCodeHeader, LeetCodeTitle (bold), LeetCodeItalic, LeetCodeCode,
---   LeetCodeLink, LeetCodeDim.
---
--- Supported markup: headings, paragraphs, nested/ordered lists, code spans and
--- blocks, links, tables, blockquotes, superscripts/subscripts (via Unicode
--- glyphs), and common HTML entities.
-
--- Module design:
 local LeetCodeParser = {}
 
 -- Helper data =======================================================================================================
@@ -145,7 +143,7 @@ LeetCodeParser.attr = function(attrs, name) return ((attrs or ''):match('%s*' ..
 
 -- Public API ========================================================================================================
 
----Render question HTML into highlightable lines.
+--- Render question HTML into highlightable lines.
 ---
 ---@param content string|nil Question HTML (nil renders a placeholder line).
 ---@return table lines Each line is a list of `{ text, hl }` spans.
@@ -281,22 +279,6 @@ LeetCodeParser.render = function(content)
 
   flush()
   return lines
-end
-
----Overall character count of rendered lines (used for pane sizing).
----
----@param lines table
----@return number
-LeetCodeParser.measure = function(lines)
-  local width = 0
-  for _, line in ipairs(lines) do
-    local chars = 0
-    for _, span in ipairs(line) do
-      chars = chars + vim.fn.strchars(span.text)
-    end
-    width = math.max(width, chars)
-  end
-  return width
 end
 
 return LeetCodeParser

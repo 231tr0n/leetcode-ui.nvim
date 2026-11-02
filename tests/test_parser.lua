@@ -148,13 +148,6 @@ T['robustness']['style and script blocks dropped'] = function()
   eq(table.concat(lines, ''), 'ok')
 end
 
-T['measure'] = new_set()
-
-T['measure']['returns widest line width'] = function()
-  local lines = render('<p>ab</p>\n<p>abcd</p>')
-  eq(helpers.mod('parser').measure(lines), 4)
-end
-
 T['real content'] = new_set()
 
 T['real content']['two-sum fixture renders sanely'] = function()

@@ -1,21 +1,18 @@
 --- *leetcode-ui-runner-common* Local runner plumbing
 ---
----@tag LeetCodeRunner
+--- Machinery shared by language harnesses:
+--- - decode question `metaData` (params, return type, system-design form),
+--- - split testcase `data_input` into raw parameter lines,
+--- - resolve a language harness and its availability,
+--- - spawn the local run and normalize results.
 ---
-
--- |leetcode-ui-runner-common| Local runner plumbing.
--- Machinery shared by language harnesses:
---   - decode the question `metaData` (params, return type, systemDesign form),
---   - split testcase `data_input` into raw parameter lines,
---   - resolve the language harness module and its availability,
---   - spawn the local run and normalize results.
---
--- Language harness contract (modules under `runner/langs/<slug>`):
---   LeetCodeRunner.available()        -> boolean, note
---   LeetCodeRunner.run(dir, question, code, meta, params, data_input) -> argv
---     Create all workspace files under `dir`; return argv for vim.system().
---     Both `params` (decoded meta) and `data_input` (raw testcase lines) are
---     passed; harnesses may weave either into their files.
+--- Language harness contract (modules under `runner/langs/<slug>`):
+--- - `available()` returns a boolean and an optional note.
+--- - `run(dir, question, code, meta, params, data_input)` creates workspace
+---   files under `dir` and returns argv for |vim.system()|.
+---
+---@tag LeetCodeRunner
+---@toc_entry Local runner
 
 local LeetCodeRunner = {}
 
@@ -104,12 +101,12 @@ end
 LeetCodeRunner.normalize = function(out, started)
   local stdout = out.stdout or ''
   local stderr = out.stderr or ''
-  local text = vim.trim(stderr ~= '' and stderr or stdout)
+  local ok = out.code ~= nil and out.code == 0
+  local text = vim.trim((ok or stderr == '') and stdout or stderr)
 
   local elapsed_ms = 0
   if type(started) == 'number' then elapsed_ms = math.floor((vim.uv.hrtime() - started) / 1e6) end
 
-  local ok = out.code ~= nil and out.code == 0
   if out.code == 124 or out.code == -1 then
     ok = false
     text = vim.trim(('Timed out after %d s; partial output:\n%s'):format(config.config.runner_timeout, stdout))

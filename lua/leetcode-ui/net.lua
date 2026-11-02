@@ -1,16 +1,14 @@
 --- *leetcode-ui-net* HTTP layer on top of curl
 ---
----@tag LeetCodeNet
+--- |LeetCodeNet.request()| works both inside a coroutine (yields until the
+--- request finishes) and on the main thread (uses blocking `vim.system`).
 ---
+--- Transient failures (403/429/5xx) are retried with short backoff because
+--- LeetCode's middleware occasionally returns those for valid requests.
+---
+---@tag LeetCodeNet
+---@toc_entry Networking
 
--- |leetcode-ui-net| HTTP layer on top of `curl`.
--- Notes:
--- - |leetcode-ui-net.request()| works both inside a coroutine (yields until the
---   request finishes) and on the main thread (uses blocking `vim.system`).
--- - Transient failures (403/429/5xx) are retried with short backoff: LeetCode's
---   middleware occasionally returns those for otherwise valid requests.
-
--- Module design:
 local LeetCodeNet = {}
 
 -- Helper functionality ==============================================================================================
@@ -80,9 +78,9 @@ end
 
 -- Public API ========================================================================================================
 
----Perform an HTTP request.
+--- Perform an HTTP request.
 ---
----Options:
+--- Options:
 --- - `url` (string, required)
 --- - `method` (`'GET'|'POST'|'PUT'|'DELETE'`, default `'GET'`)
 --- - `headers` (array of raw `'Name: value'` strings)
@@ -90,8 +88,8 @@ end
 --- - `timeout` (number seconds, default 30)
 --- - `retries` (number of transient-failure retries, default 3)
 ---
----Returns `{status, headers, body}` and an error string on transport failure.
----Inside a coroutine, yields until the request completes.
+--- Returns `{status, headers, body}` and an error string on transport failure.
+--- Inside a coroutine, yields until the request completes.
 ---
 ---@param opts table Request options.
 ---@return table|nil Response
@@ -102,25 +100,7 @@ LeetCodeNet.request = function(opts)
   return LeetCodeNet.request_sync(opts)
 end
 
----JSON request shorthand (`POST` with JSON headers and body).
----
----@param url string
----@param body string Encoded JSON.
----@param headers table|nil Extra raw header strings.
----@param cookie_file string|nil Cookie jar path passed through to curl.
----@return table|nil Response
----@return string|nil Error
-LeetCodeNet.request_json = function(url, body, headers, cookie_file)
-  return LeetCodeNet.request({
-    url = url,
-    method = 'POST',
-    headers = headers or {},
-    body = body,
-    cookie_file = cookie_file,
-  })
-end
-
----Blocking request used on the main thread.
+--- Blocking request used on the main thread.
 ---
 ---@private
 LeetCodeNet.request_sync = function(opts)
@@ -136,7 +116,7 @@ LeetCodeNet.request_sync = function(opts)
   return res, (res == nil and 'curl failed' or nil)
 end
 
----One request attempt, blocking.
+--- One request attempt, blocking.
 ---
 ---@param opts table
 ---@return table|nil Response
@@ -161,7 +141,7 @@ LeetCodeNet.request_once = function(opts)
   return LeetCodeNet.read_response(header_file, body_file)
 end
 
----Coroutine-compatible retrying request.
+--- Coroutine-compatible retrying request.
 ---
 ---@private
 LeetCodeNet.request_async = function(opts)
@@ -207,7 +187,7 @@ LeetCodeNet.request_async = function(opts)
   return coroutine.yield()
 end
 
----Whether a status should trigger a retry.
+--- Whether a status should trigger a retry.
 ---
 ---@param status number
 ---@return boolean

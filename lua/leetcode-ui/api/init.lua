@@ -1,15 +1,13 @@
 --- *leetcode-ui-api* GraphQL and REST plumbing
 ---
----@tag LeetCodeApi
+--- |LeetCodeApi.graphql()| runs a query and returns decoded `data` (or an error
+--- message built from GraphQL `errors`). |LeetCodeApi.rest()| covers non-GraphQL
+--- REST endpoints. Both work inside coroutines; calling them on the main thread
+--- falls back to blocking requests.
 ---
+---@tag LeetCodeApi
+---@toc_entry API plumbing
 
--- |leetcode-ui-api| GraphQL and REST plumbing.
--- `LeetCodeApi.graphql` runs a query and returns decoded `data` (or an error message built
--- from GraphQL `errors`). `LeetCodeApi.rest` covers non-GraphQL REST endpoints. Both work
--- inside coroutines; calling them on the main thread falls back to blocking
--- requests.
-
--- Module design:
 local LeetCodeApi = {}
 
 local config = require('leetcode-ui.config')
@@ -24,7 +22,7 @@ LeetCodeApi.is_nillish = function(value) return value == nil or (type(value) == 
 
 -- Public API ========================================================================================================
 
----Run a GraphQL query.
+--- Run a GraphQL query.
 ---
 ---@param query string GraphQL query text (|leetcode-ui-api-queries|).
 ---@param variables table|nil Query variables.
@@ -45,22 +43,24 @@ LeetCodeApi.graphql = function(query, variables)
   res, err = auth.handle_status(res)
   if err ~= nil then return nil, err end
   if res == nil then return nil, 'Empty response' end
+  if res.status == 429 then return nil, 'Too many requests, LeetCode requires a short cool-down' end
 
   local ok, decoded = pcall(vim.json.decode, res.body)
   if not ok or decoded == nil then return nil, ('Malformed response (HTTP %s)'):format(res.status) end
 
-  if decoded.errors ~= nil and next(decoded.errors) ~= nil then
+  if type(decoded.errors) == 'table' and next(decoded.errors) ~= nil then
     local messages = {}
-    for _, e in ipairs(decoded.errors) do
-      table.insert(messages, e.message ~= nil and e.message or 'unknown error')
+    for _, error in ipairs(decoded.errors) do
+      table.insert(messages, error.message ~= nil and error.message or 'unknown error')
     end
     return nil, table.concat(messages, '\n')
   end
 
+  if LeetCodeApi.is_nillish(decoded.data) then return nil, 'Empty response' end
   return decoded.data, nil
 end
 
----Perform a REST request against the site.
+--- Perform a REST request against the site.
 ---
 ---@param method string `'GET'|'POST'|'PUT'`
 ---@param path string Path like '/problems/two-sum/submit/'.
@@ -87,11 +87,12 @@ LeetCodeApi.rest = function(method, path, body, headers)
 
   local ok, decoded = pcall(vim.json.decode, res.body)
   if not ok or decoded == nil then return nil, ('Malformed response (HTTP %s)'):format(res.status) end
+  if LeetCodeApi.is_nillish(decoded) then return nil, 'Empty response' end
 
   return decoded, nil
 end
 
----Problem page URL.
+--- Problem page URL.
 ---
 ---@param title_slug string
 ---@return string

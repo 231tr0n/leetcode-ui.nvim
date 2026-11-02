@@ -5,19 +5,32 @@ local new_set = helpers.new_set
 
 local T = new_set({
   hooks = {
-    pre_case = function() helpers.setup() end,
+    pre_case = function() helpers.setup({ local_runner = true }) end,
   },
 })
 
 T['common'] = new_set()
 
-T['common']['is_local'] = function()
+T['common']['harness respects disabled and no_local'] = function()
   local common = helpers.mod('runner.common')
-  if type(common.is_local) ~= 'function' then return end
-  eq(common.is_local('python3'), true)
-  eq(common.is_local('javascript'), true)
-  eq(common.is_local('golang'), true)
-  eq(common.is_local('cpp'), false)
+  local config = require('leetcode-ui.config')
+
+  config.setup({ local_runner = false })
+  local h, note = common.harness('python3', {})
+  eq(h, nil)
+  eq(note, 'local runner disabled')
+
+  config.setup({ local_runner = true, no_local = { 'python3' } })
+  h, note = common.harness('python3', {})
+  eq(h, nil)
+  eq(helpers.contains(note, 'runs online'), true)
+end
+
+T['common']['harness rejects manual testcase problems'] = function()
+  local common = helpers.mod('runner.common')
+  local h, note = common.harness('python3', { meta = { manual = true } })
+  eq(h, nil)
+  eq(note, 'manual testcase problem')
 end
 
 T['common']['harness selects python3'] = function()

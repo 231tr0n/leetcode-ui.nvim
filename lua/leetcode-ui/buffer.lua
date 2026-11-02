@@ -1,16 +1,12 @@
---- *leetcode-ui-buffer* Buffer lifecycle and rendering helpers
+--- *leetcode-ui-buffer* Buffer and span helpers
+---
+--- Shared plumbing for the central UI and the code editor:
+--- scratch buffer creation, window creation, and `{ text, hl }` span rendering
+--- via |nvim_buf_set_extmark()|.
 ---
 ---@tag LeetCodeBuffer
----
+---@toc_entry Buffer helpers
 
--- |leetcode-ui-buffer| Buffer lifecycle, window, and rendering helpers.
--- Shared plumbing for the UI modules:
---   - scratch `nofile` buffer creation with sane defaults,
---   - split window management,
---   - `{ text, hl }` span rendering via |nvim_buf_set_extmark()|,
---   - buffer-local keymaps honoring |leetcode-ui-opt.keys|.
-
--- Module design:
 local LeetCodeBuffer = {}
 
 local config = require('leetcode-ui.config')
@@ -21,18 +17,21 @@ LeetCodeBuffer.ns = vim.api.nvim_create_namespace('leetcode-ui')
 
 -- Helper functionality =============================================================================================
 
+--- Create or reuse a scratch buffer.
+---
+---@param name string Unique buffer name.
+---@param opts table|nil { listed = boolean, ft = string, modifiable = boolean }
+---@return number bufnr
 LeetCodeBuffer.scratch = function(name, opts)
   opts = opts or {}
 
-  local bufnr = vim.fn.bufnr(('%s'):format(name))
-  if bufnr ~= -1 and vim.api.nvim_buf_is_valid(bufnr) then
+  local bufnr = vim.fn.bufnr(name)
+  if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
+    bufnr = vim.api.nvim_create_buf(opts.listed == true, true)
     vim.api.nvim_buf_set_name(bufnr, name)
-  else
-    bufnr = vim.api.nvim_create_buf(opts.listed ~= false, false)
   end
 
-  vim.api.nvim_buf_set_name(bufnr, name)
-  vim.api.nvim_set_option_value('buflisted', false, { buf = bufnr })
+  vim.api.nvim_set_option_value('buflisted', opts.listed == true, { buf = bufnr })
   vim.api.nvim_set_option_value('buftype', 'nofile', { buf = bufnr })
   vim.api.nvim_set_option_value('swapfile', false, { buf = bufnr })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = bufnr })
@@ -41,74 +40,56 @@ LeetCodeBuffer.scratch = function(name, opts)
   vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
   vim.api.nvim_buf_clear_namespace(bufnr, LeetCodeBuffer.ns, 0, -1)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, { '' })
+  vim.api.nvim_set_option_value('modifiable', opts.modifiable ~= false, { buf = bufnr })
   return bufnr
 end
 
-LeetCodeBuffer.open_split = function(bufnr, opts)
-  opts = opts or {}
-
-  local current = vim.api.nvim_get_current_win()
-  local winid = vim.api.nvim_open_win(bufnr, false, {
-    split = opts.pos == 'right' and 'right'
-      or (opts.pos == 'below' and 'below' or (opts.pos == 'above' and 'above' or 'left')),
-    win = current,
-    width = opts.width or config.config.description_width,
-    height = opts.height or 12,
-  })
-
-  if opts.focus == false then vim.api.nvim_set_current_win(current) end
-  return winid
-end
-
----Open a centered floating window for a buffer.
+--- Open a centered floating window for a buffer.
 ---
 ---@param bufnr number
 ---@param opts table|nil { width = number, height = number, border = string, focus = boolean, title = string }
 ---@return number winid
 LeetCodeBuffer.open_float = function(bufnr, opts)
   opts = opts or {}
-  local width = opts.width or config.config.float_width or 80
-  local height = opts.height or config.config.float_height or 24
-  -- Let Neovim apply the configured default float border (`vim.o.winborder`)
-  -- unless an explicit border was requested.
-  local border = opts.border
-  if border == nil then border = config.config.float_border end
 
-  -- Clamp to screen.
-  width = math.min(width, vim.o.columns - 4)
-  height = math.min(height, vim.o.lines - 4)
-
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
+  local width = opts.width or config.config.float_width
+  local height = opts.height or config.config.float_height
+  width = math.max(1, math.min(width, vim.o.columns - 4))
+  height = math.max(1, math.min(height, vim.o.lines - 4))
 
   local win_opts = {
     relative = 'editor',
-    row = row,
-    col = col,
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
     width = width,
     height = height,
     style = 'minimal',
-    title = opts.title,
-    title_pos = opts.title and 'center' or nil,
+    focusable = true,
   }
+
+  local border = opts.border
+  if border == nil then border = config.config.float_border end
   if border ~= nil then win_opts.border = border end
-  local winid = vim.api.nvim_open_win(bufnr, opts.focus ~= false, win_opts)
-  return winid
-end
-
-LeetCodeBuffer.close = function(winid)
-  if winid == nil or not vim.api.nvim_win_is_valid(winid) then return end
-  local bufnr = vim.api.nvim_win_get_buf(winid)
-  pcall(vim.api.nvim_win_close, winid, false)
-  if vim.api.nvim_get_option_value('buftype', { buf = bufnr }) == 'nofile' then
-    pcall(vim.api.nvim_buf_delete, bufnr, { unload = false })
+  if opts.title ~= nil then
+    win_opts.title = opts.title
+    win_opts.title_pos = 'center'
   end
+
+  return vim.api.nvim_open_win(bufnr, opts.focus ~= false, win_opts)
 end
 
-LeetCodeBuffer.spans_write = function(bufnr, lines, modifiable)
-  local was_ro = not vim.api.nvim_get_option_value('modifiable', { buf = bufnr })
+--- Write `{ text, hl }` spans into a buffer.
+---
+--- The buffer is temporarily made modifiable and its previous state is
+--- restored afterwards, so read-only buffers stay read-only.
+---
+---@param bufnr number
+---@param lines table Array of lines, each an array of `{ text, hl }` spans.
+LeetCodeBuffer.spans_write = function(bufnr, lines)
+  if bufnr == nil or not vim.api.nvim_buf_is_valid(bufnr) then return end
 
-  if modifiable ~= false or was_ro then vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr }) end
+  local was_modifiable = vim.api.nvim_get_option_value('modifiable', { buf = bufnr })
+  if not was_modifiable then vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr }) end
 
   vim.api.nvim_buf_clear_namespace(bufnr, LeetCodeBuffer.ns, 0, -1)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, LeetCodeBuffer.spans_to_texts(lines))
@@ -128,37 +109,31 @@ LeetCodeBuffer.spans_write = function(bufnr, lines, modifiable)
     end
   end
 
-  if was_ro then vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr }) end
+  if not was_modifiable then vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr }) end
 end
 
+--- Convert span lines into plain text lines.
+---
+---@param lines table Array of lines, each an array of `{ text, hl }` spans.
+---@return table texts
 LeetCodeBuffer.spans_to_texts = function(lines)
-  local res = {}
+  local texts = {}
   for _, spans in ipairs(lines) do
-    local texts = {}
+    local parts = {}
     for _, span in ipairs(spans) do
-      table.insert(texts, span.text)
+      table.insert(parts, span.text)
     end
-    table.insert(res, table.concat(texts))
+    table.insert(texts, table.concat(parts))
   end
-  return res
+  return texts
 end
 
-LeetCodeBuffer.keymap = function(bufnr, lhs, rhs, desc)
-  return vim.keymap.set('n', lhs, rhs, { buffer = bufnr, silent = true, desc = desc })
-end
-
-LeetCodeBuffer.keymaps = function(bufnr, mappings)
-  local keys = config.config.keys
-  for keys_name, spec in pairs(mappings) do
-    local lhs = keys[keys_name]
-    if lhs ~= nil then LeetCodeBuffer.keymap(bufnr, lhs, spec.rhs, spec.desc) end
-  end
-end
-
+--- Delete a buffer if it is still valid.
+---
+---@param bufnr number|nil
 LeetCodeBuffer.maybe_delete = function(bufnr)
-  if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
-    pcall(vim.api.nvim_buf_delete, bufnr, { unload = false })
-  end
+  if bufnr == nil or not vim.api.nvim_buf_is_valid(bufnr) then return end
+  pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
 end
 
 return LeetCodeBuffer

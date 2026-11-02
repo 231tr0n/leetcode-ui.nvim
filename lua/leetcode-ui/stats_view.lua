@@ -1,24 +1,37 @@
 --- *leetcode-ui-stats-view* Statistics view
 ---
----@tag LeetCodeStatsView
+--- Progress meters by difficulty, language breakdown, skill tags, and session
+--- information. Rendered in the central |LeetCodeUI| window.
 ---
-
--- |leetcode-ui-stats-view| Statistics view.
--- Progress meters by difficulty, language breakdown, and skill tags, plus a
--- signed-in session line. Requires cookies; renders guidance when anonymous.
+---@tag LeetCodeStatsView
+---@toc_entry Statistics view
 
 local LeetCodeStatsView = {}
 
-local buffer = require('leetcode-ui.buffer')
 local auth = require('leetcode-ui.auth')
+local log = require('leetcode-ui.log')
 local stats = require('leetcode-ui.api.stats')
+local ui = require('leetcode-ui.ui')
+
+-- Helper data =======================================================================================================
+
+LeetCodeStatsView.difficulty_hl = {
+  Easy = 'LeetCodeEasy',
+  Medium = 'LeetCodeMedium',
+  Hard = 'LeetCodeHard',
+}
 
 -- Helper functionality =============================================================================================
 
-LeetCodeStatsView.difficulty_hl = { Easy = 'LeetCodeEasy', Medium = 'LeetCodeMedium', Hard = 'LeetCodeHard' }
-
 LeetCodeStatsView.as = function(fn) return require('leetcode-ui.async').run(fn) end
 
+--- Build one difficulty progress meter.
+---
+---@param label string
+---@param solved number
+---@param total number
+---@param width number|nil
+---@return table spans
 LeetCodeStatsView.meter = function(label, solved, total, width)
   width = width or 24
   local ratio = total > 0 and math.min(solved / total, 1) or 0
@@ -35,9 +48,12 @@ LeetCodeStatsView.meter = function(label, solved, total, width)
   }
 end
 
+--- Build language breakdown lines.
+---
+---@param rows table|nil
+---@return table lines
 LeetCodeStatsView.language_lines = function(rows)
   local lines = { { { text = 'Languages', hl = 'LeetCodeTitle' } } }
-
   table.sort(rows or {}, function(a, b) return (a.problems_solved or 0) > (b.problems_solved or 0) end)
   for _, row in ipairs(rows or {}) do
     table.insert(lines, {
@@ -48,10 +64,13 @@ LeetCodeStatsView.language_lines = function(rows)
   return lines
 end
 
+--- Build skill-tag lines.
+---
+---@param tags table|nil
+---@return table lines
 LeetCodeStatsView.skills_lines = function(tags)
   tags = tags or {}
   local lines = { { { text = 'Skills', hl = 'LeetCodeTitle' } } }
-
   local sections = {
     { 'Advanced', tags.advanced or {} },
     { 'Intermediate', tags.intermediate or {} },
@@ -59,13 +78,13 @@ LeetCodeStatsView.skills_lines = function(tags)
   }
 
   for _, section in ipairs(sections) do
-    local name, rows = section[1], section[2] or {}
-    table.sort(rows, function(x, y) return (x.problems_solved or 0) > (y.problems_solved or 0) end)
+    local name, rows = section[1], section[2]
+    table.sort(rows, function(a, b) return (a.problems_solved or 0) > (b.problems_solved or 0) end)
     if #rows > 0 then
       table.insert(lines, {})
       table.insert(lines, { { text = ('  %s'):format(name), hl = 'LeetCodeLink' } })
-      for i, row in ipairs(rows) do
-        if i > 10 then break end
+      for index, row in ipairs(rows) do
+        if index > 10 then break end
         table.insert(lines, {
           { text = ('    %-28s'):format(row.tag_name or ''), hl = nil },
           { text = ('%d'):format(row.problems_solved or 0), hl = 'LeetCodeTitle' },
@@ -76,99 +95,109 @@ LeetCodeStatsView.skills_lines = function(tags)
   return lines
 end
 
-LeetCodeStatsView.render_stats = function(bufnr)
-  LeetCodeStatsView.as(function()
-    local solved, solved_err = stats.solved()
-    local langs = nil
-    local skills = nil
+--- Build all statistics lines.
+---
+---@param solved table|nil
+---@param languages table|nil
+---@param skills table|nil
+---@param err string|nil
+---@param session table|nil
+---@param streak table|nil
+---@return table lines
+LeetCodeStatsView.build_lines = function(solved, languages, skills, err, session, streak)
+  local lines = {
+    {
+      { text = 'Progress   ', hl = 'LeetCodeTitle' },
+      { text = 'leetcode.com', hl = 'LeetCodeDim' },
+    },
+  }
 
-    if solved_err == nil then
-      langs = select(1, stats.languages())
-      skills = select(1, stats.skills())
-    end
+  if session ~= nil and session.signed_in then
+    table.insert(lines, {
+      { text = 'Signed in  ', hl = 'LeetCodeDim' },
+      { text = session.name or 'unknown', hl = 'LeetCodeOk' },
+      {
+        text = streak ~= nil and ('  streak: %d day(s)'):format(tonumber(streak.streak_count) or 0) or '',
+        hl = 'LeetCodeDim',
+      },
+    })
+  else
+    table.insert(
+      lines,
+      { { text = 'Not signed in (configure cookies to see personal statistics)', hl = 'LeetCodeWarn' } }
+    )
+  end
 
-    local counts = (solved or {}).solved or {}
-    local total = (solved or {}).total or {}
+  local counts = (solved or {}).solved or {}
+  local totals = (solved or {}).total or {}
+  table.insert(lines, {})
+  for _, difficulty in ipairs({ 'Easy', 'Medium', 'Hard' }) do
+    table.insert(lines, LeetCodeStatsView.meter(difficulty, counts[difficulty] or 0, totals[difficulty] or 0))
+  end
 
-    local lines = { { { text = 'Progress   ', hl = 'LeetCodeTitle' }, { text = 'leetcode.com', hl = 'LeetCodeDim' } } }
+  if languages ~= nil then
     table.insert(lines, {})
-    for _, difficulty in ipairs({ 'Easy', 'Medium', 'Hard' }) do
-      table.insert(lines, LeetCodeStatsView.meter(difficulty, counts[difficulty] or 0, total[difficulty] or 0))
-    end
+    vim.list_extend(lines, LeetCodeStatsView.language_lines(languages))
+  end
+  if skills ~= nil then vim.list_extend(lines, LeetCodeStatsView.skills_lines(skills)) end
 
-    if langs ~= nil then
-      table.insert(lines, {})
-      vim.list_extend(lines, LeetCodeStatsView.language_lines(langs))
-    end
-
-    if skills ~= nil then vim.list_extend(lines, LeetCodeStatsView.skills_lines(skills)) end
-
-    -- Failure note at the end (helps when partially signed in / flaky net).
-    local err = solved_err
-    if err ~= nil then
-      table.insert(lines, {})
-      table.insert(lines, { { text = 'Sign-in required: ', hl = 'LeetCodeErr' }, { text = err, hl = 'LeetCodeDim' } })
-    end
-
-    buffer.spans_write(bufnr, lines, false)
-  end)
+  if err ~= nil then
+    table.insert(lines, {})
+    table.insert(lines, {
+      { text = 'Sign-in required: ', hl = 'LeetCodeErr' },
+      { text = err, hl = 'LeetCodeDim' },
+    })
+  end
+  return lines
 end
 
 -- Public API ========================================================================================================
 
----Open the statistics split.
+--- Open the statistics view.
 LeetCodeStatsView.open = function()
-  if LeetCodeStatsView.bufnr == nil then
-    LeetCodeStatsView.bufnr = buffer.scratch('leetcode-ui://stats', { ft = 'txt' })
-  end
+  ui.render({ { { text = 'Loading statistics…', hl = 'LeetCodeDim' } } })
+  log.info('Loading statistics…')
 
-  buffer.open_float(LeetCodeStatsView.bufnr, {
-    width = 62,
-    height = 24,
-    focus = true,
-    title = ' Statistics ',
-  })
-
-  buffer.keymaps(LeetCodeStatsView.bufnr, {
-    close = {
-      rhs = function() LeetCodeStatsView.close() end,
-      desc = 'Close statistics',
-    },
-  })
-
-  LeetCodeStatsView.render_stats(LeetCodeStatsView.bufnr)
-end
-
----Session details (user + streak) in a notification.
-LeetCodeStatsView.session = function()
   LeetCodeStatsView.as(function()
-    local session, err = auth.verify()
-    if err ~= nil then
-      vim.schedule(function() vim.notify('(leetcode-ui) ' .. err, vim.log.levels.WARN) end)
-      return
-    end
-    if session == nil then return end
+    local session = select(1, auth.verify())
+    local solved, err = stats.solved()
+    local languages, skills, streak = nil, nil, nil
 
-    local streak = select(1, stats.streak())
-    vim.schedule(
-      function()
-        vim.notify(
-          ('leetcode-ui: %s%s%s'):format(
-            session.signed_in and session.name or 'anonymous',
-            session.is_premium and ' (premium)' or '',
-            streak ~= nil and ('  streak: %d'):format(tonumber(streak.streak_count) or 0) or ''
-          ),
-          session.signed_in and vim.log.levels.INFO or vim.log.levels.WARN
-        )
-      end
-    )
+    if err == nil then
+      languages = select(1, stats.languages())
+      skills = select(1, stats.skills())
+      if session ~= nil and session.signed_in then streak = select(1, stats.streak()) end
+    end
+
+    ui.render(LeetCodeStatsView.build_lines(solved, languages, skills, err, session, streak))
+    if err ~= nil then
+      log.warn('Statistics unavailable: ' .. err)
+    else
+      log.info('Statistics loaded')
+    end
   end)
 end
 
----Close the statistics buffer, if open.
-LeetCodeStatsView.close = function()
-  local winid = vim.fn.bufwinnr(LeetCodeStatsView.bufnr or -1)
-  if winid ~= -1 then vim.api.nvim_win_close(vim.fn.win_getid(winid), false) end
+--- Show session details in a notification.
+LeetCodeStatsView.session = function()
+  log.info('Checking session…')
+  LeetCodeStatsView.as(function()
+    local session, err = auth.verify()
+    if err ~= nil or session == nil then
+      log.warn('Session check failed: ' .. (err or 'Empty response'))
+      return
+    end
+
+    local streak = nil
+    if session.signed_in then streak = select(1, stats.streak()) end
+    local message = session.signed_in and session.name or 'anonymous'
+    message = message .. (session.is_premium and ' (premium)' or '')
+    if streak ~= nil then message = message .. ('  streak: %d'):format(tonumber(streak.streak_count) or 0) end
+    log.notify(message, session.signed_in and vim.log.levels.INFO or vim.log.levels.WARN)
+  end)
 end
+
+--- Close the central window.
+LeetCodeStatsView.close = function() ui.close() end
 
 return LeetCodeStatsView

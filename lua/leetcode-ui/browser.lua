@@ -1,20 +1,18 @@
 --- *leetcode-ui-browser* Automatic cookie import from browsers
 ---
----@tag LeetCodeBrowser
+--- Supported sources:
+--- - Firefox (`cookies.sqlite`, plain SQLite).
+--- - Chromium-family browsers (`Cookies` SQLite). Legacy `v10` blobs decrypt
+---   via the Chromium scheme using `openssl`; `v11+` blobs require keyring
+---   access and report an explicit error when it is unavailable.
+--- - Epiphany and Safari where available.
 ---
-
--- |leetcode-ui-browser| Automatic cookie import from browsers.
--- Supported (Linux):
---   firefox  - ~/.mozilla/firefox/<profile>/cookies.sqlite (plain SQLite)
---   google-chrome/chromium/microsoft-edge/brave - "Cookies" SQLite; legacy
---       `v10` blobs decrypt via the well-known Chromium scheme using `openssl`:
---       AES-128-CBC, key = first 16 HMAC-SHA1('peanuts', 'saltysalt' || be32(1)),
---       IV = 16 * 0x20, 3-byte 'v10' prefix stripped before decryption.
---       `v11+` blobs are keyring-protected: surfaced as an explicit error.
---
--- Browser DBs are COPIED to a temporary directory before reading, so browser
--- locks are untouched. Only rows for the two LeetCode cookie names on
--- `%.leetcode.com` hosts are queried; decrypted values never hit the disk.
+--- Browser databases are copied to a temporary directory before reading, so
+--- browser locks are untouched. Only the two LeetCode cookie names on
+--- `%.leetcode.com` hosts are queried; decrypted values never hit the disk.
+---
+---@tag LeetCodeBrowser
+---@toc_entry Browser cookies
 
 local LeetCodeBrowser = {}
 
@@ -30,8 +28,6 @@ LeetCodeBrowser.os_name = function()
 end
 
 LeetCodeBrowser.home = function() return vim.env.HOME or vim.env.USERPROFILE or '' end
-
--- (OS-aware helpers above)
 
 LeetCodeBrowser.cookie_names = { 'LEETCODE_SESSION', 'csrftoken' }
 
@@ -175,36 +171,22 @@ print(json.dumps(result))
 
 -- Helper functionality ==============================================================================================
 
+LeetCodeBrowser.nested_cookie_file = function(path, filename)
+  local nested = vim.fn.glob(vim.fs.joinpath(path, '*', filename), true, true)
+  if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, filename), true, true) end
+  return nested[1]
+end
+
 LeetCodeBrowser.cookie_db = function(browser)
+  local filename = (browser == 'firefox' or browser == 'epiphany') and 'cookies.sqlite' or 'Cookies'
   local overridden = (config.config.browser_paths or {})[browser]
+
   if overridden ~= nil and overridden ~= '' then
     local path = vim.fs.normalize(overridden)
     local stat = vim.uv.fs_stat(path)
-    if stat ~= nil then
-      if stat.type == 'directory' then
-        if browser == 'firefox' or browser == 'epiphany' then
-          local nested = vim.fn.glob(vim.fs.joinpath(path, '*', 'cookies.sqlite'), true, true)
-          if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, 'cookies.sqlite'), true, true) end
-          if #nested > 0 then return nested[1] end
-        else
-          local nested = vim.fn.glob(vim.fs.joinpath(path, '*', 'Cookies'), true, true)
-          if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, 'Cookies'), true, true) end
-          if #nested > 0 then return nested[1] end
-        end
-        return nil
-      end
-      return path
-    end
-    if browser == 'firefox' or browser == 'epiphany' then
-      local nested = vim.fn.glob(vim.fs.joinpath(path, '*', 'cookies.sqlite'), true, true)
-      if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, 'cookies.sqlite'), true, true) end
-      if #nested > 0 then return nested[1] end
-    else
-      local nested = vim.fn.glob(vim.fs.joinpath(path, '*', 'Cookies'), true, true)
-      if #nested == 0 then nested = vim.fn.glob(vim.fs.joinpath(path, 'Cookies'), true, true) end
-      if #nested > 0 then return nested[1] end
-    end
-    return nil
+    if stat == nil then return LeetCodeBrowser.nested_cookie_file(path, filename) end
+    if stat.type == 'directory' then return LeetCodeBrowser.nested_cookie_file(path, filename) end
+    return path
   end
 
   local candidates = {}
@@ -245,12 +227,13 @@ LeetCodeBrowser.cookie_db = function(browser)
     vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(home, '.config', 'epiphany', 'cookies.sqlite'), true, true))
   elseif browser == 'safari' then
     local home = LeetCodeBrowser.home()
-    local p = vim.fs.joinpath(home, 'Library', 'Cookies', 'Cookies.binarycookies')
-    if vim.uv.fs_stat(p) ~= nil then table.insert(candidates, p) end
+    local path = vim.fs.joinpath(home, 'Library', 'Cookies', 'Cookies.binarycookies')
+    if vim.uv.fs_stat(path) ~= nil then table.insert(candidates, path) end
   else
     local root = LeetCodeBrowser.chromium_root(browser)
-    vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root or '', '*', 'Cookies'), true, true))
-    vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root or '', '*', 'Network', 'Cookies'), true, true))
+    if root == nil then return nil end
+    vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root, '*', 'Cookies'), true, true))
+    vim.list_extend(candidates, vim.fn.glob(vim.fs.joinpath(root, '*', 'Network', 'Cookies'), true, true))
   end
   if #candidates == 0 then return nil end
 
@@ -446,7 +429,7 @@ end
 
 -- Public API ========================================================================================================
 
----Resolved browser cookies (session cache, 5 minute TTL).
+--- Resolved browser cookies (session cache, 5 minute TTL).
 ---
 ---@return table|nil cookies name -> value or nil
 LeetCodeBrowser.get_cookies = function()
@@ -467,7 +450,7 @@ LeetCodeBrowser.get_cookies = function()
   return cookies
 end
 
----Reset the cache (e.g. forced refresh after login changes).
+--- Reset the cache (e.g. forced refresh after login changes).
 LeetCodeBrowser.reset = function() LeetCodeBrowser.cache = nil end
 
 return LeetCodeBrowser

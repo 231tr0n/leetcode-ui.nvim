@@ -1,19 +1,17 @@
 --- *leetcode-ui-api-runner* Test-run and submit flows
 ---
----@tag LeetCodeRunnerApi
+--- Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/check/`
+--- until a `status_code` arrives, and normalize the result for
+--- |leetcode-ui-console|.
 ---
+--- Normalized result:
+--- `{ status, ok, message, runtime_ms, memory_mb, correct, total, compare,
+--- stdouts, pretty_stdout, input, expected_output, code_output, lang,
+--- is_submit, raw }`.
+---
+---@tag LeetCodeRunnerApi
+---@toc_entry Runner API
 
--- |leetcode-ui-api-runner| Test-run (interpret) and submit flows.
--- Flow: POST local code to LeetCode, then poll `/submissions/detail/{id}/check/`
--- until a `status_code` arrives; normalize into a shared result model consumed
--- by |leetcode-ui-console|.
---
--- Normalized result:
---   { status = 'Accepted'|..., ok = bool, message = string|nil,
---     runtime_ms, memory_mb, correct, total, compare = '1010'|nil,
---     stdouts = { string, ... }, pretty_stdout = string|nil, raw = item }
-
--- Module design:
 local LeetCodeRunnerApi = {}
 
 local api = require('leetcode-ui.api')
@@ -58,7 +56,10 @@ LeetCodeRunnerApi.normalize = function(item, is_submit)
     message = item.full_run_error or item.runtime_error or nil
   end
 
-  if item.invalid_testcase then status = 'Invalid Testcase' end
+  if item.invalid_testcase then
+    status = 'Invalid Testcase'
+    ok = false
+  end
 
   return {
     status = status,
@@ -83,7 +84,7 @@ end
 
 -- Public API ========================================================================================================
 
----Run a test (interpret request, not counted as a submission).
+--- Run a test (interpret request, not counted as a submission).
 ---
 ---@param question table Normalized detail (|leetcode-ui-api-question|).
 ---@param code string User typed code.
@@ -106,7 +107,7 @@ LeetCodeRunnerApi.interpret = function(question, code, data_input)
   return LeetCodeRunnerApi.listen(res.interpret_id, false)
 end
 
----Submit a solution.
+--- Submit a solution.
 ---
 ---@param question table Normalized detail.
 ---@param code string User typed code.
@@ -127,7 +128,7 @@ LeetCodeRunnerApi.submit = function(question, code)
   return LeetCodeRunnerApi.listen(res.submission_id, true)
 end
 
----Poll the check endpoint until judging finishes.
+--- Poll the check endpoint until judging finishes.
 ---
 ---@param id string interpret_id or submission_id.
 ---@param is_submit boolean
@@ -148,17 +149,6 @@ LeetCodeRunnerApi.listen = function(id, is_submit)
 
     LeetCodeRunnerApi.sleep(interval)
   end
-end
-
----Latest stored submission for a question and language.
----
----@param question table Normalized detail.
----@param lang_slug string
----@return table|nil detail
----@return string|nil err
-LeetCodeRunnerApi.latest_submission = function(question, lang_slug)
-  local path = ('/submissions/latest/?qid=%s&lang=%s'):format(question.id, lang_slug)
-  return api.rest('GET', path)
 end
 
 return LeetCodeRunnerApi

@@ -1,3 +1,7 @@
+-- Generate help docs with mini.doc (mini.nvim style).
+--
+--   nvim --headless -u scripts/minidoc.lua
+
 local script = debug.getinfo(1, 'S').source:sub(2)
 local root = vim.fs.normalize(vim.fs.dirname(script) .. '/..')
 vim.opt.runtimepath:prepend(root)
@@ -10,36 +14,36 @@ if _G.MiniDoc == nil then MiniDoc.setup() end
 
 local modules = {
   'leetcode-ui',
+  'leetcode-ui.commands',
   'leetcode-ui.config',
+  'leetcode-ui.log',
+  'leetcode-ui.ui',
+  'leetcode-ui.buffer',
+  'leetcode-ui.question',
+  'leetcode-ui.console',
+  'leetcode-ui.solution',
+  'leetcode-ui.picker',
+  'leetcode-ui.stats_view',
   'leetcode-ui.auth',
   'leetcode-ui.browser',
-  'leetcode-ui.api',
-  'leetcode-ui.api.question',
-  'leetcode-ui.api.runner',
-  'leetcode-ui.api.stats',
-  'leetcode-ui.api.queries',
   'leetcode-ui.net',
   'leetcode-ui.storage',
   'leetcode-ui.parser',
-  'leetcode-ui.buffer',
-  'leetcode-ui.console',
-  'leetcode-ui.solution',
-  'leetcode-ui.question',
-  'leetcode-ui.picker',
-  'leetcode-ui.stats_view',
-
+  'leetcode-ui.async',
+  'leetcode-ui.api',
+  'leetcode-ui.api.queries',
+  'leetcode-ui.api.question',
+  'leetcode-ui.api.runner',
+  'leetcode-ui.api.stats',
   'leetcode-ui.runner.common',
   'leetcode-ui.runner.langs.python3',
-  'leetcode-ui.async',
 }
 
 local inputs = {}
-for _, mod in ipairs(modules) do
-  local path = vim.fs.joinpath(root, 'lua', mod:gsub('%.', '/') .. '.lua')
+for _, module in ipairs(modules) do
+  local path = vim.fs.joinpath(root, 'lua', module:gsub('%.', '/') .. '.lua')
   if vim.fn.filereadable(path) == 1 then table.insert(inputs, path) end
 end
 
-local config = {}
-
-MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), config)
+MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), {})
 vim.cmd('qa!')

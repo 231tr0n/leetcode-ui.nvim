@@ -1,19 +1,18 @@
 --- *leetcode-ui-runner-python3* Python3 local runner
 ---
----@tag LeetCodeRunnerPython
+--- Wraps the user's `class Solution` with LeetCode-standard data structures,
+--- a decoder for raw testcase lines, and a serialized return value.
+--- System-design problems drive the `classname` object through the method list
+--- (see |leetcode-ui-runner-common|).
 ---
-
--- |leetcode-ui-runner-lang| Local Python 3 harness (`runner/langs/python3`).
--- Wraps the user's `class Solution` with LeetCode-standard data structures,
--- a decoder for raw testcase lines, and a `print()` of the serialized return
--- value. SystemDesign problems drive the `classname` object through the method
--- list (see |runner/common|).
---
--- Run contract: argv = [python, main.py, lines_json, specs_json, mode]
---   lines_json  - array of raw testcase lines
---   specs_json  - normal: array of param type strings
---                 systemdesign: array of { name, types = {...} } per method
---   mode        - 'normal' | 'systemdesign'
+--- Run contract: `argv = [python, main.py, lines_json, specs_json, mode]`
+--- - `lines_json` - array of raw testcase lines.
+--- - `specs_json` - normal mode: array of parameter type strings; system-design
+---   mode: array of `{ name, types = {...} }` per method.
+--- - `mode` - `'normal'` or `'systemdesign'`.
+---
+---@tag LeetCodeRunnerPython
+---@toc_entry Python runner
 
 local LeetCodeRunnerPython = {}
 

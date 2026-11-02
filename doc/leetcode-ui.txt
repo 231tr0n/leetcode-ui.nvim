@@ -1,11 +1,80 @@
                                                                       *LeetCode*
-
 *leetcode-ui* LeetCode UI for Neovim
+
+A command-driven LeetCode client. The whole interface lives in one central
+window: problem description, solution editor, test console, and information
+are tabs in that window. Statistics use the same window.
+
+No keymaps are created by the plugin. Every action is available as a
+`:LeetCode` subcommand (also available as `:Leetcode`), so you can map
+exactly the actions you use:
+
+>lua
+  vim.keymap.set('n', '<leader>lr', '<cmd>LeetCode run<cr>', { desc = 'LeetCode: run' })
+  vim.keymap.set('n', '<leader>ls', '<cmd>LeetCode submit<cr>', { desc = 'LeetCode: submit' })
+<
+
+Features:
+
+- Browse problems with `mini.pick` or |vim.ui.select()|.
+- Read parsed descriptions and hints.
+- Edit, run, and submit solutions with draft persistence.
+- Run Python 3 solutions locally with the bundled harness.
+- Show progress statistics and session information.
+- Import session cookies from supported browsers.
+
+Commands:
+
+- `:LeetCode list [difficulty]` - browse problems, optionally filtered.
+- `:LeetCode daily` - open the daily challenge.
+- `:LeetCode random [difficulty]` - open a random problem.
+- `:LeetCode open <slug>` - open a problem by its title slug.
+- `:LeetCode description`, `:LeetCode code`, `:LeetCode console`,
+  `:LeetCode info` - show a question tab.
+- `:LeetCode next`, `:LeetCode prev` - cycle question tabs.
+- `:LeetCode run [index]` - run all testcases or one testcase.
+- `:LeetCode submit` - submit the current solution.
+- `:LeetCode reset` - restore the starter snippet.
+- `:LeetCode format` - format the current solution.
+- `:LeetCode language [slug]` - switch language (picker without `slug`).
+- `:LeetCode case add [input]`, `:LeetCode case edit [index] [input]`,
+  `:LeetCode case delete [index]`, `:LeetCode case next`,
+  `:LeetCode case prev` - manage testcases. Use `\n` for newlines in
+  one-line command input.
+- `:LeetCode stats` - show progress statistics.
+- `:LeetCode session` - show the current session.
+- `:LeetCode refresh [difficulty]` - clear the problem cache and reopen.
+- `:LeetCode close` - close the central window.
+- `:LeetCode help` - show a command summary in the central window.
+
+  Overview ........................................................ |LeetCode|
+  Commands ................................................ |LeetCodeCommands|
+  Configuration ............................................. |LeetCodeConfig|
+  Notifications ................................................ |LeetCodeLog|
+  Central UI .................................................... |LeetCodeUI|
+  Buffer helpers ............................................ |LeetCodeBuffer|
+  Question view ....................................... |LeetCodeQuestionView|
+  Console .................................................. |LeetCodeConsole|
+  Solution buffer ......................................... |LeetCodeSolution|
+  Picker .................................................... |LeetCodePicker|
+  Statistics view ........................................ |LeetCodeStatsView|
+  Authentication .............................................. |LeetCodeAuth|
+  Browser cookies .......................................... |LeetCodeBrowser|
+  Networking ................................................... |LeetCodeNet|
+  Storage .................................................. |LeetCodeStorage|
+  HTML parser ............................................... |LeetCodeParser|
+  Async driver ............................................... |LeetCodeAsync|
+  GraphQL queries .......................................... |LeetCodeQueries|
+  Questions API ........................................... |LeetCodeQuestion|
+  Runner API ............................................. |LeetCodeRunnerApi|
+  Statistics API .......................................... |LeetCodeStatsApi|
+  Local runner .............................................. |LeetCodeRunner|
+  Python runner ....................................... |LeetCodeRunnerPython|
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.setup()*
                             `LeetCode.setup`({opts})
-up plugin options (full docs in |leetcode-ui.setup()|).
+Set up plugin options (full docs in |leetcode-ui-config|).
 
 Parameters ~
 {opts} `(table|nil)` Setup options.
@@ -13,17 +82,25 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                        *LeetCode.ensure_setup()*
                            `LeetCode.ensure_setup`()
-a default setup has happened once (for one-off commands).
+Ensure a default setup has happened once.
+
+------------------------------------------------------------------------------
+                                                            *LeetCode.command()*
+                          `LeetCode.command`({fargs})
+Run a `:LeetCode` subcommand.
+
+Parameters ~
+{fargs} `(table)` Argument list, like `{ 'run', '1' }`.
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.daily()*
                                `LeetCode.daily`()
-today's daily coding challenge question.
+Open today's daily coding challenge.
 
 ------------------------------------------------------------------------------
                                                              *LeetCode.random()*
                            `LeetCode.random`({opts})
-a random question.
+Open a random question.
 
 Parameters ~
 {opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
@@ -31,53 +108,142 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                                *LeetCode.list()*
                             `LeetCode.list`({opts})
-the problem list.
+Browse the problem list.
 
 Parameters ~
 {opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
 
 ------------------------------------------------------------------------------
+                                                               *LeetCode.open()*
+                         `LeetCode.open`({title_slug})
+Open a question by slug.
+
+Parameters ~
+{title_slug} `(string)`
+
+------------------------------------------------------------------------------
                                                               *LeetCode.stats()*
                                `LeetCode.stats`()
-the statistics view.
+Open the statistics view.
 
 ------------------------------------------------------------------------------
                                                             *LeetCode.session()*
                               `LeetCode.session`()
-current session information.
+Show current session information.
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.close()*
                                `LeetCode.close`()
-the focused question view.
+Close the focused question view.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                              *LeetCodeCommands*
+*leetcode-ui-commands* `:LeetCode` command dispatcher
+
+All user actions are exposed as subcommands, so no plugin-defined keymaps
+are installed. Map the commands you use in your own configuration.
+
+
+------------------------------------------------------------------------------
+                                                        *LeetCodeCommands.run()*
+                        `LeetCodeCommands.run`({fargs})
+Run a `:LeetCode` subcommand.
+
+Parameters ~
+{fargs} `(table)` Argument list from |nvim_create_user_command()|.
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeCommands.complete()*
+       `LeetCodeCommands.complete`({arg_lead}, {cmd_line}, {cursor_pos})
+Command-line completion for `:LeetCode`.
+
+Parameters ~
+{arg_lead} `(string)`
+{cmd_line} `(string)`
+{cursor_pos} `(number)`
+Return ~
+`(table)`
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                                 *LeetCodeConfig*
-
 *leetcode-ui-config* Configuration for leetcode-ui
+
+Configuration is validated and applied by |leetcode-ui.setup()|.
+
+Nested tables are replaced whole (not deep-merged), like in mini.nvim.
+Supply the complete nested table when overriding one.
+
+Options:
+
+- `url` (`string`) - LeetCode domain used for API and web URLs.
+- `lang` (`string`) - default solution language slug.
+- `languages` (`table|nil`) - allow-list of language slugs for the picker.
+- `cookies` (`table`) - `LEETCODE_SESSION` and `csrftoken` values.
+- `cookie_file` (`string|nil`) - Netscape cookie jar consumed by curl.
+- `storage_path` (`string|nil`) - cache and draft root.
+- `browser` (`string`) - cookie import source: `auto`, `firefox`,
+  `epiphany`, `safari`, `chrome`, `brave`, `edge`, `chromium`, or `none`.
+- `browser_paths` (`table`) - per-browser database path overrides.
+- `local_runner` (`boolean`) - prefer bundled local runners for `run`.
+- `binaries` (`table`) - executable overrides for local runners.
+- `runner_timeout` (`number`) - local runner timeout in seconds.
+- `no_local` (`table`) - language slugs that always run online.
+- `float_width`, `float_height` (`number`) - central window size.
+- `float_border` (`string|nil`) - central window border.
+- `picker` (`string`) - `auto`, `mini`, or `builtin`.
+- `cooldown` (`number`) - problem-list cache lifetime in minutes.
+- `hide_premium` (`boolean`) - hide premium-only problems.
+- `notifications` (`boolean`) - show informational notifications.
+- `icons` (`table`) - status and testcase icon overrides.
+
+Default configuration:
+
+>lua
+  require('leetcode-ui').setup({
+    url = 'leetcode.com',
+    lang = 'python3',
+    languages = nil,
+    cookies = { LEETCODE_SESSION = nil, csrftoken = nil },
+    cookie_file = nil,
+    storage_path = nil,
+    browser = 'auto',
+    browser_paths = {},
+    local_runner = true,
+    binaries = {},
+    runner_timeout = 30,
+    no_local = {},
+    float_width = 120,
+    float_height = 36,
+    float_border = nil,
+    picker = 'auto',
+    cooldown = 60,
+    hide_premium = false,
+    notifications = true,
+  })
+<
+
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeConfig.reset()*
                             `LeetCodeConfig.reset`()
-the public config table back to defaults (used by tests).
+Reset the public config table back to defaults (used by tests).
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeConfig.error()*
-                    `LeetCodeConfig.error`({msg}, {notify})
-out either as |vim.notify()| or as a Lua error.
+                         `LeetCodeConfig.error`({msg})
+Raise a configuration error.
 
 Parameters ~
 {msg} `(string)`
-{notify} `(boolean|nil)`
-Return ~
-`(string)`
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeConfig.setup()*
                          `LeetCodeConfig.setup`({opts})
-up |leetcode-ui| configuration.
+Set up |leetcode-ui| configuration.
 
 Parameters ~
 {opts} `(table|nil)` User configuration.
@@ -85,7 +251,7 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                      *LeetCodeConfig.get_lang()*
                        `LeetCodeConfig.get_lang`({slug})
-LeetCode language metadata.
+Fetch LeetCode language metadata.
 
 Parameters ~
 {slug} `(string)`
@@ -95,7 +261,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                  *LeetCodeConfig.lang_enabled()*
                      `LeetCodeConfig.lang_enabled`({slug})
-`slug` is among the configured picker languages.
+Whether `slug` is among the configured picker languages.
 
 Parameters ~
 {slug} `(string)`
@@ -105,14 +271,816 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-                                                                  *LeetCodeAuth*
+                                                                   *LeetCodeLog*
+*leetcode-ui-log* User notifications
 
+Small wrapper around |vim.notify()| used by all user-facing actions.
+Informational messages can be disabled with `notifications = false` in
+|leetcode-ui.setup()|.
+
+
+------------------------------------------------------------------------------
+                                                          *LeetCodeLog.notify()*
+                      `LeetCodeLog.notify`({msg}, {level})
+Show a notification unless informational notifications are disabled.
+
+Parameters ~
+{msg} `(string)`
+{level} `(number|nil)` Notification level (default: `vim.log.levels.INFO`).
+
+------------------------------------------------------------------------------
+                                                            *LeetCodeLog.info()*
+                           `LeetCodeLog.info`({msg})
+Show an informational notification.
+
+Parameters ~
+{msg} `(string)`
+
+------------------------------------------------------------------------------
+                                                            *LeetCodeLog.warn()*
+                           `LeetCodeLog.warn`({msg})
+Show a warning notification.
+
+Parameters ~
+{msg} `(string)`
+
+------------------------------------------------------------------------------
+                                                           *LeetCodeLog.error()*
+                           `LeetCodeLog.error`({msg})
+Show an error notification.
+
+Parameters ~
+{msg} `(string)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                    *LeetCodeUI*
+*leetcode-ui-ui* Central UI window
+
+All plugin views (question tabs and statistics) are shown in one central
+floating window. Read-only views use a shared scratch buffer; the code tab
+swaps in the editable solution buffer inside the same window.
+
+
+------------------------------------------------------------------------------
+                                                          *LeetCodeUI.is_open()*
+                             `LeetCodeUI.is_open`()
+Whether the central window is currently open.
+
+Return ~
+`(boolean)`
+
+------------------------------------------------------------------------------
+                                                            *LeetCodeUI.panel()*
+                              `LeetCodeUI.panel`()
+Get the shared read-only scratch buffer, creating it if needed.
+
+Return ~
+`(number)` bufnr
+
+------------------------------------------------------------------------------
+                                                           *LeetCodeUI.ensure()*
+                             `LeetCodeUI.ensure`()
+Ensure the central window is open and return its id.
+
+Return ~
+`(number)` winid
+
+------------------------------------------------------------------------------
+                                                             *LeetCodeUI.show()*
+                       `LeetCodeUI.show`({bufnr}, {opts})
+Show a buffer in the central window.
+
+Parameters ~
+{bufnr} `(number)`
+{opts} `(table|nil)` { number = boolean, wrap = boolean }
+Return ~
+`(number)` winid
+
+------------------------------------------------------------------------------
+                                                           *LeetCodeUI.render()*
+                      `LeetCodeUI.render`({lines}, {opts})
+Render read-only span lines in the central window.
+
+Parameters ~
+{lines} `(table)` Array of lines, each an array of `{ text, hl }` spans.
+{opts} `(table|nil)` { number = boolean, wrap = boolean }
+Return ~
+`(number)` winid
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeUI.set_winbar()*
+                        `LeetCodeUI.set_winbar`({text})
+Set the central window's winbar.
+
+Parameters ~
+{text} `(string)`
+
+------------------------------------------------------------------------------
+                                                            *LeetCodeUI.close()*
+                              `LeetCodeUI.close`()
+Close the central window.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                *LeetCodeBuffer*
+*leetcode-ui-buffer* Buffer and span helpers
+
+Shared plumbing for the central UI and the code editor:
+scratch buffer creation, window creation, and `{ text, hl }` span rendering
+via |nvim_buf_set_extmark()|.
+
+
+------------------------------------------------------------------------------
+                                                      *LeetCodeBuffer.scratch()*
+                    `LeetCodeBuffer.scratch`({name}, {opts})
+Create or reuse a scratch buffer.
+
+Parameters ~
+{name} `(string)` Unique buffer name.
+{opts} `(table|nil)` { listed = boolean, ft = string, modifiable = boolean }
+Return ~
+`(number)` bufnr
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeBuffer.open_float()*
+                  `LeetCodeBuffer.open_float`({bufnr}, {opts})
+Open a centered floating window for a buffer.
+
+Parameters ~
+{bufnr} `(number)`
+{opts} `(table|nil)` { width = number, height = number, border = string, focus = boolean, title = string }
+Return ~
+`(number)` winid
+
+------------------------------------------------------------------------------
+                                                  *LeetCodeBuffer.spans_write()*
+                 `LeetCodeBuffer.spans_write`({bufnr}, {lines})
+Write `{ text, hl }` spans into a buffer.
+
+The buffer is temporarily made modifiable and its previous state is
+restored afterwards, so read-only buffers stay read-only.
+
+Parameters ~
+{bufnr} `(number)`
+{lines} `(table)` Array of lines, each an array of `{ text, hl }` spans.
+
+------------------------------------------------------------------------------
+                                               *LeetCodeBuffer.spans_to_texts()*
+                    `LeetCodeBuffer.spans_to_texts`({lines})
+Convert span lines into plain text lines.
+
+Parameters ~
+{lines} `(table)` Array of lines, each an array of `{ text, hl }` spans.
+Return ~
+`(table)` texts
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeBuffer.maybe_delete()*
+                     `LeetCodeBuffer.maybe_delete`({bufnr})
+Delete a buffer if it is still valid.
+
+Parameters ~
+{bufnr} `(number|nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                          *LeetCodeQuestionView*
+*leetcode-ui-question* Question view
+
+The question view is a set of tabs rendered in the central |LeetCodeUI|
+window: Description, Code, Console, and Info. The code tab is the only
+editable buffer; all other tabs use the shared read-only scratch buffer.
+
+Open views live in |LeetCodeQuestionView.views| keyed by slug.
+
+
+------------------------------------------------------------------------------
+                                               *LeetCodeQuestionView.describe()*
+                    `LeetCodeQuestionView.describe`({view})
+Build Description tab lines.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeQuestionView.info()*
+                      `LeetCodeQuestionView.info`({view})
+Build Info tab lines.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                          *LeetCodeQuestionView.render_winbar()*
+                  `LeetCodeQuestionView.render_winbar`({view})
+Render the tab strip in the central window's winbar.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                *LeetCodeQuestionView.refresh()*
+                     `LeetCodeQuestionView.refresh`({view})
+Re-render the active tab.
+
+Parameters ~
+{view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                               *LeetCodeQuestionView.show_tab()*
+                `LeetCodeQuestionView.show_tab`({view}, {name})
+Show a tab.
+
+Parameters ~
+{view} `(table|nil)`
+{name} `(string)`
+
+------------------------------------------------------------------------------
+                                              *LeetCodeQuestionView.cycle_tab()*
+               `LeetCodeQuestionView.cycle_tab`({view}, {delta})
+Cycle through tabs.
+
+Parameters ~
+{view} `(table|nil)`
+{delta} `(number|nil)`
+
+------------------------------------------------------------------------------
+                                                *LeetCodeQuestionView.current()*
+                        `LeetCodeQuestionView.current`()
+Get the question view belonging to the current buffer, falling back to the
+most recently active view.
+
+Return ~
+`(table|nil)`
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeQuestionView.open()*
+                   `LeetCodeQuestionView.open`({title_slug})
+Open a question by slug.
+
+Parameters ~
+{title_slug} `(string)`
+
+------------------------------------------------------------------------------
+                                                  *LeetCodeQuestionView.close()*
+                      `LeetCodeQuestionView.close`({view})
+Close a question view.
+
+Parameters ~
+{view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                             *LeetCodeQuestionView.reset_code()*
+                   `LeetCodeQuestionView.reset_code`({view})
+Restore the starter snippet.
+
+Parameters ~
+{view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                        *LeetCodeQuestionView.switch_language()*
+                 `LeetCodeQuestionView.switch_language`({view})
+Switch to another available language.
+
+Parameters ~
+{view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                           *LeetCodeQuestionView.mark_running()*
+             `LeetCodeQuestionView.mark_running`({view}, {indexes})
+Mark cases as running and show the Console tab.
+
+Parameters ~
+{view} `(table)`
+{indexes} `(table)`
+
+------------------------------------------------------------------------------
+                                              *LeetCodeQuestionView.run_local()*
+`LeetCodeQuestionView.run_local`({view}, {question}, {code}, {indexes}, {on_done})
+Run selected cases with the local runner, one at a time.
+
+Parameters ~
+{view} `(table)`
+{question} `(table)`
+{code} `(string)`
+{indexes} `(table)`
+{on_done} `(function)`
+
+------------------------------------------------------------------------------
+                                             *LeetCodeQuestionView.run_online()*
+`LeetCodeQuestionView.run_online`({view}, {question}, {code}, {indexes}, {index})
+Run testcases against the judge.
+
+Parameters ~
+{view} `(table)`
+{question} `(table)`
+{code} `(string)`
+{indexes} `(table)`
+{index} `(number|nil)` Single-case index.
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeQuestionView.run()*
+                  `LeetCodeQuestionView.run`({view}, {index})
+Run all testcases or one testcase.
+
+Parameters ~
+{view} `(table|nil)`
+{index} `(number|string|nil)`
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeQuestionView.submit()*
+                     `LeetCodeQuestionView.submit`({view})
+Submit the current solution.
+
+Parameters ~
+{view} `(table|nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                               *LeetCodeConsole*
+*leetcode-ui-console* Test case console
+
+A plain data model for the Console tab. |leetcode-ui-question| turns
+|LeetCodeConsole.lines()| into rendered spans; the console itself never
+owns buffers or windows.
+
+
+------------------------------------------------------------------------------
+                                                         *LeetCodeConsole.new()*
+                         `LeetCodeConsole.new`({view})
+Create a console for a question view.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(table)` console
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeConsole.set_cases()*
+              `LeetCodeConsole.set_cases`({console}, {testcases})
+Replace all test cases from API-provided example inputs.
+
+Parameters ~
+{console} `(table)`
+{testcases} `(table|nil)` Array of raw inputs.
+
+------------------------------------------------------------------------------
+                                             *LeetCodeConsole.normalize_input()*
+                   `LeetCodeConsole.normalize_input`({input})
+Normalize a testcase entered on one line.
+
+Parameters ~
+{input} `(string|nil)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeConsole.lines()*
+                       `LeetCodeConsole.lines`({console})
+Build renderable span lines for the Console tab.
+
+Parameters ~
+{console} `(table)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeConsole.add_case()*
+                 `LeetCodeConsole.add_case`({console}, {input})
+Add a new test case.
+
+Parameters ~
+{console} `(table)`
+{input} `(string|nil)`
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeConsole.delete_case()*
+               `LeetCodeConsole.delete_case`({console}, {index})
+Delete a test case.
+
+Parameters ~
+{console} `(table)`
+{index} `(number|nil)` Defaults to the selected case.
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeConsole.edit_case()*
+            `LeetCodeConsole.edit_case`({console}, {index}, {input})
+Edit a test case input.
+
+Parameters ~
+{console} `(table)`
+{index} `(number|nil)` Defaults to the selected case.
+{input} `(string|nil)`
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeConsole.select_next()*
+                    `LeetCodeConsole.select_next`({console})
+Select the next test case.
+
+Parameters ~
+{console} `(table)`
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeConsole.select_prev()*
+                    `LeetCodeConsole.select_prev`({console})
+Select the previous test case.
+
+Parameters ~
+{console} `(table)`
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeConsole.case_result()*
+          `LeetCodeConsole.case_result`({console}, {index}, {result})
+Store a normalized result for a test case.
+
+Parameters ~
+{console} `(table)`
+{index} `(number)`
+{result} `(table)`
+
+------------------------------------------------------------------------------
+                                                     *LeetCodeConsole.refresh()*
+                      `LeetCodeConsole.refresh`({console})
+Request a re-render of the question view when the console changes.
+
+Parameters ~
+{console} `(table)`
+
+------------------------------------------------------------------------------
+                                               *LeetCodeConsole.start_spinner()*
+                   `LeetCodeConsole.start_spinner`({console})
+Start the spinner used by running cases.
+
+Parameters ~
+{console} `(table)`
+
+------------------------------------------------------------------------------
+                                                *LeetCodeConsole.stop_spinner()*
+                   `LeetCodeConsole.stop_spinner`({console})
+Stop the spinner if it is running.
+
+Parameters ~
+{console} `(table)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                              *LeetCodeSolution*
+*leetcode-ui-solution* Code editor buffer
+
+Owns the editable solution buffer: starter snippets, draft persistence,
+formatting, and language switching.
+
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeSolution.filetype()*
+                    `LeetCodeSolution.filetype`({lang_slug})
+Filetype used for a language slug.
+
+Parameters ~
+{lang_slug} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeSolution.snippet()*
+                       `LeetCodeSolution.snippet`({view})
+Starter snippet for the view's current language.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                  *LeetCodeSolution.languages()*
+                      `LeetCodeSolution.languages`({view})
+Languages available for a question, with the active one first.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(table)` slugs
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeSolution.prepare()*
+                       `LeetCodeSolution.prepare`({view})
+Create the solution buffer for a view when needed.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeSolution.open()*
+                        `LeetCodeSolution.open`({view})
+Apply buffer options and draft persistence for a view.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeSolution.save_draft()*
+                     `LeetCodeSolution.save_draft`({view})
+Save the current code buffer as a draft.
+
+Parameters ~
+{view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeSolution.code()*
+                        `LeetCodeSolution.code`({view})
+Current code buffer text.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeSolution.set_code()*
+                 `LeetCodeSolution.set_code`({view}, {content})
+Replace the code buffer contents.
+
+Parameters ~
+{view} `(table)`
+{content} `(string)`
+
+------------------------------------------------------------------------------
+                                                     *LeetCodeSolution.format()*
+                       `LeetCodeSolution.format`({view})
+Format the current code using LeetCode's formatter, a CLI formatter, or LSP.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                                      *LeetCodeSolution.reset()*
+                        `LeetCodeSolution.reset`({view})
+Restore the starter snippet and remove the saved draft.
+
+Parameters ~
+{view} `(table)`
+
+------------------------------------------------------------------------------
+                                            *LeetCodeSolution.switch_language()*
+            `LeetCodeSolution.switch_language`({view}, {lang_slug})
+Switch the view to another language.
+
+Parameters ~
+{view} `(table)`
+{lang_slug} `(string)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                *LeetCodePicker*
+*leetcode-ui-picker* Problem picking
+
+Problem list browser and generic selection helpers. `mini.pick` is used when
+configured and available; otherwise |vim.ui.select()| is used.
+
+
+------------------------------------------------------------------------------
+                                                 *LeetCodePicker.format_entry()*
+                     `LeetCodePicker.format_entry`({entry})
+Format one problem-list entry for the picker.
+
+Parameters ~
+{entry} `(table)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                   *LeetCodePicker.pick_entry()*
+           `LeetCodePicker.pick_entry`({lines}, {entries}, {choice})
+Find an entry by its rendered picker line.
+
+Parameters ~
+{lines} `(table)`
+{entries} `(table)`
+{choice} `(string|nil)`
+Return ~
+`(table|nil)`
+
+------------------------------------------------------------------------------
+                                                       *LeetCodePicker.launch()*
+                        `LeetCodePicker.launch`({entry})
+Open a problem-list entry.
+
+Parameters ~
+{entry} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                               *LeetCodePicker.problem_source()*
+                   `LeetCodePicker.problem_source`({filter})
+Build filtered picker lines and entries from the cached problem list.
+
+Parameters ~
+{filter} `(table|nil)` { difficulty = string, hide_premium = boolean }
+Return ~
+`(table)` lines
+Return ~
+`(table)` entries
+Return ~
+`(string|nil)` err
+
+------------------------------------------------------------------------------
+                                                       *LeetCodePicker.select()*
+             `LeetCodePicker.select`({items}, {title}, {on_choice})
+Generic select: `mini.pick` when configured and available, else |vim.ui.select()|.
+
+Parameters ~
+{items} `(table)`
+{title} `(string|nil)`
+{on_choice} `(function|nil)` Called with `(item, index)`; both nil on cancellation.
+
+------------------------------------------------------------------------------
+                                                      *LeetCodePicker.problem()*
+                        `LeetCodePicker.problem`({opts})
+Browse the problem list.
+
+Parameters ~
+{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+
+------------------------------------------------------------------------------
+                                                        *LeetCodePicker.daily()*
+                            `LeetCodePicker.daily`()
+Open today's daily challenge.
+
+------------------------------------------------------------------------------
+                                                       *LeetCodePicker.random()*
+                        `LeetCodePicker.random`({opts})
+Open a random question.
+
+Parameters ~
+{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                             *LeetCodeStatsView*
+*leetcode-ui-stats-view* Statistics view
+
+Progress meters by difficulty, language breakdown, skill tags, and session
+information. Rendered in the central |LeetCodeUI| window.
+
+
+------------------------------------------------------------------------------
+                                                     *LeetCodeStatsView.meter()*
+         `LeetCodeStatsView.meter`({label}, {solved}, {total}, {width})
+Build one difficulty progress meter.
+
+Parameters ~
+{label} `(string)`
+{solved} `(number)`
+{total} `(number)`
+{width} `(number|nil)`
+Return ~
+`(table)` spans
+
+------------------------------------------------------------------------------
+                                            *LeetCodeStatsView.language_lines()*
+                   `LeetCodeStatsView.language_lines`({rows})
+Build language breakdown lines.
+
+Parameters ~
+{rows} `(table|nil)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                              *LeetCodeStatsView.skills_lines()*
+                    `LeetCodeStatsView.skills_lines`({tags})
+Build skill-tag lines.
+
+Parameters ~
+{tags} `(table|nil)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                               *LeetCodeStatsView.build_lines()*
+`LeetCodeStatsView.build_lines`({solved}, {languages}, {skills}, {err}, {session}, {streak})
+Build all statistics lines.
+
+Parameters ~
+{solved} `(table|nil)`
+{languages} `(table|nil)`
+{skills} `(table|nil)`
+{err} `(string|nil)`
+{session} `(table|nil)`
+{streak} `(table|nil)`
+Return ~
+`(table)` lines
+
+------------------------------------------------------------------------------
+                                                      *LeetCodeStatsView.open()*
+                           `LeetCodeStatsView.open`()
+Open the statistics view.
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeStatsView.session()*
+                         `LeetCodeStatsView.session`()
+Show session details in a notification.
+
+------------------------------------------------------------------------------
+                                                     *LeetCodeStatsView.close()*
+                          `LeetCodeStatsView.close`()
+Close the central window.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                  *LeetCodeAuth*
 *leetcode-ui-auth* Session handling based on LeetCode cookies
+
+Cookies are resolved in this order:
+1. `cookie_file`: a Netscape-format cookie jar consumed by curl directly.
+2. `cookies` from configuration.
+3. Environment variables `LEETCODE_SESSION` and `CSRFTOKEN`.
+4. LeetCode cookies imported from a supported browser.
+
+|LeetCodeAuth.verify()| lazily runs the `userStatus` GraphQL query and
+caches `{ signed_in, name, is_premium }` for the rest of the session.
+
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeAuth.cookie_file()*
+                          `LeetCodeAuth.cookie_file`()
+Configured cookie-jar path, if any.
+
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeAuth.jar_csrf()*
+                        `LeetCodeAuth.jar_csrf`({path})
+Read the `csrftoken` value from a Netscape cookie jar.
+
+Parameters ~
+{path} `(string)`
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                        *LeetCodeAuth.cookies()*
+                            `LeetCodeAuth.cookies`()
+Resolve cookies from configuration, environment, and browsers.
+
+Return ~
+`(table)` cookies name -> value
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeAuth.has_session()*
+                          `LeetCodeAuth.has_session`()
+Whether any session source is configured.
+
+Return ~
+`(boolean)`
+
+------------------------------------------------------------------------------
+                                                           *LeetCodeAuth.csrf()*
+                             `LeetCodeAuth.csrf`()
+Current CSRF token.
+
+Return ~
+`(string|nil)`
+
+------------------------------------------------------------------------------
+                                                        *LeetCodeAuth.headers()*
+                         `LeetCodeAuth.headers`({opts})
+Build request headers, including session data when available.
+
+Parameters ~
+{opts} `(table|nil)` Extra raw header strings.
+Return ~
+`(table)` headers
+
+------------------------------------------------------------------------------
+                                                  *LeetCodeAuth.handle_status()*
+                      `LeetCodeAuth.handle_status`({res})
+Convert authentication failures into user-facing errors.
+
+Parameters ~
+{res} `(table|nil)`
+Return ~
+`(table|nil)` response
+Return ~
+`(string|nil)` err
 
 ------------------------------------------------------------------------------
                                                          *LeetCodeAuth.verify()*
                             `LeetCodeAuth.verify`()
-current session against LeetCode, caching state.
+Verify the current session against LeetCode, caching the result.
 
 Return ~
 `(table|nil)` session
@@ -120,53 +1088,32 @@ Return ~
 `(string|nil)` err
 
 ------------------------------------------------------------------------------
-                                                   *LeetCodeAuth.is_signed_in()*
-                         `LeetCodeAuth.is_signed_in`()
-cookies are configured and marked valid.
-
-Return ~
-`(boolean)`
-
-------------------------------------------------------------------------------
-                                                           *LeetCodeAuth.name()*
-                             `LeetCodeAuth.name`()
-authenticated display name or nil.
-
-Return ~
-`(string|nil)`
-
-------------------------------------------------------------------------------
-                                                     *LeetCodeAuth.is_premium()*
-                          `LeetCodeAuth.is_premium`()
-unlock flag (nil until checked).
-
-Return ~
-`(boolean|nil)`
-
-------------------------------------------------------------------------------
-                                                      *LeetCodeAuth.is_logged()*
-                           `LeetCodeAuth.is_logged`()
-cookies are configured at all (not dictating validity).
-
-Return ~
-`(boolean)`
-
-------------------------------------------------------------------------------
                                                           *LeetCodeAuth.reset()*
                              `LeetCodeAuth.reset`()
-session cache (cookie expired / user changed config).
+Drop the cached session (cookie expired or user changed configuration).
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                                *LeetCodeBrowser*
-
 *leetcode-ui-browser* Automatic cookie import from browsers
+
+Supported sources:
+- Firefox (`cookies.sqlite`, plain SQLite).
+- Chromium-family browsers (`Cookies` SQLite). Legacy `v10` blobs decrypt
+  via the Chromium scheme using `openssl`; `v11+` blobs require keyring
+  access and report an explicit error when it is unavailable.
+- Epiphany and Safari where available.
+
+Browser databases are copied to a temporary directory before reading, so
+browser locks are untouched. Only the two LeetCode cookie names on
+`%.leetcode.com` hosts are queried; decrypted values never hit the disk.
+
 
 ------------------------------------------------------------------------------
                                                  *LeetCodeBrowser.get_cookies()*
                         `LeetCodeBrowser.get_cookies`()
-browser cookies (session cache, 5 minute TTL).
+Resolved browser cookies (session cache, 5 minute TTL).
 
 Return ~
 `(table|nil)` cookies name -> value or nil
@@ -174,32 +1121,172 @@ Return ~
 ------------------------------------------------------------------------------
                                                        *LeetCodeBrowser.reset()*
                            `LeetCodeBrowser.reset`()
-the cache (e.g. forced refresh after login changes).
+Reset the cache (e.g. forced refresh after login changes).
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                   *LeetCodeNet*
+*leetcode-ui-net* HTTP layer on top of curl
+
+|LeetCodeNet.request()| works both inside a coroutine (yields until the
+request finishes) and on the main thread (uses blocking `vim.system`).
+
+Transient failures (403/429/5xx) are retried with short backoff because
+LeetCode's middleware occasionally returns those for valid requests.
+
+
+------------------------------------------------------------------------------
+                                                         *LeetCodeNet.request()*
+                         `LeetCodeNet.request`({opts})
+Perform an HTTP request.
+
+Options:
+- `url` (string, required)
+- `method` (`'GET'|'POST'|'PUT'|'DELETE'`, default `'GET'`)
+- `headers` (array of raw `'Name: value'` strings)
+- `body` (string|nil raw request body)
+- `timeout` (number seconds, default 30)
+- `retries` (number of transient-failure retries, default 3)
+
+Returns `{status, headers, body}` and an error string on transport failure.
+Inside a coroutine, yields until the request completes.
+
+Parameters ~
+{opts} `(table)` Request options.
+Return ~
+`(table|nil)` Response
+Return ~
+`(string|nil)` Error
+
+------------------------------------------------------------------------------
+                                                    *LeetCodeNet.should_retry()*
+                      `LeetCodeNet.should_retry`({status})
+Whether a status should trigger a retry.
+
+Parameters ~
+{status} `(number)`
+Return ~
+`(boolean)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                               *LeetCodeStorage*
+*leetcode-ui-storage* Local caching and solution drafts
+
+Layout (default `stdpath('data')/leetcode-ui`, override with
+`storage_path` in |leetcode-ui.setup()|):
+  `cache.json` - problem-list cache and timestamps
+  `drafts/{slug}.{langSlug}` - raw typed code per question and language
+
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                *LeetCodeParser*
+*leetcode-ui-parser* Question HTML content to styled buffer spans
+
+`content` HTML from the API renders to a list of lines; each line is a list
+of `{ text, hl }` spans with highlight group names `LeetCodeHeader`,
+`LeetCodeTitle`, `LeetCodeItalic`, `LeetCodeCode`, `LeetCodeLink`, and
+`LeetCodeDim`.
+
+Supported markup: headings, paragraphs, nested and ordered lists, code spans
+and blocks, links, tables, blockquotes, superscripts/subscripts (via Unicode
+glyphs), and common HTML entities.
+
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeParser.render()*
+                       `LeetCodeParser.render`({content})
+Render question HTML into highlightable lines.
+
+Parameters ~
+{content} `(string|nil)` Question HTML (nil renders a placeholder line).
+Return ~
+`(table)` lines Each line is a list of `{ text, hl }` spans.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                 *LeetCodeAsync*
+*leetcode-ui-async* Tiny coroutine driver
+
+Runs a function in a dedicated coroutine. Network code resumes the
+coroutine via |vim.schedule()| and local runners via callbacks, so actions
+can interleave requests with rendering. Errors are reported as
+notifications instead of escaping into Neovim's event loop.
+
+
+------------------------------------------------------------------------------
+                                                           *LeetCodeAsync.run()*
+                           `LeetCodeAsync.run`({fn})
+Run `fn` inside a coroutine.
+
+Parameters ~
+{fn} `(function)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                               *LeetCodeQueries*
+*leetcode-ui-api-queries* All GraphQL queries
+
+All GraphQL query strings in one place. Field names are kept in sync with
+LeetCode's API. Lua identifiers use snake_case fields aliased from their
+camelCase names.
+
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                               *LeetCodeQuestion*
-
 *leetcode-ui-api-question* Problem list, daily, random, and question detail
+
+Normalized shapes (snake_case, `vim.NIL` values removed):
+  list entries: `{ title, title_slug, frontend_id, difficulty, ac_rate,
+                  is_paid_only, status, topic_tags = { { name, slug }, ... } }`
+  detail:       `{ id, frontend_id, title, title_slug, is_paid_only,
+                  difficulty, content, hints, snippets = { lang_slug = {...} },
+                  testcases = { string, ... }, meta = parsed metaData table,
+                  stats = parsed `stats` table, similar = { ... } }`
+
+
+------------------------------------------------------------------------------
+                                                      *LeetCodeQuestion.clean()*
+                       `LeetCodeQuestion.clean`({value})
+Remove `vim.NIL` values recursively.
+
+Parameters ~
+{value} `(any)`
+Return ~
+`(any)`
+
+------------------------------------------------------------------------------
+                                                *LeetCodeQuestion.decode_meta()*
+                    `LeetCodeQuestion.decode_meta`({value})
+Decode a JSON string field, returning nil when it is absent or invalid.
+
+Parameters ~
+{value} `(any)`
+Return ~
+`(table|nil)`
 
 ------------------------------------------------------------------------------
                                                   *LeetCodeQuestion.normalize()*
-                       `LeetCodeQuestion.normalize`({q})
-a single `questionList` row.
+                    `LeetCodeQuestion.normalize`({question})
+Normalize a single `questionList` row.
 
 Parameters ~
-{q} `(table)` GraphQL row.
+{question} `(table)` GraphQL row.
 Return ~
 `(table)` Normalized entry.
 
 ------------------------------------------------------------------------------
                                                    *LeetCodeQuestion.get_list()*
                          `LeetCodeQuestion.get_list`()
-the full problem list (single bulk query), cached in storage.
-
-for |leetcode-ui-opt.cooldown| minutes per domain; temporarily refined
-solved marks after successful submissions inside this session.
+Fetch the full problem list, using the on-disk cache when fresh.
 
 Return ~
 `(table|nil)` { total, questions }
@@ -207,29 +1294,34 @@ Return ~
 `(string|nil)` err
 
 ------------------------------------------------------------------------------
+                                                *LeetCodeQuestion.clear_cache()*
+                        `LeetCodeQuestion.clear_cache`()
+Clear the cached problem list.
+
+------------------------------------------------------------------------------
                                                *LeetCodeQuestion.find_in_list()*
              `LeetCodeQuestion.find_in_list`({title_slug}, {opts})
-a cached list entry by slug; falls back to a fetch-through.
+Find a cached list entry by slug; falls back to a full fetch.
 
 Parameters ~
 {title_slug} `(string)`
-{opts} `(table|nil)` { force = boolean } always re-check via list.
+{opts} `(table|nil)` { force = boolean }
 Return ~
 `(table|nil)` entry
 
 ------------------------------------------------------------------------------
                                          *LeetCodeQuestion.update_list_status()*
          `LeetCodeQuestion.update_list_status`({title_slug}, {status})
-the cached list status for one question.
+Update the cached list status for one question.
 
 Parameters ~
 {title_slug} `(string)`
-{status} `(string)` 'solved' | 'attempted' | nil
+{status} `(string|nil)` `'solved'`, `'attempted'`, or nil.
 
 ------------------------------------------------------------------------------
                                                   *LeetCodeQuestion.get_daily()*
                          `LeetCodeQuestion.get_daily`()
-daily question slug.
+Today's daily question slug.
 
 Return ~
 `(string|nil)` title_slug
@@ -239,7 +1331,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                  *LeetCodeQuestion.get_random()*
                      `LeetCodeQuestion.get_random`({opts})
-question slug.
+Random question slug.
 
 Parameters ~
 {opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
@@ -251,7 +1343,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                  *LeetCodeQuestion.get_detail()*
                   `LeetCodeQuestion.get_detail`({title_slug})
-and normalize a question detail.
+Fetch and normalize a question detail.
 
 Parameters ~
 {title_slug} `(string)`
@@ -264,13 +1356,22 @@ Return ~
 ==============================================================================
 ------------------------------------------------------------------------------
                                                              *LeetCodeRunnerApi*
-
 *leetcode-ui-api-runner* Test-run and submit flows
+
+Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/check/`
+until a `status_code` arrives, and normalize the result for
+|leetcode-ui-console|.
+
+Normalized result:
+`{ status, ok, message, runtime_ms, memory_mb, correct, total, compare,
+stdouts, pretty_stdout, input, expected_output, code_output, lang,
+is_submit, raw }`.
+
 
 ------------------------------------------------------------------------------
                                                  *LeetCodeRunnerApi.interpret()*
         `LeetCodeRunnerApi.interpret`({question}, {code}, {data_input})
-a test (interpret request, not counted as a submission).
+Run a test (interpret request, not counted as a submission).
 
 Parameters ~
 {question} `(table)` Normalized detail (|leetcode-ui-api-question|).
@@ -284,7 +1385,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                     *LeetCodeRunnerApi.submit()*
                  `LeetCodeRunnerApi.submit`({question}, {code})
-a solution.
+Submit a solution.
 
 Parameters ~
 {question} `(table)` Normalized detail.
@@ -297,7 +1398,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                     *LeetCodeRunnerApi.listen()*
                  `LeetCodeRunnerApi.listen`({id}, {is_submit})
-the check endpoint until judging finishes.
+Poll the check endpoint until judging finishes.
 
 Parameters ~
 {id} `(string)` interpret_id or submission_id.
@@ -307,52 +1408,30 @@ Return ~
 Return ~
 `(string|nil)` err
 
-------------------------------------------------------------------------------
-                                         *LeetCodeRunnerApi.latest_submission()*
-         `LeetCodeRunnerApi.latest_submission`({question}, {lang_slug})
-stored submission for a question and language.
-
-Parameters ~
-{question} `(table)` Normalized detail.
-{lang_slug} `(string)`
-Return ~
-`(table|nil)` detail
-Return ~
-`(string|nil)` err
-
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                               *LeetCodeStatsApi*
-
 *leetcode-ui-api-stats* User statistics wrappers
+
+Wrappers around the `matchedUser`-based queries: solved counts, skills,
+language statistics, and the streak counter.
+
 
 ------------------------------------------------------------------------------
                                                      *LeetCodeStatsApi.solved()*
                           `LeetCodeStatsApi.solved`()
-counts by difficulty against totals.
+Solved/accepted counts by difficulty against totals.
 
 Return ~
-`(table|nil)` { all = {...}, easy = {...}, medium = {...}, hard = {...} }
-Return ~
-`(string|nil)` err
-
-------------------------------------------------------------------------------
-                                                   *LeetCodeStatsApi.calendar()*
-                      `LeetCodeStatsApi.calendar`({year})
-data for the activity heatmap, plus solving percentiles.
-
-Parameters ~
-{year} `(number|nil)`
-Return ~
-`(table|nil)` { calendar = {...}, beats = {...} }
+`(table|nil)` { total = { [difficulty] = number }, solved = { [difficulty] = number } }
 Return ~
 `(string|nil)` err
 
 ------------------------------------------------------------------------------
                                                      *LeetCodeStatsApi.skills()*
                           `LeetCodeStatsApi.skills`()
-tag statistics.
+Skill tag statistics.
 
 Return ~
 `(table|nil)` { advanced = {...}, intermediate = {...}, fundamental = {...} }
@@ -362,7 +1441,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                   *LeetCodeStatsApi.languages()*
                          `LeetCodeStatsApi.languages`()
-problems per language.
+Solved problems per language.
 
 Return ~
 `(table|nil)` { { language_name, problems_solved }, ... }
@@ -372,7 +1451,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                      *LeetCodeStatsApi.streak()*
                           `LeetCodeStatsApi.streak`()
-counter for the current session user.
+Streak counter for the current session user.
 
 Return ~
 `(table|nil)` { streak_count, days_skipped, today_completed }
@@ -382,243 +1461,38 @@ Return ~
 
 ==============================================================================
 ------------------------------------------------------------------------------
-                                                               *LeetCodeQueries*
-
-*leetcode-ui-api-queries* All GraphQL queries
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                                   *LeetCodeNet*
-
-*leetcode-ui-net* HTTP layer on top of curl
-
-------------------------------------------------------------------------------
-                                                         *LeetCodeNet.request()*
-                         `LeetCodeNet.request`({opts})
-an HTTP request.
-
-
-- `url` (string, required)
-- `method` (`'GET'|'POST'|'PUT'|'DELETE'`, default `'GET'`)
-- `headers` (array of raw `'Name: value'` strings)
-- `body` (string|nil raw request body)
-- `timeout` (number seconds, default 30)
-- `retries` (number of transient-failure retries, default 3)
-
-`{status, headers, body}` and an error string on transport failure.
-a coroutine, yields until the request completes.
-
-Parameters ~
-{opts} `(table)` Request options.
-Return ~
-`(table|nil)` Response
-Return ~
-`(string|nil)` Error
-
-------------------------------------------------------------------------------
-                                                    *LeetCodeNet.request_json()*
-      `LeetCodeNet.request_json`({url}, {body}, {headers}, {cookie_file})
-request shorthand (`POST` with JSON headers and body).
-
-Parameters ~
-{url} `(string)`
-{body} `(string)` Encoded JSON.
-{headers} `(table|nil)` Extra raw header strings.
-{cookie_file} `(string|nil)` Cookie jar path passed through to curl.
-Return ~
-`(table|nil)` Response
-Return ~
-`(string|nil)` Error
-
-------------------------------------------------------------------------------
-                                                    *LeetCodeNet.should_retry()*
-                      `LeetCodeNet.should_retry`({status})
-a status should trigger a retry.
-
-Parameters ~
-{status} `(number)`
-Return ~
-`(boolean)`
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                               *LeetCodeStorage*
-
-*leetcode-ui-storage* Local caching and solution drafts
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                                *LeetCodeParser*
-
-*leetcode-ui-parser* Question HTML content to styled buffer spans
-
-------------------------------------------------------------------------------
-                                                       *LeetCodeParser.render()*
-                       `LeetCodeParser.render`({content})
-question HTML into highlightable lines.
-
-Parameters ~
-{content} `(string|nil)` Question HTML (nil renders a placeholder line).
-Return ~
-`(table)` lines Each line is a list of `{ text, hl }` spans.
-
-------------------------------------------------------------------------------
-                                                      *LeetCodeParser.measure()*
-                       `LeetCodeParser.measure`({lines})
-character count of rendered lines (used for pane sizing).
-
-Parameters ~
-{lines} `(table)`
-Return ~
-`(number)`
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                                *LeetCodeBuffer*
-
-*leetcode-ui-buffer* Buffer lifecycle and rendering helpers
-
-------------------------------------------------------------------------------
-                                                   *LeetCodeBuffer.open_float()*
-                  `LeetCodeBuffer.open_float`({bufnr}, {opts})
-a centered floating window for a buffer.
-
-Parameters ~
-{bufnr} `(number)`
-{opts} `(table|nil)` { width = number, height = number, border = string, focus = boolean, title = string }
-Return ~
-`(number)` winid
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                               *LeetCodeConsole*
-
-*leetcode-ui-console* Test case console UI
-
-------------------------------------------------------------------------------
-                                                    *LeetCodeConsole.add_case()*
-                 `LeetCodeConsole.add_case`({console}, {input})
-a new test case with the given input.
-
-Parameters ~
-{console} `(table)`
-{input} `(string)`
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                              *LeetCodeSolution*
-
-*leetcode-ui-solution* Code editor buffer of a question view
-
-------------------------------------------------------------------------------
-                                                     *LeetCodeSolution.format()*
-                       `LeetCodeSolution.format`({view})
-the typed code using an available LSP/formatter.
-
-Parameters ~
-{view} `(table)` Question view.
-
-------------------------------------------------------------------------------
-                                                      *LeetCodeSolution.reset()*
-                        `LeetCodeSolution.reset`({view})
-the starter snippet, discarding typed changes (draft too).
-
-Parameters ~
-{view} `(table)` Question view.
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                          *LeetCodeQuestionView*
-
-*leetcode-ui-question* Question view
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                                *LeetCodePicker*
-
-*leetcode-ui-picker* Problem picking
-
-------------------------------------------------------------------------------
-                                                       *LeetCodePicker.select()*
-             `LeetCodePicker.select`({items}, {title}, {on_choice})
-select: mini.pick when present, else |vim.ui.select()|.
-
-Parameters ~
-{items} `(table)` Choice items.
-{title} `(string|nil)`
-{on_choice} `(function |`(item, idx))``|; both nil on cancellation.
-
-------------------------------------------------------------------------------
-                                                      *LeetCodePicker.problem()*
-                        `LeetCodePicker.problem`({opts})
-list browser.
-
-Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
-
-------------------------------------------------------------------------------
-                                                        *LeetCodePicker.daily()*
-                            `LeetCodePicker.daily`()
-today's daily question.
-
-------------------------------------------------------------------------------
-                                                       *LeetCodePicker.random()*
-                        `LeetCodePicker.random`({opts})
-a random question.
-
-Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
-
-
-==============================================================================
-------------------------------------------------------------------------------
-                                                             *LeetCodeStatsView*
-
-*leetcode-ui-stats-view* Statistics view
-
-------------------------------------------------------------------------------
-                                                      *LeetCodeStatsView.open()*
-                           `LeetCodeStatsView.open`()
-the statistics split.
-
-------------------------------------------------------------------------------
-                                                   *LeetCodeStatsView.session()*
-                         `LeetCodeStatsView.session`()
-details (user + streak) in a notification.
-
-------------------------------------------------------------------------------
-                                                     *LeetCodeStatsView.close()*
-                          `LeetCodeStatsView.close`()
-the statistics buffer, if open.
-
-
-==============================================================================
-------------------------------------------------------------------------------
                                                                 *LeetCodeRunner*
-
 *leetcode-ui-runner-common* Local runner plumbing
+
+Machinery shared by language harnesses:
+- decode question `metaData` (params, return type, system-design form),
+- split testcase `data_input` into raw parameter lines,
+- resolve a language harness and its availability,
+- spawn the local run and normalize results.
+
+Language harness contract (modules under `runner/langs/<slug>`):
+- `available()` returns a boolean and an optional note.
+- `run(dir, question, code, meta, params, data_input)` creates workspace
+  files under `dir` and returns argv for |vim.system()|.
+
 
 
 ==============================================================================
 ------------------------------------------------------------------------------
                                                           *LeetCodeRunnerPython*
-
 *leetcode-ui-runner-python3* Python3 local runner
 
+Wraps the user's `class Solution` with LeetCode-standard data structures,
+a decoder for raw testcase lines, and a serialized return value.
+System-design problems drive the `classname` object through the method list
+(see |leetcode-ui-runner-common|).
 
-==============================================================================
-------------------------------------------------------------------------------
-                                                                 *LeetCodeAsync*
+Run contract: `argv = [python, main.py, lines_json, specs_json, mode]`
+- `lines_json` - array of raw testcase lines.
+- `specs_json` - normal mode: array of parameter type strings; system-design
+  mode: array of `{ name, types = {...} }` per method.
+- `mode` - `'normal'` or `'systemdesign'`.
 
-*leetcode-ui-async* Tiny coroutine driver
 
 
  vim:tw=78:ts=8:noet:ft=help:norl:

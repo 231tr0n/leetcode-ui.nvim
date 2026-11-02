@@ -1,13 +1,12 @@
 --- *leetcode-ui-api-queries* All GraphQL queries
 ---
----@tag LeetCodeQueries
+--- All GraphQL query strings in one place. Field names are kept in sync with
+--- LeetCode's API. Lua identifiers use snake_case fields aliased from their
+--- camelCase names.
 ---
+---@tag LeetCodeQueries
+---@toc_entry GraphQL queries
 
--- |leetcode-ui-api-queries| All GraphQL queries in one place.
--- Field names are kept in sync with LeetCode's API (verified live on 2026-11).
--- Lua identifiers use snake_case fields aliased from their camelCase names.
-
--- Module design:
 local LeetCodeQueries = {}
 
 LeetCodeQueries.auth = [[
@@ -115,30 +114,6 @@ LeetCodeQueries.solved = [[
               difficulty
               count
             }
-          }
-        }
-      }
-]]
-
-LeetCodeQueries.calendar = [[
-      query userCalendar($username: String!, $year: Int) {
-        matchedUser(username: $username) {
-          calendar: userCalendar(year: $year) {
-            active_years: activeYears
-            streak
-            total_active_days: totalActiveDays
-            dcc_badges: dccBadges {
-              timestamp
-              badge {
-                name
-                icon
-              }
-            }
-            submission_calendar: submissionCalendar
-          }
-          solved_beats: problemsSolvedBeatsStats {
-            difficulty
-            percentage
           }
         }
       }

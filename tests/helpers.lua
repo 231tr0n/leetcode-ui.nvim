@@ -5,6 +5,7 @@
 --   - network entry points (`api.graphql`, `api.rest`, `net.request`) are
 --     stubbed per test, never hitting leetcode.com,
 --   - browser cookies come from synthetic SQLite fixtures.
+
 local H = {}
 
 -- mini.test globals provided by runner
@@ -12,14 +13,36 @@ H.expect = MiniTest.expect
 H.eq = MiniTest.expect.equality
 H.new_set = MiniTest.new_set
 
----Fresh temporary directory (removed by the caller).
+--- Fresh temporary directory (removed by the caller).
 H.tmpdir = function()
   local dir = vim.fn.tempname() .. '-lcui-test'
   vim.fn.mkdir(dir, 'p')
   return dir
 end
 
----Reset the plugin to a known offline state.
+--- Delete every plugin-created buffer and close the central window.
+H.reset_ui = function()
+  local ok, ui = pcall(require, 'leetcode-ui.ui')
+  if ok then ui.close() end
+
+  local ok_question, question = pcall(require, 'leetcode-ui.question')
+  if ok_question then
+    for _, view in pairs(question.views) do
+      if view.console ~= nil then view.console:stop_spinner() end
+    end
+    question.views = {}
+    question.active = nil
+  end
+
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      local name = vim.api.nvim_buf_get_name(bufnr)
+      if name:find('leetcode-ui://', 1, true) ~= nil then pcall(vim.api.nvim_buf_delete, bufnr, { force = true }) end
+    end
+  end
+end
+
+--- Reset the plugin to a known offline state.
 ---
 ---@param opts table|nil Extra setup overrides.
 H.setup = function(opts)
@@ -27,7 +50,8 @@ H.setup = function(opts)
     browser = 'none',
     storage_path = H.tmpdir(),
     cookies = {},
-    local_runner = true,
+    local_runner = false,
+    notifications = false,
   }
   local config = require('leetcode-ui.config')
   config.reset()
@@ -37,27 +61,30 @@ H.setup = function(opts)
   vim.env.LEETCODE_SESSION = nil
   vim.env.CSRFTOKEN = nil
 
+  H.reset_ui()
+
   -- Reset singleton caches.
   require('leetcode-ui.browser').reset()
-  require('leetcode-ui.auth').session = nil
+  require('leetcode-ui.auth').reset()
+  require('leetcode-ui.storage').root = nil
 end
 
----Load a module (after H.setup ensured state).
+--- Load a module (after H.setup ensured state).
 H.mod = function(name) return require('leetcode-ui.' .. name) end
 
----Read a file's contents.
+--- Read a file's contents.
 H.read_file = function(path)
   local ok, lines = pcall(vim.fn.readfile, path)
   if not ok then return nil end
   return table.concat(lines, '\n')
 end
 
----Whether a substring is contained (plain match).
+--- Whether a substring is contained (plain match).
 H.contains = function(haystack, needle) return tostring(haystack):find(needle, 1, true) ~= nil end
 
----Run a function with a temporarily replaced module field.
+--- Run a function with a temporarily replaced module field.
 ---
----@param module_name string e.g. 'leetcode-ui.api'.
+---@param module_name string e.g. 'leetcode-ui.api'
 ---@param field string Field to replace.
 ---@param replacement any Temporary value.
 ---@param fn function Test body.
@@ -70,7 +97,7 @@ H.with_stub = function(module_name, field, replacement, fn)
   if not ok then error(err, 0) end
 end
 
----Create a synthetic Firefox cookies.sqlite with two LeetCode rows.
+--- Create a synthetic Firefox cookies.sqlite with two LeetCode rows.
 ---
 ---@param dir string
 ---@param values table|nil { LEETCODE_SESSION = ..., csrftoken = ... }
@@ -94,7 +121,7 @@ H.make_firefox_db = function(dir, values)
   return path
 end
 
----Create a synthetic Chromium Cookies DB with a v10-encrypted session value.
+--- Create a synthetic Chromium Cookies DB with a v10-encrypted session value.
 ---
 ---@param dir string
 ---@param session string Plaintext session value to encrypt.
@@ -120,7 +147,7 @@ H.make_chromium_db = function(dir, session, csrf)
   return path
 end
 
----A minimal fake question detail (normalized shape).
+--- A minimal fake question detail (normalized shape).
 ---
 ---@param opts table|nil Overrides.
 H.fake_detail = function(opts)
@@ -153,19 +180,26 @@ H.fake_detail = function(opts)
   return vim.tbl_extend('force', detail, opts or {})
 end
 
----A minimal fake question view (as question.lua would build).
+--- A minimal fake question view (as question.lua would build).
+---
+---@param opts table|nil Overrides.
 H.fake_view = function(opts)
-  local detail = H.fake_detail(opts and opts.detail)
-  return {
+  opts = opts or {}
+  local detail = H.fake_detail(opts.detail)
+  local view = {
     slug = detail.title_slug,
     detail = detail,
     entry = { ac_rate = 50.5, topic_tags = { { name = 'Array', slug = 'array' } }, status = nil },
     lang = 'python3',
     console = nil,
+    active = 'code',
+    busy = false,
   }
+  if opts.lang ~= nil then view.lang = opts.lang end
+  return vim.tbl_extend('force', view, opts or {})
 end
 
----Wait for an async predicate (default 5s).
+--- Wait for an async predicate (default 5s).
 H.wait_for = function(predicate, ms) return vim.wait(ms or 5000, predicate, 20) end
 
 return H
