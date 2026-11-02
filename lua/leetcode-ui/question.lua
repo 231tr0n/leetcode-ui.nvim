@@ -204,9 +204,9 @@ LeetCodeQuestionView.render_winbar = function(view)
   if view == nil or not ui.is_open() then return end
 
   local detail = view.detail or {}
-  local title = detail.title or view.slug or 'Question'
+  local title = ('LeetCode %s'):format(detail.frontend_id or '?')
   local parts = {
-    ('%%#LeetCodeHeader#LeetCode %s %%#LeetCodeWinBar#'):format(LeetCodeQuestionView.escape_statusline(title)),
+    ('%%#LeetCodeQuestionTitle#%s %%#LeetCodeWinBar#'):format(LeetCodeQuestionView.escape_statusline(title)),
   }
 
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do

@@ -18,7 +18,7 @@
 --- - Read parsed descriptions, with hints hidden by default.
 --- - Edit, run, and submit solutions with draft persistence.
 --- - Run and submit solutions through LeetCode's API.
---- - Format solutions with local CLI formatters or the LSP fallback.
+--- - Format with LeetCode's formatter, then fall back to local CLI formatters or LSP.
 --- - Show progress statistics and session information.
 --- - Import session cookies from supported browsers.
 ---

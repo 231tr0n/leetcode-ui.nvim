@@ -19,7 +19,7 @@ Features:
 - Read parsed descriptions, with hints hidden by default.
 - Edit, run, and submit solutions with draft persistence.
 - Run and submit solutions through LeetCode's API.
-- Format solutions with local CLI formatters or the LSP fallback.
+- Format with LeetCode's formatter, then fall back to local CLI formatters or LSP.
 - Show progress statistics and session information.
 - Import session cookies from supported browsers.
 
@@ -836,9 +836,7 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                      *LeetCodeSolution.format()*
                        `LeetCodeSolution.format`({view})
-Format the current code using a local CLI formatter or LSP.
-
-LeetCode's remote formatting endpoint is intentionally not used.
+Format the current code using LeetCode's formatter, a CLI formatter, or LSP.
 
 Parameters ~
 {view} `(table)`

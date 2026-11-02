@@ -70,6 +70,7 @@
 --- - `LeetCodeMedium` -> `DiagnosticWarn`
 --- - `LeetCodeHard` -> `DiagnosticError`
 --- - `LeetCodeHeader` -> `Title`
+--- - `LeetCodeQuestionTitle` -> `Title`
 --- - `LeetCodeTab` -> `DiagnosticInfo`
 --- - `LeetCodeTabActive` -> `String`
 --- - `LeetCodeCursorLine` -> `CursorLine`
@@ -125,6 +126,7 @@ LeetCodeConfig.highlights = {
   LeetCodeMedium = { link = 'DiagnosticWarn' },
   LeetCodeHard = { link = 'DiagnosticError' },
   LeetCodeHeader = { link = 'Title' },
+  LeetCodeQuestionTitle = { link = 'Title' },
   LeetCodeTab = { link = 'DiagnosticInfo' },
   LeetCodeTabActive = { link = 'String' },
   LeetCodeCursor = { blend = 100, nocombine = true },

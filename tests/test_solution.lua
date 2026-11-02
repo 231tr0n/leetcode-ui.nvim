@@ -155,11 +155,50 @@ end
 
 T['format'] = new_set()
 
+T['format']['uses LeetCode formatter first'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view(), 'def f():\n  pass')
+  local original_cli = solution.cli_formatters.python3
+  solution.cli_formatters.python3 = { 'printf', 'cli fallback' }
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function() return { status = 200, body = vim.json.encode({ code = 'def f():\n    pass\n' }) }, nil end,
+    function()
+      solution.format(view)
+      local lines = vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)
+      eq(lines[2], 'def f():')
+      eq(lines[3], '    pass')
+      eq(view.busy, false)
+    end
+  )
+  solution.cli_formatters.python3 = original_cli
+end
+
+T['format']['accepts plain-text LeetCode formatter responses'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view(), 'x')
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function() return { status = 200, body = 'formatted' }, nil end,
+    function()
+      solution.format(view)
+      eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'formatted')
+    end
+  )
+end
+
 T['format']['falls back to a CLI formatter'] = function()
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view({ lang = 'kotlin' }), 'x=1')
   solution.cli_formatters.kotlin = { 'printf', 'formatted' }
-  solution.format(view)
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function() return nil, 'offline' end,
+    function() solution.format(view) end
+  )
   eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'formatted')
   solution.cli_formatters.kotlin = nil
 end
@@ -171,7 +210,12 @@ T['format']['falls back to LSP'] = function()
   local original_format = vim.lsp.buf.format
   vim.lsp.get_clients = function() return { {} } end
   vim.lsp.buf.format = function() vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, { 'lsp formatted' }) end
-  solution.format(view)
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function() return nil, 'offline' end,
+    function() solution.format(view) end
+  )
   eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'lsp formatted')
   vim.lsp.get_clients = original_clients
   vim.lsp.buf.format = original_format
@@ -182,10 +226,12 @@ T['format']['reports when no formatter exists'] = function()
   local view = with_code_buffer(helpers.fake_view({ lang = 'kotlin' }), 'x=1')
   local original_clients = vim.lsp.get_clients
   vim.lsp.get_clients = function() return {} end
-  local ok = pcall(solution.format, view)
-  eq(ok, true)
-  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'x=1')
-  eq(view.busy, false)
+  helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
+    local ok = pcall(solution.format, view)
+    eq(ok, true)
+    eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'x=1')
+    eq(view.busy, false)
+  end)
   vim.lsp.get_clients = original_clients
 end
 

@@ -8,12 +8,25 @@
 
 local LeetCodeSolution = {}
 
+local auth = require('leetcode-ui.auth')
 local buffer = require('leetcode-ui.buffer')
 local config = require('leetcode-ui.config')
 local log = require('leetcode-ui.log')
+local net = require('leetcode-ui.net')
 local storage = require('leetcode-ui.storage')
 
 -- Helper data =======================================================================================================
+
+LeetCodeSolution.lsp_names = {
+  python3 = { 'py3' },
+  python = { 'py3' },
+  cpp = { 'cpp' },
+  c = { 'c' },
+  java = { 'java' },
+  golang = { 'go' },
+  go = { 'go' },
+  swift = { 'swift' },
+}
 
 LeetCodeSolution.cli_formatters = {
   javascript = { 'prettier', '--stdin-filepath', 'x.js' },
@@ -139,9 +152,7 @@ LeetCodeSolution.set_code = function(view, content)
   vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, lines)
 end
 
---- Format the current code using a local CLI formatter or LSP.
----
---- LeetCode's remote formatting endpoint is intentionally not used.
+--- Format the current code using LeetCode's formatter, a CLI formatter, or LSP.
 ---
 ---@param view table
 LeetCodeSolution.format = function(view)
@@ -153,10 +164,39 @@ LeetCodeSolution.format = function(view)
   local code = LeetCodeSolution.code(view)
   local formatted = nil
 
-  local command = LeetCodeSolution.cli_formatters[view.lang]
-  if command ~= nil and vim.fn.executable(command[1]) == 1 then
-    local out = vim.system(command, { text = true, stdin = code }):wait()
-    if out.code == 0 and type(out.stdout) == 'string' and out.stdout ~= '' then formatted = out.stdout end
+  for _, name in ipairs(LeetCodeSolution.lsp_names[view.lang] or { view.lang }) do
+    local response, err = net.request({
+      url = ('https://lsp-%s.leetcode.com/format'):format(name),
+      method = 'POST',
+      headers = auth.headers({ 'Content-Type: application/json' }),
+      body = vim.json.encode({ code = code, tabSize = 4, insertSpaces = true }),
+      cookie_file = auth.cookie_file(),
+      timeout = 15,
+    })
+
+    local valid = err == nil
+      and response ~= nil
+      and response.status == 200
+      and type(response.body) == 'string'
+      and not response.body:match('^%s*<')
+
+    if valid and response ~= nil then
+      local body = response.body --[[@as string]]
+      local ok, decoded = pcall(vim.json.decode, body)
+      if ok and type(decoded) == 'table' then
+        formatted = decoded.code or decoded.formattedCode or decoded.formatted_code or decoded.data
+      end
+      if formatted == nil and #body > 0 then formatted = body end
+      if type(formatted) == 'string' and formatted ~= '' then break end
+    end
+  end
+
+  if type(formatted) ~= 'string' or formatted == '' then
+    local command = LeetCodeSolution.cli_formatters[view.lang]
+    if command ~= nil and vim.fn.executable(command[1]) == 1 then
+      local out = vim.system(command, { text = true, stdin = code }):wait()
+      if out.code == 0 and type(out.stdout) == 'string' and out.stdout ~= '' then formatted = out.stdout end
+    end
   end
 
   if type(formatted) == 'string' and formatted ~= '' then

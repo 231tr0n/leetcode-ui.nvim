@@ -114,9 +114,10 @@ T['highlights']['link highlights are not underlined'] = function()
   eq(link.underline, nil)
 end
 
-T['highlights']['active tab color differs from inactive tabs'] = function()
+T['highlights']['active tab color differs from inactive tabs and title'] = function()
   local config = require('leetcode-ui.config')
   eq(config.highlights.LeetCodeTab.link ~= config.highlights.LeetCodeTabActive.link, true)
+  eq(config.highlights.LeetCodeQuestionTitle.link ~= config.highlights.LeetCodeTabActive.link, true)
 end
 
 T['highlights']['groups link to existing Neovim highlights'] = function()

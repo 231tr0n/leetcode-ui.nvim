@@ -9,7 +9,7 @@ the same window.
 - Browse problems with `mini.pick` or `vim.ui.select()`.
 - Read parsed descriptions and hints, hidden by default to avoid spoilers.
 - Edit, run, and submit solutions through the LeetCode API.
-- Format solutions with local CLI formatters or the LSP fallback.
+- Format with LeetCode's formatter, then fall back to local CLI formatters or LSP.
 - Show progress statistics and current session information.
 - Import session cookies from Firefox, Chromium-family browsers, Epiphany, or Safari.
 - No plugin-defined keymaps: map only the commands you want.
