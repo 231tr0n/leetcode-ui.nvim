@@ -13,8 +13,8 @@
 --- - `cookies` (`table`) - `LEETCODE_SESSION` and `csrftoken` values.
 --- - `cookie_file` (`string|nil`) - Netscape cookie jar consumed by curl.
 --- - `storage_path` (`string|nil`) - cache and draft root.
---- - `browser` (`string`) - cookie import source: `auto`, `firefox`,
----   `epiphany`, `safari`, `chrome`, `brave`, `edge`, `chromium`, or `none`.
+--- - `browser` (`string`) - cookie import source: `none` (default), `auto`,
+---   `firefox`, `epiphany`, `safari`, `chrome`, `brave`, `edge`, or `chromium`.
 --- - `browser_paths` (`table`) - per-browser database path overrides.
 --- - `float_width`, `float_height` (`number`) - central window size.
 --- - `float_border` (`string|nil`) - central window border.
@@ -35,7 +35,7 @@
 ---     cookies = { LEETCODE_SESSION = nil, csrftoken = nil },
 ---     cookie_file = nil,
 ---     storage_path = nil,
----     browser = 'auto',
+---     browser = 'none',
 ---     browser_paths = {},
 ---     float_width = 120,
 ---     float_height = 36,
@@ -157,9 +157,10 @@ local default_config = {
   -- Defaults to `stdpath('data')/leetcode-ui`.
   storage_path = nil,
 
-  -- Automatic cookie import from browsers: 'auto', 'firefox', 'epiphany',
-  -- 'safari', 'chrome', 'brave', 'edge', 'chromium', or 'none'.
-  browser = 'auto',
+  -- Browser cookie import is disabled by default. Enable with 'auto' or a
+  -- specific browser: 'firefox', 'epiphany', 'safari', 'chrome', 'brave',
+  -- 'edge', or 'chromium'.
+  browser = 'none',
 
   -- Per-browser database path overrides, e.g. { firefox = '~/profile/cookies.sqlite' }.
   browser_paths = {},

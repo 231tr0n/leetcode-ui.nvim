@@ -12,7 +12,7 @@ the same window.
 - Persist code drafts and custom testcases per question.
 - Format with LeetCode's formatter, then fall back to local CLI formatters or LSP.
 - Show progress statistics and current session information.
-- Import session cookies from Firefox, Chromium-family browsers, Epiphany, or Safari.
+- Optional browser cookie import, disabled by default (see the caution below).
 - No plugin-defined keymaps: map only the commands you want.
 
 ## Installation
@@ -80,6 +80,7 @@ require('leetcode-ui').setup({
   show_hints = false,
   -- cookies = { LEETCODE_SESSION = '...', csrftoken = '...' },
   -- cookie_file = '~/.config/leetcode/cookies.txt',
+  -- browser = 'auto', -- opt in to browser cookie import
 })
 ```
 
