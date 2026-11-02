@@ -97,12 +97,12 @@ LeetCodeConsole.lines = function(console)
     local icon, icon_hl = LeetCodeConsole.case_icon(console, case)
     local active = index == console.selected
     local marker = active and config.config.icons.status.active or ' '
-    local label_hl = active and 'LeetCodeTitle' or nil
+    local marker_hl = active and 'LeetCodeTitle' or nil
 
     table.insert(lines, {
-      { text = marker .. ' ', hl = label_hl },
+      { text = marker .. ' ', hl = marker_hl },
       { text = icon .. ' ', hl = icon_hl },
-      { text = ('Case %d'):format(index), hl = label_hl },
+      { text = ('Case %d'):format(index) },
     })
 
     for _, input_line in ipairs(vim.split(case.input or '', '\n')) do

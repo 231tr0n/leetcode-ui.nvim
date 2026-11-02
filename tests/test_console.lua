@@ -98,6 +98,17 @@ T['lines']['renders a highlighted submission block before testcases'] = function
   eq(highlighted, true)
 end
 
+T['lines']['renders all case labels uniformly'] = function()
+  local console = make_console({ 'a', 'b', 'c' })
+  console.selected = 2
+  local lines = console:lines()
+
+  for _, line in ipairs(lines) do
+    local label = line[3]
+    if label ~= nil and helpers.contains(label.text, 'Case ') then eq(label.hl, nil) end
+  end
+end
+
 T['lines']['uses a spinner for running cases'] = function()
   local console = make_console()
   console.cases[1].running = true

@@ -235,7 +235,7 @@ control them. Override any group after setup with |nvim_set_hl()|:
   vim.api.nvim_set_hl(0, 'LeetCodeOk', { fg = '#00ff00' })
 <
 
-- `LeetCodeOk` -> `String`
+- `LeetCodeOk` -> `DiagnosticOk`
 - `LeetCodeErr` -> `DiagnosticError`
 - `LeetCodeWarn` -> `DiagnosticWarn`
 - `LeetCodeDim` -> `Comment`
@@ -246,10 +246,10 @@ control them. Override any group after setup with |nvim_set_hl()|:
 - `LeetCodeEasy` -> `String`
 - `LeetCodeMedium` -> `DiagnosticWarn`
 - `LeetCodeHard` -> `DiagnosticError`
-- `LeetCodeHeader` -> `Title`
+- `LeetCodeHeader` -> `@markup.heading`
 - `LeetCodeQuestionTitle` -> `Title`
-- `LeetCodeTab` -> `DiagnosticInfo`
-- `LeetCodeTabActive` -> `String`
+- `LeetCodeTab` -> `TabLine`
+- `LeetCodeTabActive` -> `TabLineSel`
 - `LeetCodeCursorLine` -> `CursorLine`
 - `LeetCodeCursor` - hidden cursor used in read-only tabs
 - `LeetCodeNormalFloat` -> `NormalFloat`

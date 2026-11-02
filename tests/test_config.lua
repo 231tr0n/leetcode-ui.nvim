@@ -114,9 +114,10 @@ T['highlights']['link highlights are not underlined'] = function()
   eq(link.underline, nil)
 end
 
-T['highlights']['active tab color differs from inactive tabs and title'] = function()
+T['highlights']['tabs use standard tab bar highlight groups'] = function()
   local config = require('leetcode-ui.config')
-  eq(config.highlights.LeetCodeTab.link ~= config.highlights.LeetCodeTabActive.link, true)
+  eq(config.highlights.LeetCodeTab.link, 'TabLine')
+  eq(config.highlights.LeetCodeTabActive.link, 'TabLineSel')
   eq(config.highlights.LeetCodeQuestionTitle.link ~= config.highlights.LeetCodeTabActive.link, true)
 end
 

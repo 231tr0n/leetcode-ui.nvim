@@ -112,11 +112,6 @@ LeetCodeCommands.case_console = function()
   return view.console
 end
 
-LeetCodeCommands.read_input = function(value)
-  if value ~= nil and value ~= '' then return value end
-  return vim.fn.input('Testcase input (use \\n for multiple lines): ')
-end
-
 LeetCodeCommands.join = function(args, from) return table.concat(args, ' ', from or 1) end
 
 LeetCodeCommands.filter = function(items, lead)
@@ -245,8 +240,12 @@ LeetCodeCommands.case_commands = {}
 LeetCodeCommands.case_commands.add = function(args)
   local console = LeetCodeCommands.case_console()
   if console == nil then return end
-  local input = LeetCodeCommands.read_input(LeetCodeCommands.join(args, 2))
-  if input == '' then return end
+
+  local input = LeetCodeCommands.join(args, 2)
+  if input == '' then
+    log.error('Usage: :LeetCode question case add <input>')
+    return
+  end
   console:add_case(input)
 end
 
@@ -255,21 +254,33 @@ LeetCodeCommands.case_commands.edit = function(args)
   if console == nil then return end
 
   local index = tonumber(args[2])
-  local input_start = 3
-  if index == nil then
-    index = console.selected
-    input_start = 2
+  if index == nil or index < 1 or index > #console.cases then
+    log.error(('Usage: :LeetCode question case edit <1-%d> <input>'):format(#console.cases))
+    return
   end
 
-  local input = LeetCodeCommands.read_input(LeetCodeCommands.join(args, input_start))
-  if input == '' then return end
+  local input = LeetCodeCommands.join(args, 3)
+  if input == '' then
+    log.error(('Usage: :LeetCode question case edit %d <input>'):format(index))
+    return
+  end
   console:edit_case(index, input)
 end
 
 LeetCodeCommands.case_commands.delete = function(args)
   local console = LeetCodeCommands.case_console()
   if console == nil then return end
-  console:delete_case(tonumber(args[2]))
+
+  local index = tonumber(args[2])
+  if index == nil or index < 1 or index > #console.cases then
+    log.error(('Usage: :LeetCode question case delete <1-%d>'):format(#console.cases))
+    return
+  end
+  if #console.cases <= 1 then
+    log.error('Cannot delete the only testcase')
+    return
+  end
+  console:delete_case(index)
 end
 
 LeetCodeCommands.case_commands.next = function()
@@ -407,12 +418,20 @@ LeetCodeCommands.complete = function(arg_lead, cmd_line, cursor_pos)
     local action = args[2]
     if action == 'case' then
       if #args == 2 then return LeetCodeCommands.filter(LeetCodeCommands.case_order, arg_lead) end
+
+      local case_action = args[3]
       if #args == 3 then
-        if arg_lead == '' then return LeetCodeCommands.case_indices() end
-        return LeetCodeCommands.filter(LeetCodeCommands.case_order, arg_lead)
+        if arg_lead ~= '' then return LeetCodeCommands.filter(LeetCodeCommands.case_order, arg_lead) end
+        if case_action == 'edit' or case_action == 'delete' then return LeetCodeCommands.case_indices() end
+        return {}
       end
-      if args[3] == 'edit' or args[3] == 'delete' then
-        return LeetCodeCommands.filter(LeetCodeCommands.case_indices(), arg_lead)
+
+      if case_action == 'edit' or case_action == 'delete' then
+        if #args == 4 then
+          if arg_lead == '' then return {} end
+          return LeetCodeCommands.filter(LeetCodeCommands.case_indices(), arg_lead)
+        end
+        return {}
       end
       return {}
     end

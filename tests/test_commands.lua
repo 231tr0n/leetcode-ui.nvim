@@ -350,7 +350,23 @@ T['case']['adds, edits, deletes, and selects testcases'] = function()
   restore()
 end
 
-T['case']['reports invalid subcommands'] = function()
+T['case']['requires explicit index and input arguments'] = function()
+  local view = make_view()
+  local restore = stub_current(view)
+  local original_cases = #view.console.cases
+
+  helpers.mod('commands').run({ 'question', 'case', 'add' })
+  helpers.mod('commands').run({ 'question', 'case', 'edit' })
+  helpers.mod('commands').run({ 'question', 'case', 'edit', '1' })
+  helpers.mod('commands').run({ 'question', 'case', 'delete' })
+  helpers.mod('commands').run({ 'question', 'case', 'delete', '9' })
+
+  eq(#view.console.cases, original_cases)
+  eq(view.console.cases[1].input, 'a')
+  restore()
+end
+
+T['case']['requires explicit subcommands'] = function()
   local view = make_view()
   local restore = stub_current(view)
   eq(pcall(helpers.mod('commands').run, { 'question', 'case', 'bogus' }), true)
@@ -420,6 +436,9 @@ T['completion']['completes case actions and indices'] = function()
   eq(vim.tbl_contains(complete('e', 'LeetCode question case e'), 'edit'), true)
   eq(complete('', 'LeetCode question case edit '), { '1', '2' })
   eq(complete('2', 'LeetCode question case delete 2'), { '2' })
+  eq(complete('', 'LeetCode question case edit 1 '), {})
+  eq(complete('', 'LeetCode question case add '), {})
+  eq(complete('', 'LeetCode question case next '), {})
 
   restore()
 end

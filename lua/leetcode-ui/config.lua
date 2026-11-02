@@ -58,7 +58,7 @@
 ---   vim.api.nvim_set_hl(0, 'LeetCodeOk', { fg = '#00ff00' })
 --- <
 ---
---- - `LeetCodeOk` -> `String`
+--- - `LeetCodeOk` -> `DiagnosticOk`
 --- - `LeetCodeErr` -> `DiagnosticError`
 --- - `LeetCodeWarn` -> `DiagnosticWarn`
 --- - `LeetCodeDim` -> `Comment`
@@ -69,10 +69,10 @@
 --- - `LeetCodeEasy` -> `String`
 --- - `LeetCodeMedium` -> `DiagnosticWarn`
 --- - `LeetCodeHard` -> `DiagnosticError`
---- - `LeetCodeHeader` -> `Title`
+--- - `LeetCodeHeader` -> `@markup.heading`
 --- - `LeetCodeQuestionTitle` -> `Title`
---- - `LeetCodeTab` -> `DiagnosticInfo`
---- - `LeetCodeTabActive` -> `String`
+--- - `LeetCodeTab` -> `TabLine`
+--- - `LeetCodeTabActive` -> `TabLineSel`
 --- - `LeetCodeCursorLine` -> `CursorLine`
 --- - `LeetCodeCursor` - hidden cursor used in read-only tabs
 --- - `LeetCodeNormalFloat` -> `NormalFloat`
@@ -114,7 +114,7 @@ LeetCodeConfig.langs = {
 }
 
 LeetCodeConfig.highlights = {
-  LeetCodeOk = { link = 'String' },
+  LeetCodeOk = { link = 'DiagnosticOk' },
   LeetCodeErr = { link = 'DiagnosticError' },
   LeetCodeWarn = { link = 'DiagnosticWarn' },
   LeetCodeDim = { link = 'Comment' },
@@ -125,10 +125,10 @@ LeetCodeConfig.highlights = {
   LeetCodeEasy = { link = 'String' },
   LeetCodeMedium = { link = 'DiagnosticWarn' },
   LeetCodeHard = { link = 'DiagnosticError' },
-  LeetCodeHeader = { link = 'Title' },
+  LeetCodeHeader = { link = '@markup.heading' },
   LeetCodeQuestionTitle = { link = 'Title' },
-  LeetCodeTab = { link = 'DiagnosticInfo' },
-  LeetCodeTabActive = { link = 'String' },
+  LeetCodeTab = { link = 'TabLine' },
+  LeetCodeTabActive = { link = 'TabLineSel' },
   LeetCodeCursor = { blend = 100, nocombine = true },
   LeetCodeCursorLine = { link = 'CursorLine' },
   LeetCodeNormalFloat = { link = 'NormalFloat' },
@@ -188,6 +188,13 @@ local default_config = {
     status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
     case = { passed = '✔', failed = '✘', unknown = '○', err = '✗', ran = '▶' },
   },
+}
+
+-- Fallbacks for standard groups introduced after the oldest supported Neovim.
+LeetCodeConfig.highlight_fallbacks = {
+  DiagnosticOk = 'String',
+  ['@markup.heading'] = 'Title',
+  ['@markup.italic'] = 'Comment',
 }
 
 LeetCodeConfig.config = vim.deepcopy(default_config)
@@ -258,7 +265,12 @@ end
 
 LeetCodeConfig.create_hl = function()
   for name, spec in pairs(LeetCodeConfig.highlights) do
-    pcall(vim.api.nvim_set_hl, 0, name, spec)
+    local resolved = spec
+    if spec.link ~= nil and vim.fn.hlexists(spec.link) == 0 then
+      local fallback = LeetCodeConfig.highlight_fallbacks[spec.link]
+      if fallback ~= nil and vim.fn.hlexists(fallback) == 1 then resolved = { link = fallback } end
+    end
+    pcall(vim.api.nvim_set_hl, 0, name, resolved)
   end
 end
 
