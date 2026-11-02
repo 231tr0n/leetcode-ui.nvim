@@ -74,16 +74,17 @@ LeetCodeCommands.question_usage = {
   format = 'question format',
   language = 'question language [slug]',
   hints = 'question hints [show|hide]',
-  case = 'question case add|edit|delete|next|prev',
+  case = 'question case add|edit|delete|reset|next|prev',
   close = 'question close',
 }
 
-LeetCodeCommands.case_order = { 'add', 'edit', 'delete', 'next', 'prev' }
+LeetCodeCommands.case_order = { 'add', 'edit', 'delete', 'reset', 'next', 'prev' }
 
 LeetCodeCommands.case_usage = {
   add = 'question case add <input>',
   edit = 'question case edit <index> <input>',
   delete = 'question case delete <index>',
+  reset = 'question case reset',
   next = 'question case next',
   prev = 'question case prev',
 }
@@ -239,11 +240,11 @@ LeetCodeCommands.question_subcommands.hints = function(args)
 end
 
 LeetCodeCommands.question_subcommands.case = function(args)
-  if not LeetCodeCommands.check_args(args, 1, nil, 'question case add|edit|delete|next|prev') then return end
+  if not LeetCodeCommands.check_args(args, 1, nil, 'question case add|edit|delete|reset|next|prev') then return end
   local action = args[1]
   local handler = LeetCodeCommands.case_commands[action]
   if handler == nil then
-    log.error('Usage: :LeetCode question case add|edit|delete|next|prev')
+    log.error('Usage: :LeetCode question case add|edit|delete|reset|next|prev')
     return
   end
   handler(args)
@@ -303,6 +304,12 @@ LeetCodeCommands.case_commands.delete = function(args)
     return
   end
   console:delete_case(index)
+end
+
+LeetCodeCommands.case_commands.reset = function(args)
+  if not LeetCodeCommands.check_args(args, 1, 1, 'question case reset') then return end
+  local console = LeetCodeCommands.case_console()
+  if console ~= nil then console:reset_cases() end
 end
 
 LeetCodeCommands.case_commands.next = function(args)

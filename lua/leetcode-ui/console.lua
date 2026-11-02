@@ -175,6 +175,15 @@ LeetCodeConsole.lines = function(console)
   return lines, folds
 end
 
+--- Restore the API-provided testcases.
+---
+---@param console table
+LeetCodeConsole.reset_cases = function(console)
+  local testcases = console.view ~= nil and (console.view.detail or {}).testcases or {}
+  console:set_cases(testcases)
+  console:refresh()
+end
+
 --- Add a new test case.
 ---
 ---@param console table

@@ -51,6 +51,7 @@ Question-window actions live under `:LeetCode question`:
 - `:LeetCode question case add <input>`,
   `:LeetCode question case edit <index> <input>`,
   `:LeetCode question case delete <index>`,
+  `:LeetCode question case reset`,
   `:LeetCode question case next`, `:LeetCode question case prev`
   - manage testcases. Use `\n` for newlines in one-line command input.
 - `:LeetCode question close` - close the question window.
@@ -678,6 +679,14 @@ Return ~
 `(table)` lines
 Return ~
 `(table)` folds
+
+------------------------------------------------------------------------------
+                                                 *LeetCodeConsole.reset_cases()*
+                    `LeetCodeConsole.reset_cases`({console})
+Restore the API-provided testcases.
+
+Parameters ~
+{console} `(table)`
 
 ------------------------------------------------------------------------------
                                                     *LeetCodeConsole.add_case()*

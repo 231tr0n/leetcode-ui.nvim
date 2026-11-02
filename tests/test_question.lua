@@ -335,6 +335,21 @@ T['close']['tolerates a view without a console'] = function()
   eq(ok, true)
 end
 
+T['close']['external window close runs the full close workflow'] = function()
+  local question, view = opened_view()
+  local ui = helpers.mod('ui')
+  local storage = helpers.mod('storage')
+  vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, { 'external close draft' })
+
+  vim.api.nvim_win_close(ui.state.winid, true)
+
+  eq(ui.is_open(), false)
+  eq(question.views['two-sum'], nil)
+  eq(question.active, nil)
+  eq(vim.api.nvim_buf_is_valid(view.code_bufnr), false)
+  eq(storage.read_draft('two-sum', 'python3'), 'external close draft')
+end
+
 T['close']['closes the central window without a view'] = function()
   local question = helpers.mod('question')
   local ui = helpers.mod('ui')

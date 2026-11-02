@@ -50,6 +50,7 @@
 --- - `:LeetCode question case add <input>`,
 ---   `:LeetCode question case edit <index> <input>`,
 ---   `:LeetCode question case delete <index>`,
+---   `:LeetCode question case reset`,
 ---   `:LeetCode question case next`, `:LeetCode question case prev`
 ---   - manage testcases. Use `\n` for newlines in one-line command input.
 --- - `:LeetCode question close` - close the question window.

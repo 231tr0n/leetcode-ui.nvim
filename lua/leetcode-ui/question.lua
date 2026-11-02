@@ -177,6 +177,7 @@ LeetCodeQuestionView.info = function(view)
     { ':LeetCode question case edit <index> <input>', 'Edit a testcase' },
     { ':LeetCode question case delete <index>', 'Delete a testcase' },
     { ':LeetCode question case next|prev', 'Select a testcase' },
+    { ':LeetCode question case reset', 'Restore the original testcases' },
     { ':LeetCode question description|code|console|info', 'Show a tab' },
     { ':LeetCode question hints [show|hide]', 'Show or hide hints' },
     { ':LeetCode question next|prev', 'Cycle tabs' },

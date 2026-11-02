@@ -16,6 +16,7 @@ local config = require('leetcode-ui.config')
 
 LeetCodeUI.state = {
   bufnr = nil,
+  close_autocmd = nil,
   hide_cursor = false,
   winid = nil,
 }
@@ -107,6 +108,20 @@ LeetCodeUI.ensure = function()
   })
 
   LeetCodeUI.state.winid = winid
+  LeetCodeUI.state.close_autocmd = vim.api.nvim_create_autocmd('WinClosed', {
+    pattern = tostring(winid),
+    once = true,
+    callback = function()
+      LeetCodeUI.state.close_autocmd = nil
+      LeetCodeUI.state.winid = nil
+      LeetCodeUI.state.hide_cursor = false
+      restore_cursor()
+
+      local question = require('leetcode-ui.question')
+      local view = question.current()
+      if view ~= nil then question.close(view) end
+    end,
+  })
   ensure_cursor_autocmd()
   return winid
 end
@@ -184,6 +199,10 @@ end
 
 --- Close the central window.
 LeetCodeUI.close = function()
+  if LeetCodeUI.state.close_autocmd ~= nil then
+    pcall(vim.api.nvim_del_autocmd, LeetCodeUI.state.close_autocmd)
+    LeetCodeUI.state.close_autocmd = nil
+  end
   if LeetCodeUI.is_open() then pcall(vim.api.nvim_win_close, LeetCodeUI.state.winid, false) end
   LeetCodeUI.state.hide_cursor = false
   LeetCodeUI.state.winid = nil

@@ -209,6 +209,16 @@ T['add_edit_delete']['ignores edits while busy'] = function()
   eq(console.cases[1].input, '[1,2]\n3')
 end
 
+T['reset_cases'] = new_set()
+
+T['reset_cases']['restores the question testcases'] = function()
+  local console = make_console({ 'custom' })
+  console:reset_cases()
+  eq(#console.cases, 2)
+  eq(console.cases[1].input, '[2,7,11,15]\n9')
+  eq(console.selected, 1)
+end
+
 T['selection'] = new_set()
 
 T['selection']['wraps in both directions'] = function()
