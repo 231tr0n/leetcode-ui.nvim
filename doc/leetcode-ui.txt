@@ -247,6 +247,7 @@ control them. Override any group after setup with |nvim_set_hl()|:
 - `LeetCodeMedium` -> `DiagnosticWarn`
 - `LeetCodeHard` -> `DiagnosticError`
 - `LeetCodeHeader` -> `Title`
+- `LeetCodeQuestionTitle` -> `Title`
 - `LeetCodeTab` -> `DiagnosticInfo`
 - `LeetCodeTabActive` -> `String`
 - `LeetCodeCursorLine` -> `CursorLine`
