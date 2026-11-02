@@ -47,7 +47,7 @@ jobs:
           git clone --depth 1 https://github.com/echasnovski/mini.nvim.git ~/.local/share/nvim/site/pack/core/opt/mini.nvim
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "lts/*"
 
