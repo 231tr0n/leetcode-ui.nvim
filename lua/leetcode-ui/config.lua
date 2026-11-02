@@ -72,7 +72,7 @@
 --- - `LeetCodeHeader` -> `Title`
 --- - `LeetCodeQuestionTitle` -> `Title`
 --- - `LeetCodeTab` -> `DiagnosticInfo`
---- - `LeetCodeTabActive` -> `Visual`
+--- - `LeetCodeTabActive` -> `String`
 --- - `LeetCodeCursorLine` -> `CursorLine`
 --- - `LeetCodeCursor` - hidden cursor used in read-only tabs
 --- - `LeetCodeNormalFloat` -> `NormalFloat`
@@ -128,7 +128,7 @@ LeetCodeConfig.highlights = {
   LeetCodeHeader = { link = 'Title' },
   LeetCodeQuestionTitle = { link = 'Title' },
   LeetCodeTab = { link = 'DiagnosticInfo' },
-  LeetCodeTabActive = { link = 'Visual' },
+  LeetCodeTabActive = { link = 'String' },
   LeetCodeCursor = { blend = 100, nocombine = true },
   LeetCodeCursorLine = { link = 'CursorLine' },
   LeetCodeNormalFloat = { link = 'NormalFloat' },
