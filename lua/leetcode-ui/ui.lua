@@ -52,6 +52,15 @@ local function ensure_cursor_autocmd()
   cursor_autocmd = vim.api.nvim_create_autocmd('WinEnter', { callback = update_cursor })
 end
 
+local function apply_folds(winid, folds)
+  vim.api.nvim_win_call(winid, function()
+    vim.cmd('silent! normal! zE')
+    for _, fold in ipairs(folds or {}) do
+      if fold.start_line <= fold.end_line then vim.cmd(('%d,%dfold'):format(fold.start_line, fold.end_line)) end
+    end
+  end)
+end
+
 local function window_highlight(cursorline_hl)
   local groups = {
     'Normal:LeetCodeNormalFloat',
@@ -106,7 +115,8 @@ end
 ---
 ---@param bufnr number
 ---@param opts table|nil Options: `number`, `wrap`, `cursorline`,
---- `cursorline_hl`, and `hide_cursor`.
+--- `cursorline_hl`, `hide_cursor`, `foldmethod`, `foldcolumn`,
+--- `statuscolumn`, and `folds`.
 ---@return number winid
 LeetCodeUI.show = function(bufnr, opts)
   opts = opts or {}
@@ -118,6 +128,10 @@ LeetCodeUI.show = function(bufnr, opts)
   vim.api.nvim_set_option_value('wrap', opts.wrap ~= false, { win = winid })
   vim.api.nvim_set_option_value('cursorline', opts.cursorline == true, { win = winid })
   vim.api.nvim_set_option_value('winhighlight', window_highlight(opts.cursorline_hl), { win = winid })
+  vim.api.nvim_set_option_value('foldmethod', opts.foldmethod or vim.go.foldmethod, { win = winid })
+  vim.api.nvim_set_option_value('foldcolumn', tostring(opts.foldcolumn or 0), { win = winid })
+  vim.api.nvim_set_option_value('statuscolumn', opts.statuscolumn or '', { win = winid })
+  apply_folds(winid, opts.folds)
 
   LeetCodeUI.state.hide_cursor = opts.hide_cursor == true
   update_cursor()
@@ -127,11 +141,18 @@ end
 --- Render read-only span lines in the central window.
 ---
 ---@param lines table Array of lines, each an array of `{ text, hl }` spans.
----@param opts table|nil { number = boolean, wrap = boolean, pad_top = boolean }
+---@param opts table|nil { number = boolean, wrap = boolean, pad_top = boolean,
+--- folds = table }
 ---@return number winid
 LeetCodeUI.render = function(lines, opts)
   opts = opts or {}
-  if opts.pad_top == true then table.insert(lines, 1, {}) end
+  if opts.pad_top == true then
+    table.insert(lines, 1, {})
+    for _, fold in ipairs(opts.folds or {}) do
+      fold.start_line = fold.start_line + 1
+      fold.end_line = fold.end_line + 1
+    end
+  end
 
   local render_opts = vim.tbl_extend('force', {
     cursorline = true,

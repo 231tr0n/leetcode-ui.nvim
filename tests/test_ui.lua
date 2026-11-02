@@ -58,6 +58,26 @@ T['render']['pad_top adds one empty line before the content'] = function()
   eq(lines[2], 'content')
 end
 
+T['render']['applies closed folds with a status column'] = function()
+  local ui = helpers.mod('ui')
+  local winid = ui.render({
+    { { text = 'header' } },
+    { { text = 'body one' } },
+    { { text = 'body two' } },
+  }, {
+    folds = { { start_line = 2, end_line = 3 } },
+    foldmethod = 'manual',
+    foldcolumn = 1,
+    statuscolumn = '%C ',
+  })
+
+  eq(vim.api.nvim_get_option_value('foldmethod', { win = winid }), 'manual')
+  eq(vim.api.nvim_get_option_value('statuscolumn', { win = winid }), '%C ')
+  eq(vim.api.nvim_get_option_value('foldcolumn', { win = winid }), '1')
+  eq(vim.fn.foldclosed(2), 2)
+  eq(vim.fn.foldclosedend(2), 3)
+end
+
 T['render']['does not pad by default'] = function()
   local ui = helpers.mod('ui')
   ui.render({ { { text = 'content' } } })

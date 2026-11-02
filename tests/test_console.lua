@@ -119,6 +119,34 @@ T['lines']['renders all case labels uniformly'] = function()
   end
 end
 
+T['lines']['folds large stdout and places it after the return value'] = function()
+  local console = make_console({ 'input' })
+  local output = {}
+  for index = 1, 6 do
+    table.insert(output, 'line' .. index)
+  end
+  console.cases[1].status = 'passed'
+  console.cases[1].result = {
+    status = 'Accepted',
+    runtime_ms = 1,
+    answer = '42',
+    stdout = table.concat(output, '\n'),
+  }
+
+  local lines, folds = console:lines()
+  eq(#folds, 1)
+  local fold = folds[1]
+  local texts = helpers.mod('buffer').spans_to_texts(lines)
+  eq(texts[fold.start_line], '    stdout:')
+  eq(fold.end_line, fold.start_line + #output)
+
+  local return_line = nil
+  for index, text in ipairs(texts) do
+    if helpers.contains(text, 'return: 42') then return_line = index end
+  end
+  eq(return_line < fold.start_line, true)
+end
+
 T['lines']['uses a spinner for running cases'] = function()
   local console = make_console()
   console.cases[1].running = true

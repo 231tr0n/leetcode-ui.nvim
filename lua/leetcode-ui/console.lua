@@ -15,6 +15,8 @@ local config = require('leetcode-ui.config')
 
 LeetCodeConsole.spinner = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
 
+LeetCodeConsole.stdout_fold_threshold = 5
+
 -- Helper functionality =============================================================================================
 
 --- Create a console for a question view.
@@ -74,12 +76,33 @@ local function append_value(lines, label, value)
   end
 end
 
+local function append_stdout(lines, folds, value)
+  if value == nil or value == '' then return end
+  local output_lines = vim.split(value_text(value), '\n')
+
+  if #output_lines <= LeetCodeConsole.stdout_fold_threshold then
+    for _, line in ipairs(output_lines) do
+      table.insert(lines, { { text = '    stdout: ' .. line, hl = 'LeetCodeDim' } })
+    end
+    return
+  end
+
+  local start_line = #lines + 1
+  table.insert(lines, { { text = '    stdout:', hl = 'LeetCodeDim' } })
+  for _, line in ipairs(output_lines) do
+    table.insert(lines, { { text = '      ' .. line, hl = 'LeetCodeDim' } })
+  end
+  table.insert(folds, { start_line = start_line, end_line = #lines })
+end
+
 --- Build renderable span lines for the Console tab.
 ---
 ---@param console table
 ---@return table lines
+---@return table folds
 LeetCodeConsole.lines = function(console)
   local lines = {}
+  local folds = {}
   local submission = console.submission_result
   if submission ~= nil then
     local icon = submission.ok and config.config.icons.case.passed or config.config.icons.case.failed
@@ -141,15 +164,15 @@ LeetCodeConsole.lines = function(console)
         end
       end
 
-      append_value(lines, 'stdout: ', case.result.stdout)
       append_value(lines, 'return: ', case.result.answer)
       if case.status == 'failed' or case.status == 'error' then
         append_value(lines, 'expected: ', case.result.expected_answer)
       end
+      append_stdout(lines, folds, case.result.stdout)
     end
   end
 
-  return lines
+  return lines, folds
 end
 
 --- Add a new test case.

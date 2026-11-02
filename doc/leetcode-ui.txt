@@ -385,7 +385,8 @@ Show a buffer in the central window.
 Parameters ~
 {bufnr} `(number)`
 {opts} `(table|nil)` Options: `number`, `wrap`, `cursorline`,
-`cursorline_hl`, and `hide_cursor`.
+`cursorline_hl`, `hide_cursor`, `foldmethod`, `foldcolumn`,
+`statuscolumn`, and `folds`.
 Return ~
 `(number)` winid
 
@@ -396,7 +397,8 @@ Render read-only span lines in the central window.
 
 Parameters ~
 {lines} `(table)` Array of lines, each an array of `{ text, hl }` spans.
-{opts} `(table|nil)` { number = boolean, wrap = boolean, pad_top = boolean }
+{opts} `(table|nil)` { number = boolean, wrap = boolean, pad_top = boolean,
+folds = table }
 Return ~
 `(number)` winid
 
@@ -674,6 +676,8 @@ Parameters ~
 {console} `(table)`
 Return ~
 `(table)` lines
+Return ~
+`(table)` folds
 
 ------------------------------------------------------------------------------
                                                     *LeetCodeConsole.add_case()*

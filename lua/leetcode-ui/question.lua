@@ -237,7 +237,21 @@ LeetCodeQuestionView.refresh = function(view)
     if view.active == 'description' then
       lines = LeetCodeQuestionView.describe(view)
     elseif view.active == 'console' then
-      lines = view.console:lines()
+      local folds
+      lines, folds = view.console:lines()
+      if folds ~= nil then
+        ui.render(lines, {
+          number = false,
+          wrap = true,
+          pad_top = true,
+          folds = folds,
+          foldmethod = 'manual',
+          foldcolumn = 1,
+          statuscolumn = '%C ',
+        })
+        LeetCodeQuestionView.render_winbar(view)
+        return
+      end
     elseif view.active == 'info' then
       lines = LeetCodeQuestionView.info(view)
     end
