@@ -92,6 +92,17 @@ T['build_lines']['renders signed-in progress'] = function()
   eq(helpers.contains(text, 'streak: 4'), true)
   eq(helpers.contains(text, 'Languages'), true)
   eq(helpers.contains(text, 'Skills'), true)
+
+  local line_texts = helpers.mod('buffer').spans_to_texts(lines)
+  local languages_index, skills_index = nil, nil
+  for index, line_text in ipairs(line_texts) do
+    if line_text == 'Languages' then languages_index = index end
+    if line_text == 'Skills' then skills_index = index end
+  end
+  eq(languages_index ~= nil, true)
+  eq(skills_index ~= nil, true)
+  eq(skills_index > languages_index, true)
+  eq(line_texts[skills_index - 1], '')
 end
 
 T['build_lines']['renders anonymous guidance and errors'] = function()

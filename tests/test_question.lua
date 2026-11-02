@@ -87,7 +87,7 @@ T['info']['renders question metadata and command help'] = function()
     local text = table.concat(helpers.mod('buffer').spans_to_texts(lines), '\n')
     eq(helpers.contains(text, 'enabled (local)'), true)
     eq(helpers.contains(text, 'Array'), true)
-    eq(helpers.contains(text, ':LeetCode run'), true)
+    eq(helpers.contains(text, ':LeetCode question run'), true)
 
     local description_columns = {}
     for _, line in ipairs(lines) do

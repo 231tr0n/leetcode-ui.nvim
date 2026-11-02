@@ -112,6 +112,11 @@ T['highlights']['setup defines all groups'] = function()
   end
 end
 
+T['highlights']['link highlights are not underlined'] = function()
+  local link = vim.api.nvim_get_hl(0, { name = 'LeetCodeLink' })
+  eq(link.underline, nil)
+end
+
 T['langs'] = new_set()
 
 T['langs']['get_lang returns metadata'] = function()

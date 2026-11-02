@@ -128,7 +128,7 @@ local default_config = {
   -- Per-browser database path overrides, e.g. { firefox = '~/profile/cookies.sqlite' }.
   browser_paths = {},
 
-  -- Whether to prefer the bundled local runners for `:LeetCode run`.
+  -- Whether to prefer the bundled local runners for `:LeetCode question run`.
   local_runner = true,
 
   -- Executable overrides for local runners, e.g. { python3 = '/usr/bin/python3' }.

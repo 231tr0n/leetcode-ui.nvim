@@ -400,6 +400,9 @@ LeetCodeCommands.complete = function(arg_lead, cmd_line, cursor_pos)
   local name = args[1]
   if name == 'question' then
     if #args == 1 then return LeetCodeCommands.filter(vim.tbl_keys(LeetCodeCommands.question_subcommands), arg_lead) end
+    if #args == 2 and arg_lead ~= '' then
+      return LeetCodeCommands.filter(vim.tbl_keys(LeetCodeCommands.question_subcommands), arg_lead)
+    end
 
     local action = args[2]
     if action == 'case' then

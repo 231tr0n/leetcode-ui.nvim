@@ -96,14 +96,16 @@ T['plugin']['registers the LeetCode command and completion'] = function()
   dofile('plugin/leetcode.lua')
   eq(vim.fn.exists(':LeetCode'), 2)
 
-  local completions = vim.fn.getcompletion('LeetCode c', 'cmdline')
-  eq(vim.tbl_contains(completions, 'case'), true)
-  eq(vim.tbl_contains(completions, 'close'), true)
+  local completions = vim.fn.getcompletion('LeetCode st', 'cmdline')
+  eq(vim.tbl_contains(completions, 'stats'), true)
+  local all = vim.fn.getcompletion('LeetCode ', 'cmdline')
+  eq(vim.tbl_contains(all, 'list'), true)
+  eq(vim.tbl_contains(all, 'question'), true)
 
   vim.cmd('LeetCode help')
   local panel = require('leetcode-ui.ui').panel()
   local text = table.concat(vim.api.nvim_buf_get_lines(panel, 0, -1, false), '\n')
-  eq(helpers.contains(text, ':LeetCode run'), true)
+  eq(helpers.contains(text, ':LeetCode question run'), true)
 end
 
 T['plugin']['does not register twice'] = function()

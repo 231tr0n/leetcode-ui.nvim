@@ -108,7 +108,7 @@ LeetCodeQuestionView.describe = function(view)
     if view.show_hints ~= true then
       table.insert(lines, {
         {
-          text = ('Hints (%d) hidden. Use `:LeetCode hints` to show them.'):format(#hints),
+          text = ('Hints (%d) hidden. Use `:LeetCode question hints` to show them.'):format(#hints),
           hl = 'LeetCodeDim',
         },
       })

@@ -69,7 +69,7 @@ end
 LeetCodeConsole.lines = function(console)
   local lines = { { { text = 'Testcases', hl = 'LeetCodeTitle' } } }
   table.insert(lines, {
-    { text = '  :LeetCode case add|delete|edit|next|prev', hl = 'LeetCodeDim' },
+    { text = '  :LeetCode question case add|delete|edit|next|prev', hl = 'LeetCodeDim' },
   })
 
   local submission = console.submission_result

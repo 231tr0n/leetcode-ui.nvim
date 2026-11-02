@@ -39,6 +39,18 @@ T['dispatch']['defaults to list'] = function()
   eq(type(called), 'table')
 end
 
+T['dispatch']['does not expose question actions at the top level'] = function()
+  local config = require('leetcode-ui.config')
+  config.setup({ notifications = true })
+  local original = vim.notify
+  local messages = {}
+  vim.notify = function(message) table.insert(messages, message) end
+  helpers.mod('commands').run({ 'run' })
+  vim.notify = original
+  eq(#messages, 1)
+  eq(helpers.contains(messages[1], 'Unknown command'), true)
+end
+
 T['dispatch']['reports unknown commands'] = function()
   local config = require('leetcode-ui.config')
   config.setup({ notifications = true })
@@ -155,7 +167,7 @@ T['tabs']['shows each tab and cycles'] = function()
       table.insert(shown, 'cycle:' .. tostring(delta))
     end, function()
       for _, tab in ipairs({ 'description', 'code', 'console', 'info', 'next', 'prev' }) do
-        helpers.mod('commands').run({ tab })
+        helpers.mod('commands').run({ 'question', tab })
       end
     end)
   end)
@@ -167,7 +179,7 @@ end
 T['tabs']['does nothing without an open question'] = function()
   local restore = stub_current(nil)
   for _, tab in ipairs({ 'description', 'code', 'console', 'info', 'next', 'prev' }) do
-    eq(pcall(helpers.mod('commands').run, { tab }), true)
+    eq(pcall(helpers.mod('commands').run, { 'question', tab }), true)
   end
   restore()
 end
