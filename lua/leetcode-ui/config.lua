@@ -16,10 +16,6 @@
 --- - `browser` (`string`) - cookie import source: `auto`, `firefox`,
 ---   `epiphany`, `safari`, `chrome`, `brave`, `edge`, `chromium`, or `none`.
 --- - `browser_paths` (`table`) - per-browser database path overrides.
---- - `local_runner` (`boolean`) - prefer bundled local runners for `run`.
---- - `binaries` (`table`) - executable overrides for local runners.
---- - `runner_timeout` (`number`) - local runner timeout in seconds.
---- - `no_local` (`table`) - language slugs that always run online.
 --- - `float_width`, `float_height` (`number`) - central window size.
 --- - `float_border` (`string|nil`) - central window border.
 --- - `picker` (`string`) - `auto`, `mini`, or `builtin`.
@@ -41,10 +37,6 @@
 ---     storage_path = nil,
 ---     browser = 'auto',
 ---     browser_paths = {},
----     local_runner = true,
----     binaries = {},
----     runner_timeout = 30,
----     no_local = {},
 ---     float_width = 120,
 ---     float_height = 36,
 ---     float_border = nil,
@@ -170,18 +162,6 @@ local default_config = {
   -- Per-browser database path overrides, e.g. { firefox = '~/profile/cookies.sqlite' }.
   browser_paths = {},
 
-  -- Whether to prefer the bundled local runners for `:LeetCode question run`.
-  local_runner = true,
-
-  -- Executable overrides for local runners, e.g. { python3 = '/usr/bin/python3' }.
-  binaries = {},
-
-  -- Local runner timeout in seconds.
-  runner_timeout = 30,
-
-  -- Language slugs that should always run online.
-  no_local = {},
-
   -- Central UI window geometry.
   float_width = 120,
   float_height = 36,
@@ -225,10 +205,6 @@ LeetCodeConfig.setup_config = function(config)
     storage_path = { config.storage_path, 'string', true },
     browser = { config.browser, 'string' },
     browser_paths = { config.browser_paths, 'table' },
-    local_runner = { config.local_runner, 'boolean' },
-    binaries = { config.binaries, 'table' },
-    runner_timeout = { config.runner_timeout, 'number' },
-    no_local = { config.no_local, 'table' },
     float_width = { config.float_width, 'number' },
     float_height = { config.float_height, 'number' },
     float_border = { config.float_border, 'string', true },

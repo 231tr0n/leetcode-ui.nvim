@@ -67,34 +67,32 @@ end
 ---@param console table
 ---@return table lines
 LeetCodeConsole.lines = function(console)
-  local lines = { { { text = 'Testcases', hl = 'LeetCodeTitle' } } }
-  table.insert(lines, {
-    { text = '  :LeetCode question case add|delete|edit|next|prev', hl = 'LeetCodeDim' },
-  })
-
+  local lines = {}
   local submission = console.submission_result
   if submission ~= nil then
     local icon = submission.ok and config.config.icons.case.passed or config.config.icons.case.failed
     local hl = submission.ok and 'LeetCodeOk' or 'LeetCodeErr'
-    table.insert(lines, {})
-    table.insert(lines, {
-      { text = 'Submission: ', hl = 'LeetCodeDim' },
-      { text = icon .. ' ' .. (submission.status or ''), hl = hl },
-    })
+    table.insert(lines, { { text = 'Submission', hl = 'LeetCodeHeader' } })
+    table.insert(lines, { { text = icon .. ' ' .. (submission.status or ''), hl = hl } })
+
+    local details = {}
     if submission.runtime_ms ~= nil then
-      table.insert(lines, {
-        {
-          text = ('  Runtime: %d ms  Memory: %.2f MB'):format(
-            tonumber(submission.runtime_ms) or 0,
-            (tonumber(submission.memory_mb) or 0) / (1024 * 1024)
-          ),
-          hl = 'LeetCodeDim',
-        },
-      })
+      table.insert(details, ('Runtime: %d ms'):format(tonumber(submission.runtime_ms) or 0))
     end
+    if submission.memory_mb ~= nil then
+      table.insert(details, ('Memory: %.2f MB'):format((tonumber(submission.memory_mb) or 0) / (1024 * 1024)))
+    end
+    if #details > 0 then table.insert(lines, { { text = '  ' .. table.concat(details, '  '), hl = 'LeetCodeDim' } }) end
+
+    table.insert(lines, {})
   end
 
+  table.insert(lines, { { text = 'Testcases', hl = 'LeetCodeTitle' } })
+  table.insert(lines, {
+    { text = '  :LeetCode question case add|delete|edit|next|prev', hl = 'LeetCodeDim' },
+  })
   table.insert(lines, {})
+
   for index, case in ipairs(console.cases) do
     local icon, icon_hl = LeetCodeConsole.case_icon(console, case)
     local active = index == console.selected

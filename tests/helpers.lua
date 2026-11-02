@@ -50,7 +50,6 @@ H.setup = function(opts)
     browser = 'none',
     storage_path = H.tmpdir(),
     cookies = {},
-    local_runner = false,
     notifications = false,
   }
   local config = require('leetcode-ui.config')

@@ -71,13 +71,31 @@ T['lines']['renders header, inputs, and results'] = function()
   eq(helpers.contains(joined, 'out: out'), true)
 end
 
-T['lines']['renders submission details'] = function()
+T['lines']['renders a highlighted submission block before testcases'] = function()
   local console = make_console()
   console.submission_result = { ok = true, status = 'Accepted', runtime_ms = 5, memory_mb = 1024 * 1024 }
-  local joined = table.concat(helpers.mod('buffer').spans_to_texts(console:lines()), '\n')
-  eq(helpers.contains(joined, 'Submission:'), true)
-  eq(helpers.contains(joined, 'Accepted'), true)
+  local lines = console:lines()
+  local texts = helpers.mod('buffer').spans_to_texts(lines)
+  local joined = table.concat(texts, '\n')
+
+  eq(texts[1], 'Submission')
+  eq(helpers.contains(texts[2], 'Accepted'), true)
   eq(helpers.contains(joined, 'Memory: 1.00 MB'), true)
+
+  local submission_index, testcases_index = nil, nil
+  for index, text in ipairs(texts) do
+    if text == 'Submission' then submission_index = index end
+    if text == 'Testcases' then testcases_index = index end
+  end
+  eq(submission_index < testcases_index, true)
+
+  local highlighted = false
+  for _, line in ipairs(lines) do
+    for _, span in ipairs(line) do
+      if span.hl == 'LeetCodeOk' and helpers.contains(span.text, 'Accepted') then highlighted = true end
+    end
+  end
+  eq(highlighted, true)
 end
 
 T['lines']['uses a spinner for running cases'] = function()

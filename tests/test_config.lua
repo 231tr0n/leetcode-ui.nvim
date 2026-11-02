@@ -17,7 +17,6 @@ T['defaults']['exposes defaults'] = function()
   config.reset()
   eq(config.config.url, 'leetcode.com')
   eq(config.config.lang, 'python3')
-  eq(config.config.local_runner, true)
   eq(config.config.picker, 'auto')
   eq(config.config.browser, 'auto')
   eq(config.config.notifications, true)
@@ -49,7 +48,6 @@ T['setup']['applies overrides and keeps defaults'] = function()
   eq(config.config.notifications, false)
   eq(config.config.show_hints, true)
   eq(config.config.cookies.LEETCODE_SESSION, 'abc')
-  eq(config.config.runner_timeout, 30)
 end
 
 T['setup']['normalizes language aliases'] = function()
@@ -78,7 +76,6 @@ end
 
 T['setup']['rejects bad types'] = function()
   local config = require('leetcode-ui.config')
-  expect.error(function() config.setup({ runner_timeout = 'thirty' }) end)
   expect.error(function() config.setup({ cookies = 'jar' }) end)
   expect.error(function() config.setup({ notifications = 'yes' }) end)
   expect.error(function() config.setup({ show_hints = 'yes' }) end)

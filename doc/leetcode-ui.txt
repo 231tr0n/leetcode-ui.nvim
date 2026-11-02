@@ -18,7 +18,8 @@ Features:
 - Browse problems with `mini.pick` or |vim.ui.select()|.
 - Read parsed descriptions, with hints hidden by default.
 - Edit, run, and submit solutions with draft persistence.
-- Run Python 3 solutions locally with the bundled harness.
+- Run and submit solutions through LeetCode's API.
+- Format solutions with local CLI formatters or the LSP fallback.
 - Show progress statistics and session information.
 - Import session cookies from supported browsers.
 
@@ -75,8 +76,6 @@ Question-window actions live under `:LeetCode question`:
   Questions API ........................................... |LeetCodeQuestion|
   Runner API ............................................. |LeetCodeRunnerApi|
   Statistics API .......................................... |LeetCodeStatsApi|
-  Local runner .............................................. |LeetCodeRunner|
-  Python runner ....................................... |LeetCodeRunnerPython|
 
 ------------------------------------------------------------------------------
                                                               *LeetCode.setup()*
@@ -194,10 +193,6 @@ Options:
 - `browser` (`string`) - cookie import source: `auto`, `firefox`,
   `epiphany`, `safari`, `chrome`, `brave`, `edge`, `chromium`, or `none`.
 - `browser_paths` (`table`) - per-browser database path overrides.
-- `local_runner` (`boolean`) - prefer bundled local runners for `run`.
-- `binaries` (`table`) - executable overrides for local runners.
-- `runner_timeout` (`number`) - local runner timeout in seconds.
-- `no_local` (`table`) - language slugs that always run online.
 - `float_width`, `float_height` (`number`) - central window size.
 - `float_border` (`string|nil`) - central window border.
 - `picker` (`string`) - `auto`, `mini`, or `builtin`.
@@ -219,10 +214,6 @@ Default configuration:
     storage_path = nil,
     browser = 'auto',
     browser_paths = {},
-    local_runner = true,
-    binaries = {},
-    runner_timeout = 30,
-    no_local = {},
     float_width = 120,
     float_height = 36,
     float_border = nil,
@@ -607,21 +598,9 @@ Parameters ~
 {indexes} `(table)`
 
 ------------------------------------------------------------------------------
-                                              *LeetCodeQuestionView.run_local()*
-`LeetCodeQuestionView.run_local`({view}, {question}, {code}, {indexes}, {on_done})
-Run selected cases with the local runner, one at a time.
-
-Parameters ~
-{view} `(table)`
-{question} `(table)`
-{code} `(string)`
-{indexes} `(table)`
-{on_done} `(function)`
-
-------------------------------------------------------------------------------
-                                             *LeetCodeQuestionView.run_online()*
-`LeetCodeQuestionView.run_online`({view}, {question}, {code}, {indexes}, {index})
-Run testcases against the judge.
+                                                *LeetCodeQuestionView.run_api()*
+ `LeetCodeQuestionView.run_api`({view}, {question}, {code}, {indexes}, {index})
+Run testcases through the LeetCode API.
 
 Parameters ~
 {view} `(table)`
@@ -857,7 +836,9 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                      *LeetCodeSolution.format()*
                        `LeetCodeSolution.format`({view})
-Format the current code using LeetCode's formatter, a CLI formatter, or LSP.
+Format the current code using a local CLI formatter or LSP.
+
+LeetCode's remote formatting endpoint is intentionally not used.
 
 Parameters ~
 {view} `(table)`
@@ -1238,9 +1219,9 @@ Return ~
 *leetcode-ui-async* Tiny coroutine driver
 
 Runs a function in a dedicated coroutine. Network code resumes the
-coroutine via |vim.schedule()| and local runners via callbacks, so actions
-can interleave requests with rendering. Errors are reported as
-notifications instead of escaping into Neovim's event loop.
+coroutine via |vim.schedule()|, so actions can interleave requests with
+rendering. Errors are reported as notifications instead of escaping into
+Neovim's event loop.
 
 
 ------------------------------------------------------------------------------
@@ -1473,37 +1454,5 @@ Return ~
 `(table|nil)` { streak_count, days_skipped, today_completed }
 Return ~
 `(string|nil)` err
-
-------------------------------------------------------------------------------
-                                                                *LeetCodeRunner*
-*leetcode-ui-runner-common* Local runner plumbing
-
-Machinery shared by language harnesses:
-- decode question `metaData` (params, return type, system-design form),
-- split testcase `data_input` into raw parameter lines,
-- resolve a language harness and its availability,
-- spawn the local run and normalize results.
-
-Language harness contract (modules under `runner/langs/<slug>`):
-- `available()` returns a boolean and an optional note.
-- `run(dir, question, code, meta, params, data_input)` creates workspace
-  files under `dir` and returns argv for |vim.system()|.
-
-
-------------------------------------------------------------------------------
-                                                          *LeetCodeRunnerPython*
-*leetcode-ui-runner-python3* Python3 local runner
-
-Wraps the user's `class Solution` with LeetCode-standard data structures,
-a decoder for raw testcase lines, and a serialized return value.
-System-design problems drive the `classname` object through the method list
-(see |leetcode-ui-runner-common|).
-
-Run contract: `argv = [python, main.py, lines_json, specs_json, mode]`
-- `lines_json` - array of raw testcase lines.
-- `specs_json` - normal mode: array of parameter type strings; system-design
-  mode: array of `{ name, types = {...} }` per method.
-- `mode` - `'normal'` or `'systemdesign'`.
-
 
  vim:tw=78:ts=8:noet:ft=help:norl:

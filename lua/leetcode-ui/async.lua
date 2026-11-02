@@ -1,9 +1,9 @@
 --- *leetcode-ui-async* Tiny coroutine driver
 ---
 --- Runs a function in a dedicated coroutine. Network code resumes the
---- coroutine via |vim.schedule()| and local runners via callbacks, so actions
---- can interleave requests with rendering. Errors are reported as
---- notifications instead of escaping into Neovim's event loop.
+--- coroutine via |vim.schedule()|, so actions can interleave requests with
+--- rendering. Errors are reported as notifications instead of escaping into
+--- Neovim's event loop.
 ---
 ---@tag LeetCodeAsync
 ---@toc_entry Async driver

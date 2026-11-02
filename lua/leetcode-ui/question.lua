@@ -16,7 +16,6 @@ local client_api = require('leetcode-ui.api')
 local buffer = require('leetcode-ui.buffer')
 local config = require('leetcode-ui.config')
 local Console = require('leetcode-ui.console')
-local local_runner = require('leetcode-ui.runner.common')
 local log = require('leetcode-ui.log')
 local parser = require('leetcode-ui.parser')
 local runner = require('leetcode-ui.api.runner')
@@ -140,10 +139,6 @@ LeetCodeQuestionView.info = function(view)
     table.insert(tags, tag.name)
   end
 
-  local harness, note = local_runner.harness(view.lang, detail)
-  local runner_text = harness ~= nil and 'enabled (local)' or ('online only: ' .. (note or 'unavailable'))
-  local runner_hl = harness ~= nil and 'LeetCodeOk' or 'LeetCodeWarn'
-
   local lines = {
     {
       { text = 'Question:    ', hl = 'LeetCodeDim' },
@@ -155,7 +150,7 @@ LeetCodeQuestionView.info = function(view)
     },
     { { text = 'Language:    ', hl = 'LeetCodeDim' }, { text = view.lang, hl = 'LeetCodeCode' } },
     { { text = 'Testcases:   ', hl = 'LeetCodeDim' }, { text = tostring(#view.console.cases), hl = 'LeetCodeCode' } },
-    { { text = 'Local runner:', hl = 'LeetCodeDim' }, { text = ' ' .. runner_text, hl = runner_hl } },
+    { { text = 'Runner:      ', hl = 'LeetCodeDim' }, { text = 'LeetCode API', hl = 'LeetCodeOk' } },
     {
       { text = 'Link:        ', hl = 'LeetCodeDim' },
       { text = client_api.problems_url(view.slug), hl = 'LeetCodeLink' },
@@ -454,53 +449,14 @@ LeetCodeQuestionView.mark_running = function(view, indexes)
   LeetCodeQuestionView.show_tab(view, 'console')
 end
 
---- Run selected cases with the local runner, one at a time.
----
----@param view table
----@param question table
----@param code string
----@param indexes table
----@param on_done function
-LeetCodeQuestionView.run_local = function(view, question, code, indexes, on_done)
-  local function run_at(position)
-    if position > #indexes then
-      view.console:stop_spinner()
-      on_done()
-      return
-    end
-
-    local index = indexes[position]
-    local case = view.console.cases[index]
-    local_runner.run_local(question, view.lang, code, case.input, function(result, err)
-      case.running = false
-      if err ~= nil or result == nil then
-        case.status = 'error'
-        case.result = { status = 'Error', message = err or 'Empty response' }
-      else
-        case.status = 'ran'
-        case.result = {
-          status = 'Ran',
-          local_run = true,
-          message = result.message,
-          runtime_ms = result.runtime_ms,
-        }
-      end
-      LeetCodeQuestionView.refresh(view)
-      run_at(position + 1)
-    end)
-  end
-
-  run_at(1)
-end
-
---- Run testcases against the judge.
+--- Run testcases through the LeetCode API.
 ---
 ---@param view table
 ---@param question table
 ---@param code string
 ---@param indexes table
 ---@param index number|nil Single-case index.
-LeetCodeQuestionView.run_online = function(view, question, code, indexes, index)
+LeetCodeQuestionView.run_api = function(view, question, code, indexes, index)
   local cases = view.console.cases
   local result, err
 
@@ -603,22 +559,10 @@ LeetCodeQuestionView.run = function(view, index)
     solution.save_draft(view)
     local code = solution.code(view)
     local question = { id = view.detail.id, title_slug = view.slug, lang_slug = view.lang }
-    local harness = local_runner.harness(view.lang, view.detail)
 
-    if harness ~= nil then
-      log.info(('Running %d testcase(s) locally…'):format(#indexes))
-      LeetCodeQuestionView.mark_running(view, indexes)
-      LeetCodeQuestionView.run_local(view, question, code, indexes, function()
-        view.busy = false
-        LeetCodeQuestionView.refresh(view)
-        log.info('Local test run finished')
-      end)
-      return
-    end
-
-    log.info(('Running %d testcase(s) online…'):format(#indexes))
+    log.info(('Running %d testcase(s) through LeetCode…'):format(#indexes))
     LeetCodeQuestionView.mark_running(view, indexes)
-    LeetCodeQuestionView.run_online(view, question, code, indexes, index)
+    LeetCodeQuestionView.run_api(view, question, code, indexes, index)
     view.busy = false
     LeetCodeQuestionView.refresh(view)
   end)

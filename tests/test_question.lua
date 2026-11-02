@@ -82,34 +82,23 @@ T['info'] = new_set()
 T['info']['renders question metadata and command help'] = function()
   local view = make_view()
   local question = helpers.mod('question')
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return {}, nil end, function()
-    local lines = question.info(view)
-    local text = table.concat(helpers.mod('buffer').spans_to_texts(lines), '\n')
-    eq(helpers.contains(text, 'enabled (local)'), true)
-    eq(helpers.contains(text, 'Array'), true)
-    eq(helpers.contains(text, ':LeetCode question run'), true)
+  local lines = question.info(view)
+  local text = table.concat(helpers.mod('buffer').spans_to_texts(lines), '\n')
+  eq(helpers.contains(text, 'LeetCode API'), true)
+  eq(helpers.contains(text, 'Array'), true)
+  eq(helpers.contains(text, ':LeetCode question run'), true)
 
-    local description_columns = {}
-    for _, line in ipairs(lines) do
-      local command, description = line[1], line[2]
-      if command ~= nil and description ~= nil and helpers.contains(command.text, ':LeetCode') then
-        table.insert(description_columns, #command.text)
-      end
+  local description_columns = {}
+  for _, line in ipairs(lines) do
+    local command, description = line[1], line[2]
+    if command ~= nil and description ~= nil and helpers.contains(command.text, ':LeetCode') then
+      table.insert(description_columns, #command.text)
     end
-    eq(#description_columns > 0, true)
-    for _, column in ipairs(description_columns) do
-      eq(column, description_columns[1])
-    end
-  end)
-end
-
-T['info']['shows online-only note when no harness exists'] = function()
-  local view = make_view()
-  local question = helpers.mod('question')
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return nil, 'disabled' end, function()
-    local text = table.concat(helpers.mod('buffer').spans_to_texts(question.info(view)), '\n')
-    eq(helpers.contains(text, 'online only: disabled'), true)
-  end)
+  end
+  eq(#description_columns > 0, true)
+  for _, column in ipairs(description_columns) do
+    eq(column, description_columns[1])
+  end
 end
 
 T['open'] = new_set()
@@ -467,34 +456,37 @@ end
 
 T['run'] = new_set()
 
-T['run']['runs all cases online'] = function()
+local function with_runner_stubs(interpret, fn)
+  helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
+    helpers.with_stub(
+      'leetcode-ui.solution',
+      'code',
+      function() return 'code' end,
+      function() helpers.with_stub('leetcode-ui.api.runner', 'interpret', interpret, fn) end
+    )
+  end)
+end
+
+T['run']['runs all cases through the LeetCode API'] = function()
   local question = helpers.mod('question')
   local view = make_view()
   question.active = view
 
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return nil, 'online' end, function()
-    helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
-      helpers.with_stub('leetcode-ui.solution', 'code', function() return 'code' end, function()
-        helpers.with_stub(
-          'leetcode-ui.api.runner',
-          'interpret',
-          function()
-            return {
-              status = 'Accepted',
-              runtime_ms = 5,
-              compare = '10',
-              correct = 1,
-              total = 2,
-              stdouts = { 'a', 'b' },
-              pretty_stdout = 'pretty',
-            },
-              nil
-          end,
-          function() question.run(view) end
-        )
-      end)
-    end)
-  end)
+  with_runner_stubs(
+    function()
+      return {
+        status = 'Accepted',
+        runtime_ms = 5,
+        compare = '10',
+        correct = 1,
+        total = 2,
+        stdouts = { 'a', 'b' },
+        pretty_stdout = 'pretty',
+      },
+        nil
+    end,
+    function() question.run(view) end
+  )
 
   eq(view.console.cases[1].status, 'passed')
   eq(view.console.cases[2].status, 'failed')
@@ -503,22 +495,17 @@ T['run']['runs all cases online'] = function()
   eq(view.active, 'console')
 end
 
-T['run']['runs one case online'] = function()
+T['run']['runs one case through the LeetCode API'] = function()
   local question = helpers.mod('question')
   local view = make_view()
   question.active = view
   local captured_input = nil
 
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return nil, 'online' end, function()
-    helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
-      helpers.with_stub('leetcode-ui.solution', 'code', function() return 'code' end, function()
-        helpers.with_stub('leetcode-ui.api.runner', 'interpret', function(_question, _code, input)
-          captured_input = input
-          return { status = 'Accepted', runtime_ms = 5, compare = '1', stdouts = { 'single output' } }, nil
-        end, function() question.run(view, '2') end)
-      end)
-    end)
-  end)
+  with_runner_stubs(function(_question, _code, input)
+    captured_input = input
+    return { status = 'Accepted', runtime_ms = 5, compare = '1', stdouts = { 'single output' } }, nil
+  end, function() question.run(view, '2') end)
+
   eq(captured_input, '[3,2,4]\n6')
   eq(view.console.cases[2].status, 'passed')
   eq(view.console.cases[2].result.stdout, 'single output')
@@ -530,97 +517,26 @@ T['run']['uses result messages when no compare bits are returned'] = function()
   local view = make_view()
   question.active = view
 
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return nil, 'online' end, function()
-    helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
-      helpers.with_stub('leetcode-ui.solution', 'code', function() return 'code' end, function()
-        helpers.with_stub(
-          'leetcode-ui.api.runner',
-          'interpret',
-          function() return { status = 'Compile Error', message = 'syntax error', runtime_ms = 2 }, nil end,
-          function() question.run(view, 1) end
-        )
-      end)
-    end)
-  end)
+  with_runner_stubs(
+    function() return { status = 'Compile Error', message = 'syntax error', runtime_ms = 2 }, nil end,
+    function() question.run(view, 1) end
+  )
+
   eq(view.console.cases[1].status, 'error')
   eq(view.console.cases[1].result.message, 'syntax error')
 end
 
-T['run']['reports online failures'] = function()
+T['run']['reports API failures'] = function()
   local question = helpers.mod('question')
   local view = make_view()
   question.active = view
 
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return nil, 'online' end, function()
-    helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
-      helpers.with_stub('leetcode-ui.solution', 'code', function() return 'code' end, function()
-        helpers.with_stub(
-          'leetcode-ui.api.runner',
-          'interpret',
-          function() return nil, 'boom' end,
-          function() question.run(view) end
-        )
-      end)
-    end)
-  end)
+  with_runner_stubs(function() return nil, 'boom' end, function() question.run(view) end)
+
   eq(view.console.cases[1].status, 'error')
   eq(view.console.cases[2].status, 'error')
   eq(view.console.cases[1].result.message, 'boom')
   eq(view.busy, false)
-end
-
-T['run']['runs cases locally'] = function()
-  local question = helpers.mod('question')
-  local view = make_view()
-  question.active = view
-  local calls = 0
-
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return {}, nil end, function()
-    helpers.with_stub('leetcode-ui.runner.common', 'run_local', function(_question, _lang, _code, input, callback)
-      calls = calls + 1
-      callback({ status = 'ran', runtime_ms = 1, message = 'output:' .. input }, nil)
-    end, function()
-      helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
-        helpers.with_stub(
-          'leetcode-ui.solution',
-          'code',
-          function() return 'code' end,
-          function() question.run(view) end
-        )
-      end)
-    end)
-  end)
-
-  eq(calls, 2)
-  eq(view.console.cases[1].status, 'ran')
-  eq(view.console.cases[1].result.local_run, true)
-  eq(view.busy, false)
-end
-
-T['run']['reports local failures'] = function()
-  local question = helpers.mod('question')
-  local view = make_view()
-  question.active = view
-
-  helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return {}, nil end, function()
-    helpers.with_stub(
-      'leetcode-ui.runner.common',
-      'run_local',
-      function(_question, _lang, _code, _input, callback) callback(nil, 'local failed') end,
-      function()
-        helpers.with_stub('leetcode-ui.solution', 'save_draft', function() end, function()
-          helpers.with_stub(
-            'leetcode-ui.solution',
-            'code',
-            function() return 'code' end,
-            function() question.run(view, 1) end
-          )
-        end)
-      end
-    )
-  end)
-  eq(view.console.cases[1].status, 'error')
-  eq(view.console.cases[1].result.message, 'local failed')
 end
 
 T['run']['guards missing views, busy views, and invalid indexes'] = function()

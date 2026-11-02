@@ -8,8 +8,8 @@ the same window.
 
 - Browse problems with `mini.pick` or `vim.ui.select()`.
 - Read parsed descriptions and hints, hidden by default to avoid spoilers.
-- Edit, run, and submit solutions with per-language drafts.
-- Run solutions locally with the bundled Python 3 harness.
+- Edit, run, and submit solutions through the LeetCode API.
+- Format solutions with local CLI formatters or the LSP fallback.
 - Show progress statistics and current session information.
 - Import session cookies from Firefox, Chromium-family browsers, Epiphany, or Safari.
 - No plugin-defined keymaps: map only the commands you want.
@@ -74,7 +74,6 @@ Question-window actions live under `:LeetCode question`:
 ```lua
 require('leetcode-ui').setup({
   lang = 'python3',
-  local_runner = true,
   picker = 'auto', -- 'auto', 'mini', or 'builtin'
   notifications = true,
   show_hints = false,
@@ -103,7 +102,7 @@ make docs                       # regenerate doc/leetcode-ui.txt
 ## Requirements
 
 - Neovim >= 0.10
-- Python 3 (for the local runner)
+- Python 3 (for browser cookie import)
 - Optional: `openssl`, `curl`, `mini.nvim`
 
 ## License

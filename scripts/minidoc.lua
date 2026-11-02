@@ -35,8 +35,6 @@ local modules = {
   'leetcode-ui.api.question',
   'leetcode-ui.api.runner',
   'leetcode-ui.api.stats',
-  'leetcode-ui.runner.common',
-  'leetcode-ui.runner.langs.python3',
 }
 
 local inputs = {}
