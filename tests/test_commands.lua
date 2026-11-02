@@ -277,6 +277,40 @@ T['language']['rejects unavailable slugs'] = function()
   restore()
 end
 
+T['hints'] = new_set()
+
+T['hints']['delegates show, hide, toggle, and invalid actions'] = function()
+  local view = make_view()
+  local restore = stub_current(view)
+  local calls = {}
+
+  helpers.with_stub('leetcode-ui.question', 'set_hints', function(target, show)
+    eq(target, view)
+    table.insert(calls, tostring(show))
+  end, function()
+    for _, args in ipairs({
+      { 'hints' },
+      { 'hints', 'show' },
+      { 'hints', 'on' },
+      { 'hints', 'hide' },
+      { 'hints', 'off' },
+      { 'hints', 'toggle' },
+      { 'hints', 'bogus' },
+    }) do
+      helpers.mod('commands').run(args)
+    end
+  end)
+
+  eq(table.concat(calls, ','), 'nil,true,true,false,false,nil')
+  restore()
+end
+
+T['hints']['does nothing without an open question'] = function()
+  local restore = stub_current(nil)
+  eq(pcall(helpers.mod('commands').run, { 'hints' }), true)
+  restore()
+end
+
 T['case'] = new_set()
 
 T['case']['adds, edits, deletes, and selects testcases'] = function()
@@ -336,6 +370,7 @@ T['help']['renders command help in the central window'] = function()
   local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
   eq(helpers.contains(text, ':LeetCode run'), true)
   eq(helpers.contains(text, ':LeetCode case add'), true)
+  eq(helpers.contains(text, ':LeetCode hints'), true)
 end
 
 T['completion'] = new_set()
@@ -385,6 +420,12 @@ T['completion']['completes languages, cached slugs, and case indexes'] = functio
   eq(commands.complete('', 'LeetCode run ', 13), { '1', '2' })
 
   restore()
+end
+
+T['completion']['completes hint actions'] = function()
+  local commands = helpers.mod('commands')
+  eq(commands.complete('', 'LeetCode hints ', 16), { 'show', 'hide' })
+  eq(commands.complete('s', 'LeetCode hints s', 17), { 'show' })
 end
 
 T['completion']['returns nothing for unsupported positions'] = function()

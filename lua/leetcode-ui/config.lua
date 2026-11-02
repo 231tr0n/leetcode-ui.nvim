@@ -25,6 +25,7 @@
 --- - `picker` (`string`) - `auto`, `mini`, or `builtin`.
 --- - `cooldown` (`number`) - problem-list cache lifetime in minutes.
 --- - `hide_premium` (`boolean`) - hide premium-only problems.
+--- - `show_hints` (`boolean`) - show hints in the Description tab by default.
 --- - `notifications` (`boolean`) - show informational notifications.
 --- - `icons` (`table`) - status and testcase icon overrides.
 ---
@@ -50,6 +51,7 @@
 ---     picker = 'auto',
 ---     cooldown = 60,
 ---     hide_premium = false,
+---     show_hints = false,
 ---     notifications = true,
 ---   })
 --- <
@@ -152,6 +154,9 @@ local default_config = {
   -- Whether to hide premium-only problems from the picker.
   hide_premium = false,
 
+  -- Whether to show question hints by default.
+  show_hints = false,
+
   -- Whether to show informational notifications.
   notifications = true,
 
@@ -188,6 +193,7 @@ LeetCodeConfig.setup_config = function(config)
     picker = { config.picker, 'string' },
     cooldown = { config.cooldown, 'number' },
     hide_premium = { config.hide_premium, 'boolean' },
+    show_hints = { config.show_hints, 'boolean' },
     notifications = { config.notifications, 'boolean' },
     icons = { config.icons, 'table' },
   })

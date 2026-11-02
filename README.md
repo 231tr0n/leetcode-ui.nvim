@@ -7,7 +7,7 @@ the same window.
 ## Features
 
 - Browse problems with `mini.pick` or `vim.ui.select()`.
-- Read parsed descriptions and hints.
+- Read parsed descriptions and hints, hidden by default to avoid spoilers.
 - Edit, run, and submit solutions with per-language drafts.
 - Run solutions locally with the bundled Python 3 harness.
 - Show progress statistics and current session information.
@@ -61,6 +61,7 @@ Inside a question:
 :LeetCode code
 :LeetCode console
 :LeetCode info
+:LeetCode hints show
 :LeetCode run 2
 :LeetCode submit
 :LeetCode language golang
@@ -75,6 +76,7 @@ require('leetcode-ui').setup({
   local_runner = true,
   picker = 'auto', -- 'auto', 'mini', or 'builtin'
   notifications = true,
+  show_hints = false,
   -- cookies = { LEETCODE_SESSION = '...', csrftoken = '...' },
   -- cookie_file = '~/.config/leetcode/cookies.txt',
 })

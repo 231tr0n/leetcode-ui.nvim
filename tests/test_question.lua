@@ -60,6 +60,11 @@ T['describe']['renders metadata, content, and hints'] = function()
   eq(helpers.contains(text, 'Premium'), true)
   eq(helpers.contains(text, '50.5%'), true)
   eq(helpers.contains(text, 'find two indices'), true)
+  eq(helpers.contains(text, 'first hint'), false)
+  eq(helpers.contains(text, 'Hints (2) hidden'), true)
+
+  view.show_hints = true
+  text = table.concat(helpers.mod('buffer').spans_to_texts(question.describe(view)), '\n')
   eq(helpers.contains(text, 'Hints'), true)
   eq(helpers.contains(text, '1. first hint'), true)
 end
@@ -100,6 +105,7 @@ T['open']['fetches and opens a question'] = function()
   local question, view = opened_view()
   eq(view.slug, 'two-sum')
   eq(view.active, 'code')
+  eq(view.show_hints, false)
   eq(vim.api.nvim_buf_is_valid(view.code_bufnr), true)
   eq(vim.api.nvim_get_current_buf(), view.code_bufnr)
   eq(question.views['two-sum'], view)
@@ -297,6 +303,42 @@ T['close']['closes the central window without a view'] = function()
   question.close(nil)
   eq(ui.is_open(), false)
   eq(question.active, nil)
+end
+
+T['hints'] = new_set()
+
+T['hints']['shows, hides, and toggles hints'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.detail.hints = { '<p>first hint</p>', '<p>second hint</p>' }
+  view.show_hints = false
+  question.views[view.slug] = view
+  question.active = view
+
+  question.set_hints(view, true)
+  eq(view.show_hints, true)
+  eq(view.active, 'description')
+  local text = table.concat(vim.api.nvim_buf_get_lines(helpers.mod('ui').panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, 'first hint'), true)
+
+  question.set_hints(view, false)
+  eq(view.show_hints, false)
+  text = table.concat(vim.api.nvim_buf_get_lines(helpers.mod('ui').panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, 'first hint'), false)
+  eq(helpers.contains(text, 'Hints (2) hidden'), true)
+
+  question.set_hints(view, nil)
+  eq(view.show_hints, true)
+  question.close(view)
+end
+
+T['hints']['does nothing when a question has no hints'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.show_hints = false
+  question.set_hints(view, true)
+  eq(view.show_hints, false)
+  eq(pcall(question.set_hints, nil, true), true)
 end
 
 T['reset_code'] = new_set()

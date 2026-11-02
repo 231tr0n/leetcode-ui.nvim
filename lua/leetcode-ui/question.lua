@@ -95,14 +95,23 @@ LeetCodeQuestionView.describe = function(view)
   local hints = detail.hints or {}
   if #hints > 0 then
     table.insert(lines, {})
-    table.insert(lines, { { text = 'Hints', hl = 'LeetCodeHeader' } })
-    for index, hint in ipairs(hints) do
-      local hint_lines = parser.render(hint)
-      if #hint_lines == 0 then
-        table.insert(lines, { { text = ('%d. '):format(index), hl = 'LeetCodeDim' } })
-      else
-        table.insert(hint_lines[1], 1, { text = ('%d. '):format(index), hl = 'LeetCodeDim' })
-        vim.list_extend(lines, hint_lines)
+    if view.show_hints ~= true then
+      table.insert(lines, {
+        {
+          text = ('Hints (%d) hidden. Use `:LeetCode hints` to show them.'):format(#hints),
+          hl = 'LeetCodeDim',
+        },
+      })
+    else
+      table.insert(lines, { { text = 'Hints', hl = 'LeetCodeHeader' } })
+      for index, hint in ipairs(hints) do
+        local hint_lines = parser.render(hint)
+        if #hint_lines == 0 then
+          table.insert(lines, { { text = ('%d. '):format(index), hl = 'LeetCodeDim' } })
+        else
+          table.insert(hint_lines[1], 1, { text = ('%d. '):format(index), hl = 'LeetCodeDim' })
+          vim.list_extend(lines, hint_lines)
+        end
       end
     end
   end
@@ -164,6 +173,7 @@ LeetCodeQuestionView.info = function(view)
     { ':LeetCode case delete [index]', 'Delete a testcase' },
     { ':LeetCode case next|prev', 'Select a testcase' },
     { ':LeetCode description|code|console|info', 'Show a tab' },
+    { ':LeetCode hints [show|hide]', 'Show or hide hints' },
     { ':LeetCode next|prev', 'Cycle tabs' },
     { ':LeetCode close', 'Close the question' },
   }
@@ -311,6 +321,7 @@ LeetCodeQuestionView.open = function(title_slug)
       code_bufnr = nil,
       active = 'code',
       busy = false,
+      show_hints = config.config.show_hints,
     }
     view.console = Console.new(view)
     view.console:set_cases(detail.testcases)
@@ -346,6 +357,34 @@ LeetCodeQuestionView.close = function(view)
   buffer.maybe_delete(view.code_bufnr)
   LeetCodeQuestionView.views[view.slug] = nil
   log.info(('Closed question `%s`'):format(view.slug))
+end
+
+--- Show or hide hints in the Description tab.
+---
+---@param view table|nil
+---@param show boolean|nil `nil` toggles the current state.
+LeetCodeQuestionView.set_hints = function(view, show)
+  view = view or LeetCodeQuestionView.current()
+  if view == nil then return end
+
+  local hints = (view.detail or {}).hints or {}
+  if #hints == 0 then
+    log.info('This question has no hints')
+    return
+  end
+
+  view.show_hints = show == nil and not view.show_hints or show == true
+  if view.show_hints and view.active ~= 'description' then
+    LeetCodeQuestionView.show_tab(view, 'description')
+  elseif view.active == 'description' then
+    LeetCodeQuestionView.refresh(view)
+  end
+
+  if view.show_hints then
+    log.info(('Showing %d hint(s)'):format(#hints))
+  else
+    log.info('Hints hidden')
+  end
 end
 
 --- Restore the starter snippet.

@@ -16,7 +16,7 @@ No keymaps are created by the plugin. Every action is available as a
 Features:
 
 - Browse problems with `mini.pick` or |vim.ui.select()|.
-- Read parsed descriptions and hints.
+- Read parsed descriptions, with hints hidden by default.
 - Edit, run, and submit solutions with draft persistence.
 - Run Python 3 solutions locally with the bundled harness.
 - Show progress statistics and session information.
@@ -30,6 +30,7 @@ Commands:
 - `:LeetCode open <slug>` - open a problem by its title slug.
 - `:LeetCode description`, `:LeetCode code`, `:LeetCode console`,
   `:LeetCode info` - show a question tab.
+- `:LeetCode hints [show|hide]` - show or hide hints (hidden by default).
 - `:LeetCode next`, `:LeetCode prev` - cycle question tabs.
 - `:LeetCode run [index]` - run all testcases or one testcase.
 - `:LeetCode submit` - submit the current solution.
@@ -192,6 +193,7 @@ Options:
 - `picker` (`string`) - `auto`, `mini`, or `builtin`.
 - `cooldown` (`number`) - problem-list cache lifetime in minutes.
 - `hide_premium` (`boolean`) - hide premium-only problems.
+- `show_hints` (`boolean`) - show hints in the Description tab by default.
 - `notifications` (`boolean`) - show informational notifications.
 - `icons` (`table`) - status and testcase icon overrides.
 
@@ -217,6 +219,7 @@ Default configuration:
     picker = 'auto',
     cooldown = 60,
     hide_premium = false,
+    show_hints = false,
     notifications = true,
   })
 <
@@ -523,6 +526,15 @@ Close a question view.
 
 Parameters ~
 {view} `(table|nil)`
+
+------------------------------------------------------------------------------
+                                              *LeetCodeQuestionView.set_hints()*
+                `LeetCodeQuestionView.set_hints`({view}, {show})
+Show or hide hints in the Description tab.
+
+Parameters ~
+{view} `(table|nil)`
+{show} `(boolean|nil)` `nil` toggles the current state.
 
 ------------------------------------------------------------------------------
                                              *LeetCodeQuestionView.reset_code()*

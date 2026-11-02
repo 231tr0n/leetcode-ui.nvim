@@ -15,7 +15,7 @@
 --- Features:
 ---
 --- - Browse problems with `mini.pick` or |vim.ui.select()|.
---- - Read parsed descriptions and hints.
+--- - Read parsed descriptions, with hints hidden by default.
 --- - Edit, run, and submit solutions with draft persistence.
 --- - Run Python 3 solutions locally with the bundled harness.
 --- - Show progress statistics and session information.
@@ -29,6 +29,7 @@
 --- - `:LeetCode open <slug>` - open a problem by its title slug.
 --- - `:LeetCode description`, `:LeetCode code`, `:LeetCode console`,
 ---   `:LeetCode info` - show a question tab.
+--- - `:LeetCode hints [show|hide]` - show or hide hints (hidden by default).
 --- - `:LeetCode next`, `:LeetCode prev` - cycle question tabs.
 --- - `:LeetCode run [index]` - run all testcases or one testcase.
 --- - `:LeetCode submit` - submit the current solution.

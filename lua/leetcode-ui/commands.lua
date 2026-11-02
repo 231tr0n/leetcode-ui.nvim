@@ -29,6 +29,7 @@ LeetCodeCommands.order = {
   'code',
   'console',
   'info',
+  'hints',
   'next',
   'prev',
   'run',
@@ -53,6 +54,7 @@ LeetCodeCommands.usage = {
   code = 'code',
   console = 'console',
   info = 'info',
+  hints = 'hints [show|hide]',
   next = 'next',
   prev = 'prev',
   run = 'run [index]',
@@ -167,6 +169,23 @@ for _, tab in ipairs({ 'description', 'code', 'console', 'info' }) do
     local view = LeetCodeCommands.question()
     if view ~= nil then require('leetcode-ui.question').show_tab(view, tab) end
   end
+end
+
+LeetCodeCommands.subcommands.hints = function(args)
+  local view = LeetCodeCommands.question()
+  if view == nil then return end
+
+  local action = args[1]
+  local show = nil
+  if action == 'show' or action == 'on' then
+    show = true
+  elseif action == 'hide' or action == 'off' then
+    show = false
+  elseif action ~= nil and action ~= 'toggle' then
+    log.error('Usage: :LeetCode hints [show|hide]')
+    return
+  end
+  require('leetcode-ui.question').set_hints(view, show)
 end
 
 LeetCodeCommands.subcommands.next = function()
@@ -366,6 +385,8 @@ LeetCodeCommands.complete = function(arg_lead, cmd_line, cursor_pos)
   if (name == 'list' or name == 'random' or name == 'refresh') and #args <= 2 then
     return LeetCodeCommands.filter(LeetCodeCommands.difficulties, arg_lead)
   end
+
+  if name == 'hints' and #args <= 2 then return LeetCodeCommands.filter({ 'show', 'hide' }, arg_lead) end
 
   if name == 'language' and #args <= 2 then
     local view = require('leetcode-ui.question').current()
