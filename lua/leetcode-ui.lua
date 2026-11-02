@@ -8,19 +8,20 @@
 --- `:LeetCode` subcommand, so you can map exactly the actions you use:
 ---
 --- >lua
----   vim.keymap.set('n', '<leader>lr', '<cmd>LeetCode run<cr>', { desc = 'LeetCode: run' })
----   vim.keymap.set('n', '<leader>ls', '<cmd>LeetCode submit<cr>', { desc = 'LeetCode: submit' })
+---   vim.keymap.set('n', '<leader>lr', '<cmd>LeetCode question run<cr>', { desc = 'LeetCode: run' })
+---   vim.keymap.set('n', '<leader>ls', '<cmd>LeetCode question submit<cr>', { desc = 'LeetCode: submit' })
 --- <
 ---
 --- Features:
 ---
 --- - Browse problems with `mini.pick` or |vim.ui.select()|.
 --- - Read parsed descriptions, with hints hidden by default.
---- - Edit, run, and submit solutions with draft persistence.
+--- - Edit solutions with draft and testcase persistence.
 --- - Run and submit solutions through LeetCode's API.
---- - Format with LeetCode's formatter, then fall back to local CLI formatters or LSP.
+--- - Format with LeetCode's formatter, then fall back to local CLI formatters
+---   or LSP.
 --- - Show progress statistics and session information.
---- - Import session cookies from supported browsers.
+--- - Import session cookies from supported browsers (disabled by default).
 ---
 --- Commands:
 ---
@@ -54,6 +55,31 @@
 ---   `:LeetCode question case next`, `:LeetCode question case prev`
 ---   - manage testcases. Use `\n` for newlines in one-line command input.
 --- - `:LeetCode question close` - close the question window.
+---
+--- Requirements:
+---
+--- - Neovim >= 0.10 (`vim.system`, `vim.uv`, and `vim.lsp`).
+--- - `curl` - required for all LeetCode API and remote formatting requests.
+--- - `python3` with `sqlite3` - required only for browser cookie import.
+--- - `openssl` - optional; used for Chromium-family `v10` cookie decryption.
+--- - `secret-tool` on Linux or `security` on macOS - optional; used for
+---   Chromium-family `v11+` keyring-protected cookies.
+--- - `mini.nvim` - optional; enables the `mini.pick` picker.
+--- - A language server such as `pyright` - optional; provides diagnostics,
+---   completion, folds, and LSP formatting.
+--- - Optional CLI formatters: `prettier`, `black`, `clang-format`, `gofmt`,
+---   `rustfmt`, or `google-java-format`.
+---
+--- No LuaRocks or external Lua packages are required.
+---
+--- Browser cookie caution:
+---
+--- Browser cookie import is disabled by default (`browser = 'none'`). When
+--- enabled, the plugin reads LeetCode cookies directly from your browser's
+--- on-disk cookie database and may decrypt Chromium-family values using system
+--- keyring tools and `openssl`. These cookies grant access to your LeetCode
+--- account; only enable this if you understand the risk. Prefer `cookie_file`
+--- or environment variables when possible.
 ---
 ---@toc_entry Overview
 ---@tag LeetCode

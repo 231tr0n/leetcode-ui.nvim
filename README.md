@@ -103,9 +103,22 @@ make docs                       # regenerate doc/leetcode-ui.txt
 
 ## Requirements
 
-- Neovim >= 0.10
-- Python 3 (for browser cookie import)
-- Optional: `openssl`, `curl`, `mini.nvim`
+Runtime:
+
+- Neovim >= 0.10 (`vim.system`, `vim.uv`, `vim.lsp`).
+- `curl` — required for all LeetCode API and remote formatting requests.
+- `python3` with `sqlite3` — required only when browser cookie import is
+  enabled (`browser = 'auto'` or a specific browser).
+- `openssl` — optional; required for Chromium-family `v10` cookie decryption.
+- `secret-tool` on Linux or `security` on macOS — optional; used for
+  Chromium-family `v11+` keyring-protected cookies.
+- `mini.nvim` — optional; provides the `mini.pick` picker when available.
+- A language server (e.g. `pyright`) — optional; provides diagnostics,
+  completion, and LSP formatting in the code buffer.
+- Optional CLI formatters: `prettier`, `black`, `clang-format`, `gofmt`,
+  `rustfmt`, or `google-java-format`.
+
+No LuaRocks or external Lua packages are required.
 
 ## License
 
