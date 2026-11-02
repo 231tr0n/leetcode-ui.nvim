@@ -120,6 +120,17 @@ T['open']['fetches and opens a question'] = function()
   question.close(view)
 end
 
+T['open']['loads persisted testcases'] = function()
+  local storage = helpers.mod('storage')
+  storage.write_testcases('two-sum', { 'saved one', 'saved two' })
+
+  local question, view = opened_view()
+  eq(#view.console.cases, 2)
+  eq(view.console.cases[1].input, 'saved one')
+  eq(view.console.cases[2].input, 'saved two')
+  question.close(view)
+end
+
 T['open']['reuses an existing view without fetching'] = function()
   local question = helpers.mod('question')
   local view = make_view()

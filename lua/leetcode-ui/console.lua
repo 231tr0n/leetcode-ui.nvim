@@ -10,6 +10,7 @@
 local LeetCodeConsole = {}
 
 local config = require('leetcode-ui.config')
+local storage = require('leetcode-ui.storage')
 
 -- Helper data =======================================================================================================
 
@@ -180,8 +181,18 @@ end
 ---@param console table
 LeetCodeConsole.reset_cases = function(console)
   local testcases = console.view ~= nil and (console.view.detail or {}).testcases or {}
+  if console.view ~= nil then storage.write_testcases(console.view.slug, nil) end
   console:set_cases(testcases)
   console:refresh()
+end
+
+LeetCodeConsole.persist = function(console)
+  if console.view == nil then return end
+  local inputs = {}
+  for _, case in ipairs(console.cases) do
+    table.insert(inputs, case.input)
+  end
+  storage.write_testcases(console.view.slug, inputs)
 end
 
 --- Add a new test case.
@@ -198,6 +209,7 @@ LeetCodeConsole.add_case = function(console, input)
     running = false,
   })
   console.selected = #cases
+  console:persist()
   console:refresh()
 end
 
@@ -212,6 +224,7 @@ LeetCodeConsole.delete_case = function(console, index)
   if #cases <= 1 or index < 1 or index > #cases then return end
   table.remove(cases, index)
   console.selected = math.min(console.selected, #cases)
+  console:persist()
   console:refresh()
 end
 
@@ -228,6 +241,7 @@ LeetCodeConsole.edit_case = function(console, index, input)
   case.input = LeetCodeConsole.normalize_input(input)
   case.status = 'unknown'
   case.result = nil
+  console:persist()
   console:refresh()
 end
 

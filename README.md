@@ -9,6 +9,7 @@ the same window.
 - Browse problems with `mini.pick` or `vim.ui.select()`.
 - Read parsed descriptions and hints, hidden by default to avoid spoilers.
 - Edit, run, and submit solutions through the LeetCode API.
+- Persist code drafts and custom testcases per question.
 - Format with LeetCode's formatter, then fall back to local CLI formatters or LSP.
 - Show progress statistics and current session information.
 - Import session cookies from Firefox, Chromium-family browsers, Epiphany, or Safari.

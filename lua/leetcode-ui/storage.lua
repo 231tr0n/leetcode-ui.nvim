@@ -26,6 +26,7 @@ LeetCodeStorage.init = function()
 
   vim.fn.mkdir(configured, 'p')
   vim.fn.mkdir(vim.fs.joinpath(configured, 'drafts'), 'p')
+  vim.fn.mkdir(vim.fs.joinpath(configured, 'testcases'), 'p')
   LeetCodeStorage.root = configured
   return configured
 end
@@ -52,6 +53,34 @@ LeetCodeStorage.write_cache = function(data)
   end
   file:write(vim.json.encode(data))
   file:close()
+end
+
+LeetCodeStorage.testcase_file = function(title_slug)
+  return vim.fs.joinpath(LeetCodeStorage.init(), 'testcases', ('%s.json'):format(title_slug))
+end
+
+LeetCodeStorage.read_testcases = function(title_slug)
+  local ok, lines = pcall(vim.fn.readfile, LeetCodeStorage.testcase_file(title_slug))
+  if not ok or #lines == 0 then return nil end
+
+  local decoded_ok, data = pcall(vim.json.decode, table.concat(lines, '\n'))
+  if not decoded_ok or type(data) ~= 'table' then return nil end
+
+  local inputs = {}
+  for _, value in ipairs(data) do
+    if type(value) == 'string' then table.insert(inputs, value) end
+  end
+  return #inputs > 0 and inputs or nil
+end
+
+LeetCodeStorage.write_testcases = function(title_slug, inputs)
+  local file = LeetCodeStorage.testcase_file(title_slug)
+  if inputs == nil or type(inputs) ~= 'table' or #inputs == 0 then
+    pcall(vim.fn.delete, file)
+    return
+  end
+  local ok = pcall(vim.fn.writefile, { vim.json.encode(inputs) }, file)
+  if not ok then log.warn('Failed to save testcases') end
 end
 
 LeetCodeStorage.draft_file = function(title_slug, lang_slug)

@@ -49,6 +49,43 @@ T['cache']['missing file falls back to an empty cache'] = function()
   eq(#storage.read_cache().problems, 0)
 end
 
+T['testcases'] = new_set()
+
+T['testcases']['writes and reads testcase inputs'] = function()
+  local storage = helpers.mod('storage')
+  storage.write_testcases('two-sum', { '[1,2]\n3', '[0]\n0' })
+  local inputs = storage.read_testcases('two-sum')
+  eq(inputs[1], '[1,2]\n3')
+  eq(inputs[2], '[0]\n0')
+end
+
+T['testcases']['missing testcases return nil'] = function()
+  local storage = helpers.mod('storage')
+  eq(storage.read_testcases('missing'), nil)
+end
+
+T['testcases']['empty or nil inputs remove the file'] = function()
+  local storage = helpers.mod('storage')
+  storage.write_testcases('two-sum', { 'a' })
+  storage.write_testcases('two-sum', {})
+  eq(storage.read_testcases('two-sum'), nil)
+
+  storage.write_testcases('two-sum', { 'a' })
+  storage.write_testcases('two-sum', nil)
+  eq(storage.read_testcases('two-sum'), nil)
+end
+
+T['testcases']['malformed files return nil'] = function()
+  local storage = helpers.mod('storage')
+  vim.fn.writefile({ 'not json' }, storage.testcase_file('two-sum'))
+  eq(storage.read_testcases('two-sum'), nil)
+end
+
+T['testcases']['path includes the question slug'] = function()
+  local storage = helpers.mod('storage')
+  eq(helpers.contains(storage.testcase_file('two-sum'), 'two-sum'), true)
+end
+
 T['drafts'] = new_set()
 
 T['drafts']['missing drafts return nil'] = function()

@@ -219,6 +219,26 @@ T['reset_cases']['restores the question testcases'] = function()
   eq(console.selected, 1)
 end
 
+T['persistence'] = new_set()
+
+T['persistence']['mutations persist and reset removes saved testcases'] = function()
+  local console = make_console({ 'first' })
+  local storage = helpers.mod('storage')
+
+  console:add_case('second')
+  eq(storage.read_testcases('two-sum')[2], 'second')
+
+  console:edit_case(1, 'changed')
+  eq(storage.read_testcases('two-sum')[1], 'changed')
+
+  console:delete_case(2)
+  eq(#storage.read_testcases('two-sum'), 1)
+
+  console:reset_cases()
+  eq(storage.read_testcases('two-sum'), nil)
+  eq(console.cases[1].input, '[2,7,11,15]\n9')
+end
+
 T['selection'] = new_set()
 
 T['selection']['wraps in both directions'] = function()

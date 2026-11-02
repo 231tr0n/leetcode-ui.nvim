@@ -20,6 +20,7 @@ local log = require('leetcode-ui.log')
 local parser = require('leetcode-ui.parser')
 local runner = require('leetcode-ui.api.runner')
 local solution = require('leetcode-ui.solution')
+local storage = require('leetcode-ui.storage')
 local ui = require('leetcode-ui.ui')
 
 -- Helper data =======================================================================================================
@@ -362,7 +363,8 @@ LeetCodeQuestionView.open = function(title_slug)
       show_hints = config.config.show_hints,
     }
     view.console = Console.new(view)
-    view.console:set_cases(detail.testcases)
+    local saved_testcases = storage.read_testcases(title_slug)
+    view.console:set_cases(saved_testcases or detail.testcases)
     LeetCodeQuestionView.views[title_slug] = view
 
     solution.prepare(view)
