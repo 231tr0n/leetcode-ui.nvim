@@ -5,8 +5,7 @@
 --- are tabs in that window. Statistics use the same window.
 ---
 --- No keymaps are created by the plugin. Every action is available as a
---- `:LeetCode` subcommand (also available as `:Leetcode`), so you can map
---- exactly the actions you use:
+--- `:LeetCode` subcommand, so you can map exactly the actions you use:
 ---
 --- >lua
 ---   vim.keymap.set('n', '<leader>lr', '<cmd>LeetCode run<cr>', { desc = 'LeetCode: run' })

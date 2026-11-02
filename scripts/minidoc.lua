@@ -45,5 +45,10 @@ for _, module in ipairs(modules) do
   if vim.fn.filereadable(path) == 1 then table.insert(inputs, path) end
 end
 
-MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), {})
+-- mini.nvim help files use a single dashed separator per section. The
+-- default `file` hook adds an extra `====` line before every module, which
+-- produces a redundant `====`/`----` pair in a multi-module help file.
+local config = { hooks = { file = function() end } }
+
+MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), config)
 vim.cmd('qa!')

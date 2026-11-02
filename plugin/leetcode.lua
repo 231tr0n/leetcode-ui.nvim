@@ -14,4 +14,3 @@ local command_options = {
 local function run(opts) require('leetcode-ui.commands').run(opts.fargs) end
 
 vim.api.nvim_create_user_command('LeetCode', run, command_options)
-vim.api.nvim_create_user_command('Leetcode', run, command_options)
