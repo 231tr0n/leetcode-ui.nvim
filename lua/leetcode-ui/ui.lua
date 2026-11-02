@@ -16,8 +16,52 @@ local config = require('leetcode-ui.config')
 
 LeetCodeUI.state = {
   bufnr = nil,
+  hide_cursor = false,
   winid = nil,
 }
+
+local saved_guicursor = nil
+local cursor_is_hidden = false
+local cursor_autocmd = nil
+
+local function restore_cursor()
+  if not cursor_is_hidden then return end
+  if saved_guicursor ~= nil then vim.o.guicursor = saved_guicursor end
+  saved_guicursor = nil
+  cursor_is_hidden = false
+end
+
+local function hide_cursor()
+  if cursor_is_hidden then return end
+  saved_guicursor = vim.o.guicursor
+  vim.o.guicursor = 'a:LeetCodeCursor'
+  cursor_is_hidden = true
+end
+
+local function update_cursor()
+  local in_central = LeetCodeUI.is_open() and vim.api.nvim_get_current_win() == LeetCodeUI.state.winid
+  if in_central and LeetCodeUI.state.hide_cursor then
+    hide_cursor()
+  else
+    restore_cursor()
+  end
+end
+
+local function ensure_cursor_autocmd()
+  if cursor_autocmd ~= nil then return end
+  cursor_autocmd = vim.api.nvim_create_autocmd('WinEnter', { callback = update_cursor })
+end
+
+local function window_highlight(cursorline_hl)
+  local pairs = {
+    'Normal:LeetCodeNormalFloat',
+    'FloatBorder:LeetCodeFloatBorder',
+    'WinBar:LeetCodeWinBar',
+    'WinBarNC:LeetCodeWinBarNC',
+  }
+  if cursorline_hl ~= nil then table.insert(pairs, 'CursorLine:' .. cursorline_hl) end
+  return table.concat(pairs, ',')
+end
 
 -- Helper functionality =============================================================================================
 
@@ -54,13 +98,15 @@ LeetCodeUI.ensure = function()
   })
 
   LeetCodeUI.state.winid = winid
+  ensure_cursor_autocmd()
   return winid
 end
 
 --- Show a buffer in the central window.
 ---
 ---@param bufnr number
----@param opts table|nil { number = boolean, wrap = boolean }
+---@param opts table|nil Options: `number`, `wrap`, `cursorline`,
+--- `cursorline_hl`, and `hide_cursor`.
 ---@return number winid
 LeetCodeUI.show = function(bufnr, opts)
   opts = opts or {}
@@ -70,7 +116,11 @@ LeetCodeUI.show = function(bufnr, opts)
   vim.api.nvim_set_current_win(winid)
   vim.api.nvim_set_option_value('number', opts.number == true, { win = winid })
   vim.api.nvim_set_option_value('wrap', opts.wrap ~= false, { win = winid })
+  vim.api.nvim_set_option_value('cursorline', opts.cursorline == true, { win = winid })
+  vim.api.nvim_set_option_value('winhighlight', window_highlight(opts.cursorline_hl), { win = winid })
 
+  LeetCodeUI.state.hide_cursor = opts.hide_cursor == true
+  update_cursor()
   return winid
 end
 
@@ -82,10 +132,23 @@ end
 LeetCodeUI.render = function(lines, opts)
   opts = opts or {}
   if opts.pad_top == true then table.insert(lines, 1, {}) end
+
+  local render_opts = vim.tbl_extend('force', {
+    cursorline = true,
+    cursorline_hl = 'LeetCodeCursorLine',
+    hide_cursor = true,
+  }, opts)
+
   local bufnr = LeetCodeUI.panel()
   buffer.spans_write(bufnr, lines)
   vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr })
-  return LeetCodeUI.show(bufnr, opts)
+  local winid = LeetCodeUI.show(bufnr, render_opts)
+
+  local first_content = render_opts.pad_top == true and 2 or 1
+  if vim.api.nvim_buf_line_count(bufnr) >= first_content then
+    pcall(vim.api.nvim_win_set_cursor, winid, { first_content, 0 })
+  end
+  return winid
 end
 
 --- Set the central window's winbar.
@@ -99,7 +162,9 @@ end
 --- Close the central window.
 LeetCodeUI.close = function()
   if LeetCodeUI.is_open() then pcall(vim.api.nvim_win_close, LeetCodeUI.state.winid, false) end
+  LeetCodeUI.state.hide_cursor = false
   LeetCodeUI.state.winid = nil
+  restore_cursor()
 end
 
 return LeetCodeUI

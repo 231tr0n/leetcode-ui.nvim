@@ -119,7 +119,20 @@ end
 
 T['highlights']['active tab color differs from inactive tabs'] = function()
   local config = require('leetcode-ui.config')
-  eq(config.highlights.LeetCodeTab.fg ~= config.highlights.LeetCodeTabActive.fg, true)
+  eq(config.highlights.LeetCodeTab.link ~= config.highlights.LeetCodeTabActive.link, true)
+end
+
+T['highlights']['groups link to existing Neovim highlights'] = function()
+  local config = require('leetcode-ui.config')
+  for name, spec in pairs(config.highlights) do
+    if name == 'LeetCodeCursor' then
+      eq(spec.blend, 100)
+      eq(spec.nocombine, true)
+    else
+      assert(type(spec.link) == 'string', 'highlight not linked: ' .. name)
+      eq(vim.fn.hlexists(spec.link), 1, 'missing link target for ' .. name .. ': ' .. spec.link)
+    end
+  end
 end
 
 T['langs'] = new_set()

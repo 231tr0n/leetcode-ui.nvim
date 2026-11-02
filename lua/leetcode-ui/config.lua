@@ -56,6 +56,37 @@
 ---   })
 --- <
 ---
+--- Highlight groups:
+---
+--- All groups are linked to standard Neovim groups by default, so colorschemes
+--- control them. Override any group after setup with |nvim_set_hl()|:
+---
+--- >lua
+---   require('leetcode-ui').setup({})
+---   vim.api.nvim_set_hl(0, 'LeetCodeOk', { fg = '#00ff00' })
+--- <
+---
+--- - `LeetCodeOk` -> `String`
+--- - `LeetCodeErr` -> `DiagnosticError`
+--- - `LeetCodeWarn` -> `DiagnosticWarn`
+--- - `LeetCodeDim` -> `Comment`
+--- - `LeetCodeTitle` -> `Title`
+--- - `LeetCodeCode` -> `Identifier`
+--- - `LeetCodeLink` -> `DiagnosticInfo`
+--- - `LeetCodeItalic` -> `@markup.italic`
+--- - `LeetCodeEasy` -> `String`
+--- - `LeetCodeMedium` -> `DiagnosticWarn`
+--- - `LeetCodeHard` -> `DiagnosticError`
+--- - `LeetCodeHeader` -> `Title`
+--- - `LeetCodeTab` -> `DiagnosticInfo`
+--- - `LeetCodeTabActive` -> `String`
+--- - `LeetCodeCursorLine` -> `CursorLine`
+--- - `LeetCodeCursor` - hidden cursor used in read-only tabs
+--- - `LeetCodeNormalFloat` -> `NormalFloat`
+--- - `LeetCodeFloatBorder` -> `FloatBorder`
+--- - `LeetCodeWinBar` -> `WinBar`
+--- - `LeetCodeWinBarNC` -> `WinBarNC`
+---
 ---@tag LeetCodeConfig
 ---@toc_entry Configuration
 
@@ -87,20 +118,26 @@ LeetCodeConfig.langs = {
 }
 
 LeetCodeConfig.highlights = {
-  LeetCodeOk = { fg = '#98c379' },
-  LeetCodeErr = { fg = '#f14c4c' },
-  LeetCodeWarn = { fg = '#e5c07b' },
-  LeetCodeDim = { fg = '#5c6370' },
-  LeetCodeTitle = { bold = true },
-  LeetCodeCode = { fg = '#c678dd' },
-  LeetCodeLink = { fg = '#81a2be' },
-  LeetCodeItalic = { italic = true },
-  LeetCodeEasy = { fg = '#00af87' },
-  LeetCodeMedium = { fg = '#ffab28' },
-  LeetCodeHard = { fg = '#ff4772' },
-  LeetCodeHeader = { fg = '#61afef', bold = true },
-  LeetCodeTab = { fg = '#81a2be' },
-  LeetCodeTabActive = { fg = '#ffab28', bold = true },
+  LeetCodeOk = { link = 'String' },
+  LeetCodeErr = { link = 'DiagnosticError' },
+  LeetCodeWarn = { link = 'DiagnosticWarn' },
+  LeetCodeDim = { link = 'Comment' },
+  LeetCodeTitle = { link = 'Title' },
+  LeetCodeCode = { link = 'Identifier' },
+  LeetCodeLink = { link = 'DiagnosticInfo' },
+  LeetCodeItalic = { link = '@markup.italic' },
+  LeetCodeEasy = { link = 'String' },
+  LeetCodeMedium = { link = 'DiagnosticWarn' },
+  LeetCodeHard = { link = 'DiagnosticError' },
+  LeetCodeHeader = { link = 'Title' },
+  LeetCodeTab = { link = 'DiagnosticInfo' },
+  LeetCodeTabActive = { link = 'String' },
+  LeetCodeCursor = { blend = 100, nocombine = true },
+  LeetCodeCursorLine = { link = 'CursorLine' },
+  LeetCodeNormalFloat = { link = 'NormalFloat' },
+  LeetCodeFloatBorder = { link = 'FloatBorder' },
+  LeetCodeWinBar = { link = 'WinBar' },
+  LeetCodeWinBarNC = { link = 'WinBarNC' },
 }
 
 local default_config = {

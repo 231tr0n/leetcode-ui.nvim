@@ -211,7 +211,7 @@ LeetCodeQuestionView.render_winbar = function(view)
   local detail = view.detail or {}
   local title = detail.title or view.slug or 'Question'
   local parts = {
-    ('%%#LeetCodeHeader#LeetCode %s %%#Normal#'):format(LeetCodeQuestionView.escape_statusline(title)),
+    ('%%#LeetCodeHeader#LeetCode %s %%#LeetCodeWinBar#'):format(LeetCodeQuestionView.escape_statusline(title)),
   }
 
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do
@@ -219,10 +219,10 @@ LeetCodeQuestionView.render_winbar = function(view)
     if tab == 'code' then label = ('%s (%s)'):format(label, view.lang) end
     local hl = tab == view.active and 'LeetCodeTabActive' or 'LeetCodeTab'
     local click = ('%%@v:lua.LeetCodeClick%s@'):format(tab:gsub('^%l', string.upper))
-    table.insert(parts, ('%s%%#%s# %s %%X%%#Normal#'):format(click, hl, label))
+    table.insert(parts, ('%s%%#%s# %s %%X%%#LeetCodeWinBar#'):format(click, hl, label))
   end
 
-  if view.busy then table.insert(parts, '%#LeetCodeWarn# … %#Normal#') end
+  if view.busy then table.insert(parts, '%#LeetCodeWarn# … %#LeetCodeWinBar#') end
   ui.set_winbar(' ' .. table.concat(parts, ' │ ') .. ' ')
 end
 
@@ -235,7 +235,7 @@ LeetCodeQuestionView.refresh = function(view)
 
   if view.active == 'code' then
     if view.code_bufnr ~= nil and vim.api.nvim_buf_is_valid(view.code_bufnr) then
-      ui.show(view.code_bufnr, { number = true, wrap = false })
+      ui.show(view.code_bufnr, { number = true, wrap = false, cursorline = vim.o.cursorline })
     end
   else
     local lines = nil

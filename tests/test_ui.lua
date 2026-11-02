@@ -64,6 +64,27 @@ T['render']['does not pad by default'] = function()
   eq(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)[1], 'content')
 end
 
+T['render']['read-only views hide the cursor and highlight the active line'] = function()
+  local ui = helpers.mod('ui')
+  local original_guicursor = vim.o.guicursor
+  local winid = ui.render({ { { text = 'content' } } }, { pad_top = true })
+
+  eq(vim.o.guicursor, 'a:LeetCodeCursor')
+  eq(vim.api.nvim_get_option_value('cursorline', { win = winid }), true)
+  local winhl = vim.api.nvim_get_option_value('winhighlight', { win = winid })
+  eq(helpers.contains(winhl, 'CursorLine:LeetCodeCursorLine'), true)
+
+  local code = helpers.mod('buffer').scratch('leetcode-ui://cursor-code', { ft = 'python' })
+  ui.show(code, { cursorline = true })
+  eq(vim.o.guicursor, original_guicursor)
+  eq(vim.api.nvim_get_option_value('cursorline', { win = winid }), true)
+  winhl = vim.api.nvim_get_option_value('winhighlight', { win = winid })
+  eq(helpers.contains(winhl, 'CursorLine:LeetCodeCursorLine'), false)
+
+  ui.close()
+  eq(vim.o.guicursor, original_guicursor)
+end
+
 T['render']['shows another buffer in the same window'] = function()
   local ui = helpers.mod('ui')
   local buffer = helpers.mod('buffer')
