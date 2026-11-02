@@ -492,10 +492,14 @@ LeetCodeCommands.complete = function(arg_lead, cmd_line, cursor_pos)
   end
 
   if (name == 'list' or name == 'random' or name == 'refresh') and #args <= 2 then
+    if #args == 2 and arg_lead == '' then return {} end
     return LeetCodeCommands.filter(LeetCodeCommands.difficulties, arg_lead)
   end
 
-  if name == 'open' and #args <= 2 then return LeetCodeCommands.filter(LeetCodeCommands.cached_slugs(), arg_lead) end
+  if name == 'open' and #args <= 2 then
+    if #args == 2 and arg_lead == '' then return {} end
+    return LeetCodeCommands.filter(LeetCodeCommands.cached_slugs(), arg_lead)
+  end
 
   return {}
 end

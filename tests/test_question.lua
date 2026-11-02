@@ -482,6 +482,8 @@ T['run']['runs all cases through the LeetCode API'] = function()
         total = 2,
         stdouts = { 'a', 'b' },
         pretty_stdout = 'pretty',
+        answers = { '[0,1]', '[1,0]' },
+        expected_answers = { '[0,1]', '[1,0]' },
       },
         nil
     end,
@@ -491,6 +493,8 @@ T['run']['runs all cases through the LeetCode API'] = function()
   eq(view.console.cases[1].status, 'passed')
   eq(view.console.cases[2].status, 'failed')
   eq(view.console.cases[1].result.stdout, 'a')
+  eq(view.console.cases[1].result.answer, '[0,1]')
+  eq(view.console.cases[1].result.expected_answer, '[0,1]')
   eq(view.busy, false)
   eq(view.active, 'console')
 end
@@ -503,12 +507,21 @@ T['run']['runs one case through the LeetCode API'] = function()
 
   with_runner_stubs(function(_question, _code, input)
     captured_input = input
-    return { status = 'Accepted', runtime_ms = 5, compare = '1', stdouts = { 'single output' } }, nil
+    return {
+      status = 'Accepted',
+      runtime_ms = 5,
+      compare = '1',
+      stdouts = { 'single output' },
+      answers = { '[0,1]' },
+      expected_answers = { '[0,1]' },
+    },
+      nil
   end, function() question.run(view, '2') end)
 
   eq(captured_input, '[3,2,4]\n6')
   eq(view.console.cases[2].status, 'passed')
   eq(view.console.cases[2].result.stdout, 'single output')
+  eq(view.console.cases[2].result.answer, '[0,1]')
   eq(view.console.cases[1].status, 'unknown')
 end
 

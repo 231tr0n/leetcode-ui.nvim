@@ -613,6 +613,8 @@ T['api_runner']['normalize maps status codes and fields'] = function()
     compare_result = '10',
     std_output_list = { 'a', 'b' },
     pretty_stdout = 'pretty',
+    code_answer = { '[0,1]', '[1,0]' },
+    expected_code_answer = { '[0,1]', '[1,0]' },
     full_run_error = 'details',
     input_formatted = 'input',
     expected_output = 'expected',
@@ -630,6 +632,8 @@ T['api_runner']['normalize maps status codes and fields'] = function()
   eq(result.compare, '10')
   eq(result.stdouts[2], 'b')
   eq(result.pretty_stdout, 'pretty')
+  eq(result.answers[1], '[0,1]')
+  eq(result.expected_answers[2], '[1,0]')
   eq(result.input, 'input')
   eq(result.expected_output, 'expected')
   eq(result.code_output, 'got')

@@ -61,7 +61,14 @@ T['lines'] = new_set()
 T['lines']['renders header, inputs, and results'] = function()
   local console = make_console({ '[1,2]\n3' })
   console.cases[1].status = 'failed'
-  console.cases[1].result = { status = 'Wrong Answer', runtime_ms = 5, message = 'bad\nworse', stdout = 'out' }
+  console.cases[1].result = {
+    status = 'Wrong Answer',
+    runtime_ms = 5,
+    message = 'bad\nworse',
+    stdout = 'out',
+    answer = '[0,1]',
+    expected_answer = '[1,0]',
+  }
   local texts = helpers.mod('buffer').spans_to_texts(console:lines())
   local joined = table.concat(texts, '\n')
   eq(helpers.contains(joined, 'Testcases'), true)
@@ -69,7 +76,9 @@ T['lines']['renders header, inputs, and results'] = function()
   eq(helpers.contains(joined, 'in:  [1,2]'), true)
   eq(helpers.contains(joined, 'ran: 5 ms'), true)
   eq(helpers.contains(joined, 'bad'), true)
-  eq(helpers.contains(joined, 'out: out'), true)
+  eq(helpers.contains(joined, 'stdout: out'), true)
+  eq(helpers.contains(joined, 'return: [0,1]'), true)
+  eq(helpers.contains(joined, 'expected: [1,0]'), true)
 end
 
 T['lines']['renders a highlighted submission block before testcases'] = function()

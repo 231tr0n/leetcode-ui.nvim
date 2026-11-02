@@ -62,6 +62,18 @@ LeetCodeConsole.case_icon = function(console, case)
   return icons.unknown, 'LeetCodeDim'
 end
 
+local function value_text(value)
+  if type(value) == 'table' then return vim.json.encode(value) end
+  return tostring(value)
+end
+
+local function append_value(lines, label, value)
+  if value == nil or value == '' then return end
+  for _, line in ipairs(vim.split(value_text(value), '\n')) do
+    table.insert(lines, { { text = '    ' .. label .. line, hl = 'LeetCodeDim' } })
+  end
+end
+
 --- Build renderable span lines for the Console tab.
 ---
 ---@param console table
@@ -129,11 +141,10 @@ LeetCodeConsole.lines = function(console)
         end
       end
 
-      local output = case.result.stdout or case.result.pretty_stdout
-      if output ~= nil and output ~= '' then
-        for _, output_line in ipairs(vim.split(output, '\n')) do
-          table.insert(lines, { { text = '    out: ' .. output_line, hl = 'LeetCodeDim' } })
-        end
+      append_value(lines, 'stdout: ', case.result.stdout)
+      append_value(lines, 'return: ', case.result.answer)
+      if case.status == 'failed' or case.status == 'error' then
+        append_value(lines, 'expected: ', case.result.expected_answer)
       end
     end
   end

@@ -6,8 +6,8 @@
 ---
 --- Normalized result:
 --- `{ status, ok, message, runtime_ms, memory_mb, correct, total, compare,
---- stdouts, pretty_stdout, input, expected_output, code_output, lang,
---- is_submit, raw }`.
+--- stdouts, pretty_stdout, answers, expected_answers, input, expected_output,
+--- code_output, lang, is_submit, raw }`.
 ---
 ---@tag LeetCodeRunnerApi
 ---@toc_entry Runner API
@@ -72,6 +72,8 @@ LeetCodeRunnerApi.normalize = function(item, is_submit)
     compare = item.compare_result ~= vim.NIL and item.compare_result or nil,
     stdouts = item.std_output_list ~= vim.NIL and item.std_output_list or {},
     pretty_stdout = item.pretty_stdout ~= vim.NIL and item.pretty_stdout or nil,
+    answers = item.code_answer ~= vim.NIL and item.code_answer or nil,
+    expected_answers = item.expected_code_answer ~= vim.NIL and item.expected_code_answer or nil,
     input = item.input_formatted ~= vim.NIL and item.input_formatted
       or (item.last_testcase ~= vim.NIL and item.last_testcase or nil),
     expected_output = item.expected_output ~= vim.NIL and item.expected_output or nil,

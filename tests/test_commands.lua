@@ -62,6 +62,16 @@ T['dispatch']['rejects extra arguments for fixed-arity commands'] = function()
   eq(#calls, 0)
 end
 
+T['dispatch']['validates argument counts'] = function()
+  local commands = helpers.mod('commands')
+  eq(commands.check_args({}, 0, 0, 'usage'), true)
+  eq(commands.check_args({ 'extra' }, 0, 0, 'usage'), false)
+  eq(commands.check_args({}, 1, 1, 'usage'), false)
+  eq(commands.check_args({ 'one' }, 0, 1, 'usage'), true)
+  eq(commands.check_args({ 'one', 'two' }, 0, 1, 'usage'), false)
+  eq(commands.check_args({ 'one', 'two' }, 2, nil, 'usage'), true)
+end
+
 T['dispatch']['reports unknown commands'] = function()
   local config = require('leetcode-ui.config')
   config.setup({ notifications = true })
@@ -483,6 +493,18 @@ end
 T['completion']['completes hint actions'] = function()
   eq(complete('', 'LeetCode question hints '), { 'show', 'hide' })
   eq(complete('s', 'LeetCode question hints s'), { 'show' })
+end
+
+T['completion']['stops after completed optional arguments'] = function()
+  local view = make_view()
+  local restore = stub_current(view)
+
+  eq(complete('', 'LeetCode list Easy '), {})
+  eq(complete('', 'LeetCode question run 1 '), {})
+  eq(complete('', 'LeetCode question language golang '), {})
+  eq(complete('', 'LeetCode question hints show '), {})
+
+  restore()
 end
 
 T['completion']['returns nothing for unsupported positions'] = function()

@@ -1362,8 +1362,8 @@ until a `status_code` arrives, and normalize the result for
 
 Normalized result:
 `{ status, ok, message, runtime_ms, memory_mb, correct, total, compare,
-stdouts, pretty_stdout, input, expected_output, code_output, lang,
-is_submit, raw }`.
+stdouts, pretty_stdout, answers, expected_answers, input, expected_output,
+code_output, lang, is_submit, raw }`.
 
 
 ------------------------------------------------------------------------------

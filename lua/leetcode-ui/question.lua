@@ -493,6 +493,9 @@ LeetCodeQuestionView.run_api = function(view, question, code, indexes, index)
       local bit = index ~= nil and result.compare:sub(1, 1) or result.compare:sub(case_index, case_index)
       if bit == '' then bit = '0' end
       local stdout_index = index ~= nil and 1 or case_index
+      local answer = type(result.answers) == 'table' and result.answers[stdout_index] or nil
+      local expected_answer = type(result.expected_answers) == 'table' and result.expected_answers[stdout_index] or nil
+
       case_result = {
         status = result.status,
         runtime_ms = result.runtime_ms,
@@ -500,10 +503,19 @@ LeetCodeQuestionView.run_api = function(view, question, code, indexes, index)
         correct = bit == '1' and 1 or 0,
         total = 1,
         stdout = (result.stdouts or {})[stdout_index] or result.pretty_stdout,
+        answer = answer or result.code_output,
+        expected_answer = expected_answer or result.expected_output,
         is_submit = false,
       }
     else
-      case_result = { status = result.status, message = result.message, runtime_ms = result.runtime_ms }
+      case_result = {
+        status = result.status,
+        message = result.message,
+        runtime_ms = result.runtime_ms,
+        stdout = result.pretty_stdout,
+        answer = result.code_output,
+        expected_answer = result.expected_output,
+      }
     end
 
     view.console:case_result(case_index, case_result)
