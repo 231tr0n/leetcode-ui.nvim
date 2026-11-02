@@ -47,9 +47,9 @@
 --- - `:LeetCode question reset` - restore the starter snippet.
 --- - `:LeetCode question format` - format the current solution.
 --- - `:LeetCode question language [slug]` - switch language.
---- - `:LeetCode question case add [input]`,
----   `:LeetCode question case edit [index] [input]`,
----   `:LeetCode question case delete [index]`,
+--- - `:LeetCode question case add <input>`,
+---   `:LeetCode question case edit <index> <input>`,
+---   `:LeetCode question case delete <index>`,
 ---   `:LeetCode question case next`, `:LeetCode question case prev`
 ---   - manage testcases. Use `\n` for newlines in one-line command input.
 --- - `:LeetCode question close` - close the question window.

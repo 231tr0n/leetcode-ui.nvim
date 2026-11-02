@@ -91,6 +91,9 @@ LeetCodeConsole.lines = function(console)
   table.insert(lines, {
     { text = '  :LeetCode question case add|delete|edit|next|prev', hl = 'LeetCodeDim' },
   })
+  table.insert(lines, {
+    { text = '  Use \\n for multi-line testcase input', hl = 'LeetCodeDim' },
+  })
   table.insert(lines, {})
 
   for index, case in ipairs(console.cases) do

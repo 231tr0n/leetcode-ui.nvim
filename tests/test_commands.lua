@@ -51,6 +51,17 @@ T['dispatch']['does not expose question actions at the top level'] = function()
   eq(helpers.contains(messages[1], 'Unknown command'), true)
 end
 
+T['dispatch']['rejects extra arguments for fixed-arity commands'] = function()
+  local calls = {}
+  helpers.with_stub('leetcode-ui.picker', 'daily', function() table.insert(calls, 'daily') end, function()
+    helpers.with_stub('leetcode-ui.picker', 'problem', function() table.insert(calls, 'list') end, function()
+      helpers.mod('commands').run({ 'daily', 'extra' })
+      helpers.mod('commands').run({ 'list', 'Easy', 'extra' })
+    end)
+  end)
+  eq(#calls, 0)
+end
+
 T['dispatch']['reports unknown commands'] = function()
   local config = require('leetcode-ui.config')
   config.setup({ notifications = true })
@@ -336,8 +347,8 @@ T['case']['adds, edits, deletes, and selects testcases'] = function()
   helpers.mod('commands').run({ 'question', 'case', 'edit', '1', 'new', 'input' })
   eq(view.console.cases[1].input, 'new input')
 
-  helpers.mod('commands').run({ 'question', 'case', 'edit', 'second' })
-  eq(view.console.cases[view.console.selected].input, 'second')
+  helpers.mod('commands').run({ 'question', 'case', 'edit', '2', 'second' })
+  eq(view.console.cases[2].input, 'second')
 
   local selected = view.console.selected
   helpers.mod('commands').run({ 'question', 'case', 'next' })
@@ -363,6 +374,19 @@ T['case']['requires explicit index and input arguments'] = function()
 
   eq(#view.console.cases, original_cases)
   eq(view.console.cases[1].input, 'a')
+  restore()
+end
+
+T['case']['rejects extra arguments'] = function()
+  local view = make_view()
+  local restore = stub_current(view)
+  local selected = view.console.selected
+
+  helpers.mod('commands').run({ 'question', 'case', 'next', 'extra' })
+  helpers.mod('commands').run({ 'question', 'case', 'delete', '1', 'extra' })
+
+  eq(view.console.selected, selected)
+  eq(#view.console.cases, 2)
   restore()
 end
 
