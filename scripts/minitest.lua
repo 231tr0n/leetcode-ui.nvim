@@ -1,8 +1,10 @@
 -- Test runner for leetcode-ui.nvim (mini.test).
 --
 --   nvim --headless -u scripts/minitest.lua
+--   LEETCODE_UI_TEST_FILE=tests/test_commands.lua nvim --headless -u scripts/minitest.lua
 --
--- Runs everything under tests/ in-process, offline.
+-- Runs everything under tests/ in-process, offline. Set `LEETCODE_UI_TEST_FILE`
+-- to run a single test file instead.
 
 -- Resolve repo root from this script's location.
 local script = debug.getinfo(1, 'S').source:sub(2)
@@ -20,11 +22,19 @@ end
 local MiniTest = require('mini.test')
 if _G.MiniTest == nil then MiniTest.setup() end
 
+local test_file = vim.env.LEETCODE_UI_TEST_FILE
+local find_files = function()
+  if test_file ~= nil and test_file ~= '' then
+    local path = test_file
+    if path:match('^/') == nil then path = vim.fs.joinpath(root, path) end
+    return { vim.fs.normalize(path) }
+  end
+  return vim.fn.globpath(root .. '/tests', 'test_*.lua', true, true)
+end
+
 local reporter = MiniTest.gen_reporter.stdout()
 MiniTest.run({
-  collect = {
-    find_files = function() return vim.fn.globpath(root .. '/tests', 'test_*.lua', true, true) end,
-  },
+  collect = { find_files = find_files },
   reporter = reporter,
 })
 

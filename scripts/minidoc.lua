@@ -49,6 +49,12 @@ end
 -- default `file` hook adds an extra `====` line before every module, which
 -- produces a redundant `====`/`----` pair in a multi-module help file.
 local config = { hooks = { file = function() end } }
+local output = vim.env.LEETCODE_UI_DOC_OUTPUT
+if output == nil or output == '' then
+  output = vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt')
+else
+  output = vim.fs.normalize(output)
+end
 
-MiniDoc.generate(inputs, vim.fs.joinpath(root, 'doc', 'leetcode-ui.txt'), config)
+MiniDoc.generate(inputs, output, config)
 vim.cmd('qa!')

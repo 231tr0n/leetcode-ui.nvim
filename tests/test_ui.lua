@@ -48,6 +48,36 @@ T['render']['renders spans and keeps the panel read-only'] = function()
   eq(vim.api.nvim_get_option_value('number', { win = winid }), false)
 end
 
+T['render']['pad_top adds exactly one virtual line above the content'] = function()
+  local ui = helpers.mod('ui')
+  local buffer = helpers.mod('buffer')
+  local bufnr = buffer.scratch('leetcode-ui://pad-top')
+  buffer.spans_write(bufnr, { { { text = 'content' } } })
+
+  ui.show(bufnr, { pad_top = true })
+  ui.show(bufnr, { pad_top = true })
+
+  local padded = 0
+  for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(bufnr, -1, 0, -1, { details = true })) do
+    if mark[4].virt_lines ~= nil then padded = padded + 1 end
+  end
+  eq(padded, 1)
+end
+
+T['render']['does not pad by default'] = function()
+  local ui = helpers.mod('ui')
+  local buffer = helpers.mod('buffer')
+  local bufnr = buffer.scratch('leetcode-ui://no-pad')
+  buffer.spans_write(bufnr, { { { text = 'content' } } })
+
+  ui.show(bufnr)
+  local padded = 0
+  for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(bufnr, -1, 0, -1, { details = true })) do
+    if mark[4].virt_lines ~= nil then padded = padded + 1 end
+  end
+  eq(padded, 0)
+end
+
 T['render']['shows another buffer in the same window'] = function()
   local ui = helpers.mod('ui')
   local buffer = helpers.mod('buffer')

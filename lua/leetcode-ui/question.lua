@@ -233,7 +233,7 @@ LeetCodeQuestionView.refresh = function(view)
 
   if view.active == 'code' then
     if view.code_bufnr ~= nil and vim.api.nvim_buf_is_valid(view.code_bufnr) then
-      ui.show(view.code_bufnr, { number = true, wrap = false })
+      ui.show(view.code_bufnr, { number = true, wrap = false, pad_top = true })
     end
   else
     local lines = nil
@@ -244,7 +244,7 @@ LeetCodeQuestionView.refresh = function(view)
     elseif view.active == 'info' then
       lines = LeetCodeQuestionView.info(view)
     end
-    if lines ~= nil then ui.render(lines, { number = false, wrap = true }) end
+    if lines ~= nil then ui.render(lines, { number = false, wrap = true, pad_top = true }) end
   end
 
   LeetCodeQuestionView.render_winbar(view)

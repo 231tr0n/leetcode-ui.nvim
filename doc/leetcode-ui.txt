@@ -358,7 +358,7 @@ Show a buffer in the central window.
 
 Parameters ~
 {bufnr} `(number)`
-{opts} `(table|nil)` { number = boolean, wrap = boolean }
+{opts} `(table|nil)` { number = boolean, wrap = boolean, pad_top = boolean }
 Return ~
 `(number)` winid
 
@@ -369,7 +369,7 @@ Render read-only span lines in the central window.
 
 Parameters ~
 {lines} `(table)` Array of lines, each an array of `{ text, hl }` spans.
-{opts} `(table|nil)` { number = boolean, wrap = boolean }
+{opts} `(table|nil)` { number = boolean, wrap = boolean, pad_top = boolean }
 Return ~
 `(number)` winid
 

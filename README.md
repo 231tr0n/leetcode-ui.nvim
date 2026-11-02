@@ -85,6 +85,21 @@ require('leetcode-ui').setup({
 
 See `:h leetcode-ui-config` for every option and the default configuration.
 
+## Development
+
+Development dependencies: Neovim, StyLua, Luacheck, LuaLS, Node/Prettier, and
+mini.nvim. Common tasks are exposed through the Makefile:
+
+```sh
+make bootstrap-mini             # clone mini.nvim if missing
+make deps                       # report missing tools
+make test                       # run the full test suite
+make test-file FILE=tests/test_commands.lua
+make format                     # format Lua and Markdown
+make check                      # formatting, lint, tests, and docs checks
+make docs                       # regenerate doc/leetcode-ui.txt
+```
+
 ## Requirements
 
 - Neovim >= 0.10

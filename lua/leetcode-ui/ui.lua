@@ -19,6 +19,17 @@ LeetCodeUI.state = {
   winid = nil,
 }
 
+local padding_ns = vim.api.nvim_create_namespace('leetcode-ui-padding')
+
+local function pad_top(bufnr)
+  if vim.b[bufnr].lc_ui_top_padding == true then return end
+  local ok = pcall(vim.api.nvim_buf_set_extmark, bufnr, padding_ns, 0, 0, {
+    virt_lines = { { { ' ' } } },
+    virt_lines_above = true,
+  })
+  if ok then vim.b[bufnr].lc_ui_top_padding = true end
+end
+
 -- Helper functionality =============================================================================================
 
 --- Whether the central window is currently open.
@@ -61,13 +72,14 @@ end
 --- Show a buffer in the central window.
 ---
 ---@param bufnr number
----@param opts table|nil { number = boolean, wrap = boolean }
+---@param opts table|nil { number = boolean, wrap = boolean, pad_top = boolean }
 ---@return number winid
 LeetCodeUI.show = function(bufnr, opts)
   opts = opts or {}
   local winid = LeetCodeUI.ensure()
 
   if vim.api.nvim_win_get_buf(winid) ~= bufnr then vim.api.nvim_win_set_buf(winid, bufnr) end
+  if opts.pad_top == true then pad_top(bufnr) end
   vim.api.nvim_set_current_win(winid)
   vim.api.nvim_set_option_value('number', opts.number == true, { win = winid })
   vim.api.nvim_set_option_value('wrap', opts.wrap ~= false, { win = winid })
@@ -78,7 +90,7 @@ end
 --- Render read-only span lines in the central window.
 ---
 ---@param lines table Array of lines, each an array of `{ text, hl }` spans.
----@param opts table|nil { number = boolean, wrap = boolean }
+---@param opts table|nil { number = boolean, wrap = boolean, pad_top = boolean }
 ---@return number winid
 LeetCodeUI.render = function(lines, opts)
   local bufnr = LeetCodeUI.panel()
