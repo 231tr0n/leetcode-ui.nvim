@@ -23,28 +23,35 @@
 ---
 --- Commands:
 ---
---- - `:LeetCode list [difficulty]` - browse problems, optionally filtered.
+--- Browsing and account views:
+---
+--- - `:LeetCode` or `:LeetCode list [difficulty]` - browse problems.
 --- - `:LeetCode daily` - open the daily challenge.
 --- - `:LeetCode random [difficulty]` - open a random problem.
 --- - `:LeetCode open <slug>` - open a problem by its title slug.
---- - `:LeetCode description`, `:LeetCode code`, `:LeetCode console`,
----   `:LeetCode info` - show a question tab.
---- - `:LeetCode hints [show|hide]` - show or hide hints (hidden by default).
---- - `:LeetCode next`, `:LeetCode prev` - cycle question tabs.
---- - `:LeetCode run [index]` - run all testcases or one testcase.
---- - `:LeetCode submit` - submit the current solution.
---- - `:LeetCode reset` - restore the starter snippet.
---- - `:LeetCode format` - format the current solution.
---- - `:LeetCode language [slug]` - switch language (picker without `slug`).
---- - `:LeetCode case add [input]`, `:LeetCode case edit [index] [input]`,
----   `:LeetCode case delete [index]`, `:LeetCode case next`,
----   `:LeetCode case prev` - manage testcases. Use `\n` for newlines in
----   one-line command input.
 --- - `:LeetCode stats` - show progress statistics.
 --- - `:LeetCode session` - show the current session.
 --- - `:LeetCode refresh [difficulty]` - clear the problem cache and reopen.
---- - `:LeetCode close` - close the central window.
 --- - `:LeetCode help` - show a command summary in the central window.
+---
+--- Question-window actions live under `:LeetCode question`:
+---
+--- - `:LeetCode question description`, `:LeetCode question code`,
+---   `:LeetCode question console`, `:LeetCode question info` - show a tab.
+--- - `:LeetCode question hints [show|hide]` - show or hide hints (hidden
+---   by default).
+--- - `:LeetCode question next`, `:LeetCode question prev` - cycle tabs.
+--- - `:LeetCode question run [index]` - run all testcases or one testcase.
+--- - `:LeetCode question submit` - submit the current solution.
+--- - `:LeetCode question reset` - restore the starter snippet.
+--- - `:LeetCode question format` - format the current solution.
+--- - `:LeetCode question language [slug]` - switch language.
+--- - `:LeetCode question case add [input]`,
+---   `:LeetCode question case edit [index] [input]`,
+---   `:LeetCode question case delete [index]`,
+---   `:LeetCode question case next`, `:LeetCode question case prev`
+---   - manage testcases. Use `\n` for newlines in one-line command input.
+--- - `:LeetCode question close` - close the question window.
 ---
 ---@toc_entry Overview
 ---@tag LeetCode

@@ -139,7 +139,10 @@ LeetCodeStatsView.build_lines = function(solved, languages, skills, err, session
     table.insert(lines, {})
     vim.list_extend(lines, LeetCodeStatsView.language_lines(languages))
   end
-  if skills ~= nil then vim.list_extend(lines, LeetCodeStatsView.skills_lines(skills)) end
+  if skills ~= nil then
+    table.insert(lines, {})
+    vim.list_extend(lines, LeetCodeStatsView.skills_lines(skills))
+  end
 
   if err ~= nil then
     table.insert(lines, {})

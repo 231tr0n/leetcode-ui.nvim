@@ -93,7 +93,7 @@ LeetCodeConfig.highlights = {
   LeetCodeDim = { fg = '#5c6370' },
   LeetCodeTitle = { bold = true },
   LeetCodeCode = { fg = '#c678dd' },
-  LeetCodeLink = { fg = '#81a2be', underline = true },
+  LeetCodeLink = { fg = '#81a2be' },
   LeetCodeItalic = { italic = true },
   LeetCodeEasy = { fg = '#00af87' },
   LeetCodeMedium = { fg = '#ffab28' },

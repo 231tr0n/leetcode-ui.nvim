@@ -471,7 +471,7 @@ Return ~
 ------------------------------------------------------------------------------
                                           *LeetCodeQuestionView.render_winbar()*
                   `LeetCodeQuestionView.render_winbar`({view})
-Render the tab strip in the central window's winbar.
+Render the question title and clickable tab strip in the central window's winbar.
 
 Parameters ~
 {view} `(table)`

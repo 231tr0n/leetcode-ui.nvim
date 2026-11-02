@@ -3,6 +3,9 @@
 --- All user actions are exposed as subcommands, so no plugin-defined keymaps
 --- are installed. Map the commands you use in your own configuration.
 ---
+--- Top-level commands cover browsing and account views. Actions that operate
+--- on the open question window live under |:LeetCode-question|.
+---
 ---@tag LeetCodeCommands
 ---@toc_entry Commands
 
@@ -22,22 +25,9 @@ LeetCodeCommands.order = {
   'daily',
   'random',
   'open',
+  'question',
   'stats',
   'session',
-  'close',
-  'description',
-  'code',
-  'console',
-  'info',
-  'hints',
-  'next',
-  'prev',
-  'run',
-  'submit',
-  'reset',
-  'format',
-  'language',
-  'case',
   'refresh',
   'help',
 }
@@ -47,32 +37,55 @@ LeetCodeCommands.usage = {
   daily = 'daily',
   random = 'random [difficulty]',
   open = 'open <slug>',
+  question = 'question <subcommand>',
   stats = 'stats',
   session = 'session',
-  close = 'close',
-  description = 'description',
-  code = 'code',
-  console = 'console',
-  info = 'info',
-  hints = 'hints [show|hide]',
-  next = 'next',
-  prev = 'prev',
-  run = 'run [index]',
-  submit = 'submit',
-  reset = 'reset',
-  format = 'format',
-  language = 'language [slug]',
-  case = 'case add|edit|delete|next|prev',
   refresh = 'refresh [difficulty]',
   help = 'help',
 }
 
+LeetCodeCommands.question_order = {
+  'description',
+  'code',
+  'console',
+  'info',
+  'next',
+  'prev',
+  'run',
+  'submit',
+  'reset',
+  'format',
+  'language',
+  'hints',
+  'case',
+  'close',
+}
+
+LeetCodeCommands.question_usage = {
+  description = 'question description',
+  code = 'question code',
+  console = 'question console',
+  info = 'question info',
+  next = 'question next',
+  prev = 'question prev',
+  run = 'question run [index]',
+  submit = 'question submit',
+  reset = 'question reset',
+  format = 'question format',
+  language = 'question language [slug]',
+  hints = 'question hints [show|hide]',
+  case = 'question case add|edit|delete|next|prev',
+  close = 'question close',
+}
+
+LeetCodeCommands.case_order = { 'add', 'edit', 'delete', 'next', 'prev' }
+
 LeetCodeCommands.case_usage = {
-  add = 'case add [input]',
-  edit = 'case edit [index] [input]',
-  delete = 'case delete [index]',
-  next = 'case next',
-  prev = 'case prev',
+  add = 'question case add [input]',
+  edit = 'question case edit [index] [input]',
+  delete = 'question case delete [index]',
+  next = 'question case next',
+  prev = 'question case prev',
 }
 
 LeetCodeCommands.parse_difficulty = function(value)
@@ -132,93 +145,48 @@ LeetCodeCommands.cached_slugs = function()
   return slugs
 end
 
--- Subcommands ======================================================================================================
+-- Question subcommands =============================================================================================
 
-LeetCodeCommands.subcommands = {}
-
-LeetCodeCommands.subcommands.list = function(args)
-  local difficulty, valid = LeetCodeCommands.parse_difficulty(args[1])
-  if not valid then return end
-  require('leetcode-ui.picker').problem({ difficulty = difficulty })
-end
-
-LeetCodeCommands.subcommands.daily = function() require('leetcode-ui.picker').daily() end
-
-LeetCodeCommands.subcommands.random = function(args)
-  local difficulty, valid = LeetCodeCommands.parse_difficulty(args[1])
-  if not valid then return end
-  require('leetcode-ui.picker').random({ difficulty = difficulty })
-end
-
-LeetCodeCommands.subcommands.open = function(args)
-  if args[1] == nil or args[1] == '' then
-    log.error('Usage: :LeetCode open <slug>')
-    return
-  end
-  require('leetcode-ui.question').open(args[1])
-end
-
-LeetCodeCommands.subcommands.stats = function() require('leetcode-ui.stats_view').open() end
-
-LeetCodeCommands.subcommands.session = function() require('leetcode-ui.stats_view').session() end
-
-LeetCodeCommands.subcommands.close = function() require('leetcode-ui.question').close() end
+LeetCodeCommands.question_subcommands = {}
 
 for _, tab in ipairs({ 'description', 'code', 'console', 'info' }) do
-  LeetCodeCommands.subcommands[tab] = function()
+  LeetCodeCommands.question_subcommands[tab] = function()
     local view = LeetCodeCommands.question()
     if view ~= nil then require('leetcode-ui.question').show_tab(view, tab) end
   end
 end
 
-LeetCodeCommands.subcommands.hints = function(args)
-  local view = LeetCodeCommands.question()
-  if view == nil then return end
-
-  local action = args[1]
-  local show = nil
-  if action == 'show' or action == 'on' then
-    show = true
-  elseif action == 'hide' or action == 'off' then
-    show = false
-  elseif action ~= nil and action ~= 'toggle' then
-    log.error('Usage: :LeetCode hints [show|hide]')
-    return
-  end
-  require('leetcode-ui.question').set_hints(view, show)
-end
-
-LeetCodeCommands.subcommands.next = function()
+LeetCodeCommands.question_subcommands.next = function()
   local view = LeetCodeCommands.question()
   if view ~= nil then require('leetcode-ui.question').cycle_tab(view, 1) end
 end
 
-LeetCodeCommands.subcommands.prev = function()
+LeetCodeCommands.question_subcommands.prev = function()
   local view = LeetCodeCommands.question()
   if view ~= nil then require('leetcode-ui.question').cycle_tab(view, -1) end
 end
 
-LeetCodeCommands.subcommands.run = function(args)
+LeetCodeCommands.question_subcommands.run = function(args)
   local view = LeetCodeCommands.question()
   if view ~= nil then require('leetcode-ui.question').run(view, args[1]) end
 end
 
-LeetCodeCommands.subcommands.submit = function()
+LeetCodeCommands.question_subcommands.submit = function()
   local view = LeetCodeCommands.question()
   if view ~= nil then require('leetcode-ui.question').submit(view) end
 end
 
-LeetCodeCommands.subcommands.reset = function()
+LeetCodeCommands.question_subcommands.reset = function()
   local view = LeetCodeCommands.question()
   if view ~= nil then require('leetcode-ui.question').reset_code(view) end
 end
 
-LeetCodeCommands.subcommands.format = function()
+LeetCodeCommands.question_subcommands.format = function()
   local view = LeetCodeCommands.question()
   if view ~= nil then require('leetcode-ui.solution').format(view) end
 end
 
-LeetCodeCommands.subcommands.language = function(args)
+LeetCodeCommands.question_subcommands.language = function(args)
   local view = LeetCodeCommands.question()
   if view == nil then return end
   if view.busy then
@@ -241,15 +209,36 @@ LeetCodeCommands.subcommands.language = function(args)
   require('leetcode-ui.question').refresh(view)
 end
 
-LeetCodeCommands.subcommands.case = function(args)
+LeetCodeCommands.question_subcommands.hints = function(args)
+  local view = LeetCodeCommands.question()
+  if view == nil then return end
+
+  local action = args[1]
+  local show = nil
+  if action == 'show' or action == 'on' then
+    show = true
+  elseif action == 'hide' or action == 'off' then
+    show = false
+  elseif action ~= nil and action ~= 'toggle' then
+    log.error('Usage: :LeetCode question hints [show|hide]')
+    return
+  end
+  require('leetcode-ui.question').set_hints(view, show)
+end
+
+LeetCodeCommands.question_subcommands.case = function(args)
   local action = args[1]
   local handler = LeetCodeCommands.case_commands[action]
   if handler == nil then
-    log.error('Usage: :LeetCode case add|edit|delete|next|prev')
+    log.error('Usage: :LeetCode question case add|edit|delete|next|prev')
     return
   end
   handler(args)
 end
+
+LeetCodeCommands.question_subcommands.close = function() require('leetcode-ui.question').close() end
+
+-- Testcase subcommands =============================================================================================
 
 LeetCodeCommands.case_commands = {}
 
@@ -293,6 +282,47 @@ LeetCodeCommands.case_commands.prev = function()
   if console ~= nil then console:select_prev() end
 end
 
+-- Top-level subcommands ============================================================================================
+
+LeetCodeCommands.subcommands = {}
+
+LeetCodeCommands.subcommands.list = function(args)
+  local difficulty, valid = LeetCodeCommands.parse_difficulty(args[1])
+  if not valid then return end
+  require('leetcode-ui.picker').problem({ difficulty = difficulty })
+end
+
+LeetCodeCommands.subcommands.daily = function() require('leetcode-ui.picker').daily() end
+
+LeetCodeCommands.subcommands.random = function(args)
+  local difficulty, valid = LeetCodeCommands.parse_difficulty(args[1])
+  if not valid then return end
+  require('leetcode-ui.picker').random({ difficulty = difficulty })
+end
+
+LeetCodeCommands.subcommands.open = function(args)
+  if args[1] == nil or args[1] == '' then
+    log.error('Usage: :LeetCode open <slug>')
+    return
+  end
+  require('leetcode-ui.question').open(args[1])
+end
+
+LeetCodeCommands.subcommands.question = function(args)
+  local action = args[1]
+  local handler = LeetCodeCommands.question_subcommands[action]
+  if handler == nil then
+    log.error('Usage: :LeetCode question <subcommand>; see :LeetCode help')
+    return
+  end
+  table.remove(args, 1)
+  handler(args)
+end
+
+LeetCodeCommands.subcommands.stats = function() require('leetcode-ui.stats_view').open() end
+
+LeetCodeCommands.subcommands.session = function() require('leetcode-ui.stats_view').session() end
+
 LeetCodeCommands.subcommands.refresh = function(args)
   local difficulty, valid = LeetCodeCommands.parse_difficulty(args[1])
   if not valid then return end
@@ -307,18 +337,29 @@ LeetCodeCommands.subcommands.help = function()
     { { text = '  Map these commands in your own configuration.', hl = 'LeetCodeDim' } },
     {},
   }
+
   for _, name in ipairs(LeetCodeCommands.order) do
     table.insert(lines, {
       { text = ('  :LeetCode %-34s'):format(LeetCodeCommands.usage[name]), hl = 'LeetCodeCode' },
     })
   end
+
   table.insert(lines, {})
-  table.insert(lines, { { text = 'Testcase commands', hl = 'LeetCodeHeader' } })
-  for _, name in ipairs({ 'add', 'edit', 'delete', 'next', 'prev' }) do
+  table.insert(lines, { { text = 'Question window', hl = 'LeetCodeHeader' } })
+  for _, name in ipairs(LeetCodeCommands.question_order) do
+    table.insert(lines, {
+      { text = ('  :LeetCode %-34s'):format(LeetCodeCommands.question_usage[name]), hl = 'LeetCodeCode' },
+    })
+  end
+
+  table.insert(lines, {})
+  table.insert(lines, { { text = 'Question testcases', hl = 'LeetCodeHeader' } })
+  for _, name in ipairs(LeetCodeCommands.case_order) do
     table.insert(lines, {
       { text = ('  :LeetCode %-34s'):format(LeetCodeCommands.case_usage[name]), hl = 'LeetCodeCode' },
     })
   end
+
   ui.render(lines)
 end
 
@@ -357,28 +398,32 @@ LeetCodeCommands.complete = function(arg_lead, cmd_line, cursor_pos)
   end
 
   local name = args[1]
-  if name == 'case' then
-    if #args == 1 then
-      local actions = {}
-      for action in pairs(LeetCodeCommands.case_commands) do
-        table.insert(actions, action)
-      end
-      return LeetCodeCommands.filter(actions, arg_lead)
-    end
+  if name == 'question' then
+    if #args == 1 then return LeetCodeCommands.filter(vim.tbl_keys(LeetCodeCommands.question_subcommands), arg_lead) end
 
     local action = args[2]
-    if #args == 2 then
-      if arg_lead == '' and (action == 'edit' or action == 'delete') then return LeetCodeCommands.case_indices() end
-      local actions = {}
-      for command in pairs(LeetCodeCommands.case_commands) do
-        table.insert(actions, command)
+    if action == 'case' then
+      if #args == 2 then return LeetCodeCommands.filter(LeetCodeCommands.case_order, arg_lead) end
+      if #args == 3 then
+        if arg_lead == '' then return LeetCodeCommands.case_indices() end
+        return LeetCodeCommands.filter(LeetCodeCommands.case_order, arg_lead)
       end
-      return LeetCodeCommands.filter(actions, arg_lead)
+      if args[3] == 'edit' or args[3] == 'delete' then
+        return LeetCodeCommands.filter(LeetCodeCommands.case_indices(), arg_lead)
+      end
+      return {}
     end
 
-    if action == 'edit' or action == 'delete' then
-      return LeetCodeCommands.filter(LeetCodeCommands.case_indices(), arg_lead)
+    if action == 'language' and #args <= 3 then
+      local view = require('leetcode-ui.question').current()
+      if view == nil then return {} end
+      return LeetCodeCommands.filter(require('leetcode-ui.solution').languages(view), arg_lead)
     end
+
+    if action == 'hints' and #args <= 3 then return LeetCodeCommands.filter({ 'show', 'hide' }, arg_lead) end
+
+    if action == 'run' and #args <= 3 then return LeetCodeCommands.filter(LeetCodeCommands.case_indices(), arg_lead) end
+
     return {}
   end
 
@@ -386,17 +431,7 @@ LeetCodeCommands.complete = function(arg_lead, cmd_line, cursor_pos)
     return LeetCodeCommands.filter(LeetCodeCommands.difficulties, arg_lead)
   end
 
-  if name == 'hints' and #args <= 2 then return LeetCodeCommands.filter({ 'show', 'hide' }, arg_lead) end
-
-  if name == 'language' and #args <= 2 then
-    local view = require('leetcode-ui.question').current()
-    if view == nil then return {} end
-    return LeetCodeCommands.filter(require('leetcode-ui.solution').languages(view), arg_lead)
-  end
-
   if name == 'open' and #args <= 2 then return LeetCodeCommands.filter(LeetCodeCommands.cached_slugs(), arg_lead) end
-
-  if name == 'run' and #args <= 2 then return LeetCodeCommands.filter(LeetCodeCommands.case_indices(), arg_lead) end
 
   return {}
 end

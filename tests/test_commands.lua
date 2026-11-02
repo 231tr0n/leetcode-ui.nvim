@@ -134,7 +134,7 @@ T['views']['closes the current question'] = function()
     'leetcode-ui.question',
     'close',
     function() close_count = close_count + 1 end,
-    function() helpers.mod('commands').run({ 'close' }) end
+    function() helpers.mod('commands').run({ 'question', 'close' }) end
   )
   eq(close_count, 1)
 end
@@ -195,10 +195,10 @@ T['question_actions']['delegates run, submit, reset, and format'] = function()
           eq(target, view)
           table.insert(calls, 'format')
         end, function()
-          helpers.mod('commands').run({ 'run', '2' })
-          helpers.mod('commands').run({ 'submit' })
-          helpers.mod('commands').run({ 'reset' })
-          helpers.mod('commands').run({ 'format' })
+          helpers.mod('commands').run({ 'question', 'run', '2' })
+          helpers.mod('commands').run({ 'question', 'submit' })
+          helpers.mod('commands').run({ 'question', 'reset' })
+          helpers.mod('commands').run({ 'question', 'format' })
         end)
       end)
     end)
@@ -217,7 +217,7 @@ T['language']['opens the picker without an argument'] = function()
   helpers.with_stub('leetcode-ui.question', 'switch_language', function(target)
     eq(target, view)
     called = called + 1
-  end, function() helpers.mod('commands').run({ 'language' }) end)
+  end, function() helpers.mod('commands').run({ 'question', 'language' }) end)
   eq(called, 1)
   restore()
 end
@@ -236,7 +236,7 @@ T['language']['switches directly to an available slug'] = function()
         'leetcode-ui.question',
         'refresh',
         function() refreshed = refreshed + 1 end,
-        function() helpers.mod('commands').run({ 'language', 'golang' }) end
+        function() helpers.mod('commands').run({ 'question', 'language', 'golang' }) end
       )
     end)
   end)
@@ -255,7 +255,7 @@ T['language']['rejects changes while another action is running'] = function()
     'leetcode-ui.solution',
     'switch_language',
     function() switched = true end,
-    function() helpers.mod('commands').run({ 'language', 'golang' }) end
+    function() helpers.mod('commands').run({ 'question', 'language', 'golang' }) end
   )
   eq(switched, false)
   restore()
@@ -270,7 +270,7 @@ T['language']['rejects unavailable slugs'] = function()
       'leetcode-ui.solution',
       'switch_language',
       function() switched = true end,
-      function() helpers.mod('commands').run({ 'language', 'java' }) end
+      function() helpers.mod('commands').run({ 'question', 'language', 'java' }) end
     )
   end)
   eq(switched, false)
@@ -289,13 +289,13 @@ T['hints']['delegates show, hide, toggle, and invalid actions'] = function()
     table.insert(calls, tostring(show))
   end, function()
     for _, args in ipairs({
-      { 'hints' },
-      { 'hints', 'show' },
-      { 'hints', 'on' },
-      { 'hints', 'hide' },
-      { 'hints', 'off' },
-      { 'hints', 'toggle' },
-      { 'hints', 'bogus' },
+      { 'question', 'hints' },
+      { 'question', 'hints', 'show' },
+      { 'question', 'hints', 'on' },
+      { 'question', 'hints', 'hide' },
+      { 'question', 'hints', 'off' },
+      { 'question', 'hints', 'toggle' },
+      { 'question', 'hints', 'bogus' },
     }) do
       helpers.mod('commands').run(args)
     end
@@ -307,7 +307,7 @@ end
 
 T['hints']['does nothing without an open question'] = function()
   local restore = stub_current(nil)
-  eq(pcall(helpers.mod('commands').run, { 'hints' }), true)
+  eq(pcall(helpers.mod('commands').run, { 'question', 'hints' }), true)
   restore()
 end
 
@@ -317,22 +317,22 @@ T['case']['adds, edits, deletes, and selects testcases'] = function()
   local view = make_view()
   local restore = stub_current(view)
 
-  helpers.mod('commands').run({ 'case', 'add', '[0]', '\\n', '0' })
+  helpers.mod('commands').run({ 'question', 'case', 'add', '[0]', '\\n', '0' })
   eq(#view.console.cases, 3)
   eq(view.console.cases[3].input, '[0] \n 0')
 
-  helpers.mod('commands').run({ 'case', 'edit', '1', 'new', 'input' })
+  helpers.mod('commands').run({ 'question', 'case', 'edit', '1', 'new', 'input' })
   eq(view.console.cases[1].input, 'new input')
 
-  helpers.mod('commands').run({ 'case', 'edit', 'second' })
+  helpers.mod('commands').run({ 'question', 'case', 'edit', 'second' })
   eq(view.console.cases[view.console.selected].input, 'second')
 
   local selected = view.console.selected
-  helpers.mod('commands').run({ 'case', 'next' })
-  helpers.mod('commands').run({ 'case', 'prev' })
+  helpers.mod('commands').run({ 'question', 'case', 'next' })
+  helpers.mod('commands').run({ 'question', 'case', 'prev' })
   eq(view.console.selected, selected)
 
-  helpers.mod('commands').run({ 'case', 'delete', '1' })
+  helpers.mod('commands').run({ 'question', 'case', 'delete', '1' })
   eq(#view.console.cases, 2)
 
   restore()
@@ -341,8 +341,8 @@ end
 T['case']['reports invalid subcommands'] = function()
   local view = make_view()
   local restore = stub_current(view)
-  eq(pcall(helpers.mod('commands').run, { 'case', 'bogus' }), true)
-  eq(pcall(helpers.mod('commands').run, { 'case' }), true)
+  eq(pcall(helpers.mod('commands').run, { 'question', 'case', 'bogus' }), true)
+  eq(pcall(helpers.mod('commands').run, { 'question', 'case' }), true)
   restore()
 end
 
@@ -368,70 +368,71 @@ T['help']['renders command help in the central window'] = function()
   helpers.mod('commands').run({ 'help' })
   local ui = helpers.mod('ui')
   local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
-  eq(helpers.contains(text, ':LeetCode run'), true)
-  eq(helpers.contains(text, ':LeetCode case add'), true)
-  eq(helpers.contains(text, ':LeetCode hints'), true)
+  eq(helpers.contains(text, ':LeetCode question run'), true)
+  eq(helpers.contains(text, ':LeetCode question case add'), true)
+  eq(helpers.contains(text, ':LeetCode question hints'), true)
 end
 
 T['completion'] = new_set()
 
+local function complete(lead, line) return helpers.mod('commands').complete(lead, line, #line) end
+
 T['completion']['completes top-level commands'] = function()
-  local commands = helpers.mod('commands')
-  local all = commands.complete('', 'LeetCode ', 9)
+  local all = complete('', 'LeetCode ')
   eq(vim.tbl_contains(all, 'list'), true)
-  eq(vim.tbl_contains(all, 'case'), true)
-  local filtered = commands.complete('st', 'LeetCode st', 11)
-  eq(filtered, { 'stats' })
+  eq(vim.tbl_contains(all, 'question'), true)
+  eq(vim.tbl_contains(all, 'case'), false)
+  eq(complete('st', 'LeetCode st'), { 'stats' })
 end
 
 T['completion']['completes difficulties'] = function()
-  local commands = helpers.mod('commands')
-  eq(commands.complete('E', 'LeetCode list E', 15), { 'Easy' })
-  eq(commands.complete('', 'LeetCode random ', 16), { 'Easy', 'Medium', 'Hard' })
+  eq(complete('E', 'LeetCode list E'), { 'Easy' })
+  eq(complete('', 'LeetCode random '), { 'Easy', 'Medium', 'Hard' })
+end
+
+T['completion']['completes question subcommands'] = function()
+  local all = complete('', 'LeetCode question ')
+  eq(vim.tbl_contains(all, 'run'), true)
+  eq(vim.tbl_contains(all, 'submit'), true)
+  eq(vim.tbl_contains(all, 'case'), true)
+  eq(complete('su', 'LeetCode question su'), { 'submit' })
 end
 
 T['completion']['completes case actions and indices'] = function()
-  local commands = helpers.mod('commands')
   local view = make_view()
   local restore = stub_current(view)
 
-  local actions = commands.complete('', 'LeetCode case ', 14)
+  local actions = complete('', 'LeetCode question case ')
   eq(vim.tbl_contains(actions, 'add'), true)
   eq(vim.tbl_contains(actions, 'edit'), true)
-
-  local filtered = commands.complete('e', 'LeetCode case e', 15)
-  eq(vim.tbl_contains(filtered, 'edit'), true)
-
-  eq(commands.complete('', 'LeetCode case edit ', 19), { '1', '2' })
-  eq(commands.complete('2', 'LeetCode case delete 2', 22), { '2' })
+  eq(vim.tbl_contains(complete('e', 'LeetCode question case e'), 'edit'), true)
+  eq(complete('', 'LeetCode question case edit '), { '1', '2' })
+  eq(complete('2', 'LeetCode question case delete 2'), { '2' })
 
   restore()
 end
 
 T['completion']['completes languages, cached slugs, and case indexes'] = function()
-  local commands = helpers.mod('commands')
   local view = make_view()
   local restore = stub_current(view)
   local storage = helpers.mod('storage')
   storage.write_cache({ problems = { { title_slug = 'two-sum' } }, total = 1 })
 
-  eq(commands.complete('', 'LeetCode language ', 18), { 'python3', 'golang' })
-  eq(commands.complete('two', 'LeetCode open two', 17), { 'two-sum' })
-  eq(commands.complete('', 'LeetCode run ', 13), { '1', '2' })
+  eq(complete('', 'LeetCode question language '), { 'python3', 'golang' })
+  eq(complete('two', 'LeetCode open two'), { 'two-sum' })
+  eq(complete('', 'LeetCode question run '), { '1', '2' })
 
   restore()
 end
 
 T['completion']['completes hint actions'] = function()
-  local commands = helpers.mod('commands')
-  eq(commands.complete('', 'LeetCode hints ', 16), { 'show', 'hide' })
-  eq(commands.complete('s', 'LeetCode hints s', 17), { 'show' })
+  eq(complete('', 'LeetCode question hints '), { 'show', 'hide' })
+  eq(complete('s', 'LeetCode question hints s'), { 'show' })
 end
 
 T['completion']['returns nothing for unsupported positions'] = function()
-  local commands = helpers.mod('commands')
-  eq(commands.complete('x', 'LeetCode submit x', 17), {})
-  eq(commands.complete('x', 'LeetCode open x', 15), {})
+  eq(complete('x', 'LeetCode question submit x'), {})
+  eq(complete('x', 'LeetCode open x'), {})
 end
 
 return T

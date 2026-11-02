@@ -83,10 +83,23 @@ T['info']['renders question metadata and command help'] = function()
   local view = make_view()
   local question = helpers.mod('question')
   helpers.with_stub('leetcode-ui.runner.common', 'harness', function() return {}, nil end, function()
-    local text = table.concat(helpers.mod('buffer').spans_to_texts(question.info(view)), '\n')
+    local lines = question.info(view)
+    local text = table.concat(helpers.mod('buffer').spans_to_texts(lines), '\n')
     eq(helpers.contains(text, 'enabled (local)'), true)
     eq(helpers.contains(text, 'Array'), true)
     eq(helpers.contains(text, ':LeetCode run'), true)
+
+    local description_columns = {}
+    for _, line in ipairs(lines) do
+      local command, description = line[1], line[2]
+      if command ~= nil and description ~= nil and helpers.contains(command.text, ':LeetCode') then
+        table.insert(description_columns, #command.text)
+      end
+    end
+    eq(#description_columns > 0, true)
+    for _, column in ipairs(description_columns) do
+      eq(column, description_columns[1])
+    end
   end)
 end
 
@@ -233,6 +246,29 @@ end
 
 T['winbar'] = new_set()
 
+T['winbar']['click handlers switch tabs'] = function()
+  local question = helpers.mod('question')
+  local buffer = helpers.mod('buffer')
+  local view = make_view()
+  view.code_bufnr = buffer.scratch('leetcode-ui://click', { ft = 'python' })
+  question.views[view.slug] = view
+  question.active = view
+
+  for _, item in ipairs({
+    { name = 'Description', active = 'description' },
+    { name = 'Console', active = 'console' },
+    { name = 'Info', active = 'info' },
+    { name = 'Code', active = 'code' },
+  }) do
+    local click = _G['LeetCodeClick' .. item.name]
+    eq(type(click), 'function')
+    click()
+    eq(view.active, item.active)
+  end
+
+  question.close(view)
+end
+
 T['winbar']['renders tabs and busy state'] = function()
   local question = helpers.mod('question')
   local ui = helpers.mod('ui')
@@ -247,9 +283,14 @@ T['winbar']['renders tabs and busy state'] = function()
   ui.ensure()
   question.render_winbar(view)
   local winbar = vim.api.nvim_get_option_value('winbar', { win = ui.state.winid })
+  eq(helpers.contains(winbar, '%#LeetCodeHeader#Two Sum %#Normal#'), true)
+  eq(helpers.contains(winbar, 'LeetCode  '), false)
   eq(helpers.contains(winbar, 'Description'), true)
   eq(helpers.contains(winbar, 'Code (python3)'), true)
   eq(helpers.contains(winbar, '…'), true)
+  for _, tab in ipairs({ 'Description', 'Code', 'Console', 'Info' }) do
+    eq(helpers.contains(winbar, ('%%@v:lua.LeetCodeClick%s@'):format(tab)), true)
+  end
 
   ui.close()
   question.render_winbar(view)

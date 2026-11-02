@@ -44,28 +44,29 @@ optional.
 :LeetCode session
 ```
 
-Every action is a subcommand. See `:LeetCode help` or `:h leetcode-ui-commands`
-for the full list. Map the commands you use:
+`:LeetCode` and `:LeetCode list` both open the problem list. See
+`:LeetCode help` or `:h leetcode-ui-commands` for the full list. Map the
+commands you use:
 
 ```lua
 vim.keymap.set('n', '<leader>ll', '<cmd>LeetCode list<cr>', { desc = 'LeetCode: list' })
-vim.keymap.set('n', '<leader>lr', '<cmd>LeetCode run<cr>', { desc = 'LeetCode: run' })
-vim.keymap.set('n', '<leader>ls', '<cmd>LeetCode submit<cr>', { desc = 'LeetCode: submit' })
-vim.keymap.set('n', '<leader>lx', '<cmd>LeetCode close<cr>', { desc = 'LeetCode: close' })
+vim.keymap.set('n', '<leader>lr', '<cmd>LeetCode question run<cr>', { desc = 'LeetCode: run' })
+vim.keymap.set('n', '<leader>ls', '<cmd>LeetCode question submit<cr>', { desc = 'LeetCode: submit' })
+vim.keymap.set('n', '<leader>lx', '<cmd>LeetCode question close<cr>', { desc = 'LeetCode: close' })
 ```
 
-Inside a question:
+Question-window actions live under `:LeetCode question`:
 
 ```vim
-:LeetCode description
-:LeetCode code
-:LeetCode console
-:LeetCode info
-:LeetCode hints show
-:LeetCode run 2
-:LeetCode submit
-:LeetCode language golang
-:LeetCode case add [2,7,11,15]\n9
+:LeetCode question description
+:LeetCode question code
+:LeetCode question console
+:LeetCode question info
+:LeetCode question hints show
+:LeetCode question run 2
+:LeetCode question submit
+:LeetCode question language golang
+:LeetCode question case add [2,7,11,15]\n9
 ```
 
 ## Configuration

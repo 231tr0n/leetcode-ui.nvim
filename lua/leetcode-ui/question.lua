@@ -50,6 +50,16 @@ LeetCodeQuestionView.difficulty = function(difficulty)
   return LeetCodeQuestionView.difficulty_hl[difficulty] or 'LeetCodeTitle'
 end
 
+local function click_tab(tab)
+  local view = LeetCodeQuestionView.current()
+  if view ~= nil then LeetCodeQuestionView.show_tab(view, tab) end
+end
+
+for _, tab in ipairs(LeetCodeQuestionView.tabs) do
+  local suffix = tab:gsub('^%l', string.upper)
+  _G['LeetCodeClick' .. suffix] = function() click_tab(tab) end
+end
+
 --- Build Description tab lines.
 ---
 ---@param view table
@@ -163,23 +173,28 @@ LeetCodeQuestionView.info = function(view)
   table.insert(lines, { { text = 'Commands', hl = 'LeetCodeHeader' } })
   table.insert(lines, { { text = '  Map these commands if you want key bindings.', hl = 'LeetCodeDim' } })
   local rows = {
-    { ':LeetCode run [index]', 'Run all testcases or one testcase' },
-    { ':LeetCode submit', 'Submit the current solution' },
-    { ':LeetCode reset', 'Restore the starter snippet' },
-    { ':LeetCode format', 'Format the current solution' },
-    { ':LeetCode language [slug]', 'Switch language' },
-    { ':LeetCode case add [input]', 'Add a testcase' },
-    { ':LeetCode case edit [index] [input]', 'Edit a testcase' },
-    { ':LeetCode case delete [index]', 'Delete a testcase' },
-    { ':LeetCode case next|prev', 'Select a testcase' },
-    { ':LeetCode description|code|console|info', 'Show a tab' },
-    { ':LeetCode hints [show|hide]', 'Show or hide hints' },
-    { ':LeetCode next|prev', 'Cycle tabs' },
-    { ':LeetCode close', 'Close the question' },
+    { ':LeetCode question run [index]', 'Run all testcases or one testcase' },
+    { ':LeetCode question submit', 'Submit the current solution' },
+    { ':LeetCode question reset', 'Restore the starter snippet' },
+    { ':LeetCode question format', 'Format the current solution' },
+    { ':LeetCode question language [slug]', 'Switch language' },
+    { ':LeetCode question case add [input]', 'Add a testcase' },
+    { ':LeetCode question case edit [index] [input]', 'Edit a testcase' },
+    { ':LeetCode question case delete [index]', 'Delete a testcase' },
+    { ':LeetCode question case next|prev', 'Select a testcase' },
+    { ':LeetCode question description|code|console|info', 'Show a tab' },
+    { ':LeetCode question hints [show|hide]', 'Show or hide hints' },
+    { ':LeetCode question next|prev', 'Cycle tabs' },
+    { ':LeetCode question close', 'Close the question' },
   }
+  local command_width = 0
+  for _, row in ipairs(rows) do
+    command_width = math.max(command_width, #row[1])
+  end
+  local command_format = ('  %%-%ds'):format(command_width + 2)
   for _, row in ipairs(rows) do
     table.insert(lines, {
-      { text = ('  %-38s'):format(row[1]), hl = 'LeetCodeCode' },
+      { text = command_format:format(row[1]), hl = 'LeetCodeCode' },
       { text = row[2], hl = 'LeetCodeDim' },
     })
   end
@@ -187,21 +202,22 @@ LeetCodeQuestionView.info = function(view)
   return lines
 end
 
---- Render the tab strip in the central window's winbar.
+--- Render the question title and clickable tab strip in the central window's winbar.
 ---
 ---@param view table
 LeetCodeQuestionView.render_winbar = function(view)
   if view == nil or not ui.is_open() then return end
 
   local detail = view.detail or {}
-  local title = ('LeetCode  %s.%s'):format(detail.frontend_id or '?', detail.title or view.slug)
-  local parts = { LeetCodeQuestionView.escape_statusline(title) }
+  local title = detail.title or view.slug or 'Question'
+  local parts = { ('%%#LeetCodeHeader#%s %%#Normal#'):format(LeetCodeQuestionView.escape_statusline(title)) }
 
   for _, tab in ipairs(LeetCodeQuestionView.tabs) do
     local label = LeetCodeQuestionView.tab_labels[tab]
     if tab == 'code' then label = ('%s (%s)'):format(label, view.lang) end
     local hl = tab == view.active and 'LeetCodeTitle' or 'LeetCodeDim'
-    table.insert(parts, ('%%#%s# %s %%#Normal#'):format(hl, label))
+    local click = ('%%@v:lua.LeetCodeClick%s@'):format(tab:gsub('^%l', string.upper))
+    table.insert(parts, ('%s%%#%s# %s %%X%%#Normal#'):format(click, hl, label))
   end
 
   if view.busy then table.insert(parts, '%#LeetCodeWarn# … %#Normal#') end
