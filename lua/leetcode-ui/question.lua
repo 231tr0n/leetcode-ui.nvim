@@ -230,7 +230,16 @@ LeetCodeQuestionView.refresh = function(view)
 
   if view.active == 'code' then
     if view.code_bufnr ~= nil and vim.api.nvim_buf_is_valid(view.code_bufnr) then
-      ui.show(view.code_bufnr, { number = true, wrap = false, cursorline = vim.go.cursorline })
+      ui.show(view.code_bufnr, {
+        number = true,
+        wrap = false,
+        cursorline = vim.go.cursorline,
+        signcolumn = 'auto',
+        foldenable = true,
+        foldmethod = vim.go.foldmethod,
+        foldcolumn = 1,
+        statuscolumn = '%s%C%l ',
+      })
     end
   else
     local lines = nil
@@ -245,6 +254,7 @@ LeetCodeQuestionView.refresh = function(view)
           wrap = true,
           pad_top = true,
           folds = folds,
+          foldenable = true,
           foldmethod = 'manual',
           foldcolumn = 1,
           statuscolumn = '%C ',

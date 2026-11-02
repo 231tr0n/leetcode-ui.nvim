@@ -20,7 +20,7 @@ LeetCodeBuffer.ns = vim.api.nvim_create_namespace('leetcode-ui')
 --- Create or reuse a scratch buffer.
 ---
 ---@param name string Unique buffer name.
----@param opts table|nil { listed = boolean, ft = string, modifiable = boolean }
+---@param opts table|nil { listed = boolean, ft = string, modifiable = boolean, buftype = string }
 ---@return number bufnr
 LeetCodeBuffer.scratch = function(name, opts)
   opts = opts or {}
@@ -32,7 +32,7 @@ LeetCodeBuffer.scratch = function(name, opts)
   end
 
   vim.api.nvim_set_option_value('buflisted', opts.listed == true, { buf = bufnr })
-  vim.api.nvim_set_option_value('buftype', 'nofile', { buf = bufnr })
+  vim.api.nvim_set_option_value('buftype', opts.buftype or 'nofile', { buf = bufnr })
   vim.api.nvim_set_option_value('swapfile', false, { buf = bufnr })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = bufnr })
   if opts.ft ~= nil then vim.api.nvim_set_option_value('filetype', opts.ft, { buf = bufnr }) end

@@ -100,6 +100,7 @@ LeetCodeSolution.prepare = function(view)
   local draft = storage.read_draft(view.slug, view.lang)
   local content = draft ~= nil and draft or LeetCodeSolution.snippet(view)
   view.code_bufnr = buffer.scratch(('leetcode-ui://%s'):format(view.slug), {
+    buftype = '',
     ft = LeetCodeSolution.filetype(view.lang),
     listed = true,
   })
@@ -118,6 +119,13 @@ LeetCodeSolution.open = function(view)
     vim.api.nvim_create_autocmd({ 'BufLeave', 'BufWritePre' }, {
       buffer = view.code_bufnr,
       callback = function() LeetCodeSolution.save_draft(view) end,
+    })
+    vim.api.nvim_create_autocmd('BufWriteCmd', {
+      buffer = view.code_bufnr,
+      callback = function()
+        LeetCodeSolution.save_draft(view)
+        vim.api.nvim_set_option_value('modified', false, { buf = view.code_bufnr })
+      end,
     })
   end
 end

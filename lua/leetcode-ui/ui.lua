@@ -115,8 +115,8 @@ end
 ---
 ---@param bufnr number
 ---@param opts table|nil Options: `number`, `wrap`, `cursorline`,
---- `cursorline_hl`, `hide_cursor`, `foldmethod`, `foldcolumn`,
---- `statuscolumn`, and `folds`.
+--- `cursorline_hl`, `hide_cursor`, `signcolumn`, `foldenable`, `foldmethod`,
+--- `foldcolumn`, `statuscolumn`, and `folds`.
 ---@return number winid
 LeetCodeUI.show = function(bufnr, opts)
   opts = opts or {}
@@ -128,6 +128,8 @@ LeetCodeUI.show = function(bufnr, opts)
   vim.api.nvim_set_option_value('wrap', opts.wrap ~= false, { win = winid })
   vim.api.nvim_set_option_value('cursorline', opts.cursorline == true, { win = winid })
   vim.api.nvim_set_option_value('winhighlight', window_highlight(opts.cursorline_hl), { win = winid })
+  vim.api.nvim_set_option_value('signcolumn', opts.signcolumn or 'no', { win = winid })
+  vim.api.nvim_set_option_value('foldenable', opts.foldenable == true, { win = winid })
   vim.api.nvim_set_option_value('foldmethod', opts.foldmethod or vim.go.foldmethod, { win = winid })
   vim.api.nvim_set_option_value('foldcolumn', tostring(opts.foldcolumn or 0), { win = winid })
   vim.api.nvim_set_option_value('statuscolumn', opts.statuscolumn or '', { win = winid })

@@ -78,7 +78,8 @@ LeetCodeQuestion.normalize = function(question)
   }
 end
 
---- Fetch the full problem list, using the on-disk cache when fresh.
+--- Fetch the full problem list, using the on-disk cache when fresh and complete.
+--- The cache contents are only replaced when the API reports a different total.
 ---
 ---@return table|nil { total, questions }
 ---@return string|nil err
@@ -86,17 +87,16 @@ LeetCodeQuestion.get_list = function()
   local cache = storage.read_cache()
   local cache_time = tonumber(cache.cache_time or cache.saved) or 0
   local cache_total = tonumber(cache.total)
+  local cache_problems = type(cache.problems) == 'table' and cache.problems or {}
+  local complete = cache_total ~= nil and #cache_problems > 0 and #cache_problems == cache_total
   local fresh = (os.time() - cache_time) < (config.config.cooldown * 60)
-  local complete = cache_total == nil or #(cache.problems or {}) >= cache_total
 
-  if fresh and type(cache.problems) == 'table' and #cache.problems > 0 and complete then
-    return { total = cache_total or #cache.problems, questions = cache.problems }, nil
-  end
+  if fresh and complete then return { total = cache_total, questions = cache_problems }, nil end
 
   log.info('Loading problem list…')
-  local questions, total, skip, page_size = {}, 0, 0, 100
+  local page_size = 100
 
-  while true do
+  local function fetch_page(skip)
     local variables = {
       categorySlug = 'all-code-essentials',
       limit = page_size,
@@ -110,11 +110,35 @@ LeetCodeQuestion.get_list = function()
     end
 
     local page = data.problemsetQuestionList or {}
-    total = page.total or total
     local rows = page.questions
     if type(rows) ~= 'table' then rows = {} end
+    return { total = page.total or 0, rows = rows }, nil
+  end
 
-    for _, row in ipairs(rows) do
+  local first_page = nil
+  if complete then
+    local page, err = fetch_page(0)
+    if err ~= nil or page == nil then return nil, err or 'Empty response' end
+    if page.total == cache_total then
+      cache.cache_time = os.time()
+      storage.write_cache(cache)
+      log.info(('Problem count unchanged (%d); using cached list'):format(cache_total))
+      return { total = cache_total, questions = cache_problems }, nil
+    end
+    first_page = page
+    log.info(('Problem count changed (%d -> %d); updating cache'):format(cache_total, page.total))
+  end
+
+  local questions, total, skip, page = {}, 0, 0, first_page
+  while true do
+    if page == nil then
+      local err
+      page, err = fetch_page(skip)
+      if err ~= nil or page == nil then return nil, err or 'Empty response' end
+    end
+
+    total = page.total > 0 and page.total or total
+    for _, row in ipairs(page.rows) do
       table.insert(questions, LeetCodeQuestion.normalize(LeetCodeQuestion.clean(row) --[[@as table]]))
     end
 
@@ -124,9 +148,10 @@ LeetCodeQuestion.get_list = function()
       log.info(('Loading problem list… %d'):format(#questions))
     end
 
-    if #rows < page_size then break end
+    if #page.rows < page_size then break end
     if total > 0 and #questions >= total then break end
     skip = skip + page_size
+    page = nil
   end
 
   cache.problems = questions

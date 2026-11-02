@@ -73,6 +73,7 @@ T['prepare']['loads the starter snippet'] = function()
   eq(vim.api.nvim_buf_is_valid(view.code_bufnr), true)
   eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'class Solution:')
   eq(vim.api.nvim_get_option_value('filetype', { buf = view.code_bufnr }), 'python')
+  eq(vim.api.nvim_get_option_value('buftype', { buf = view.code_bufnr }), '')
 end
 
 T['prepare']['prefers an existing draft'] = function()
@@ -115,6 +116,23 @@ T['open']['marks the buffer listed and installs the draft autocmd once'] = funct
   solution.open(view)
   local second = #vim.api.nvim_get_autocmds({ buffer = view.code_bufnr })
   eq(second, first)
+end
+
+T['open_with_normal_buftype'] = new_set()
+
+T['open_with_normal_buftype']['write saves the draft and clears modified'] = function()
+  local solution = helpers.mod('solution')
+  local storage = helpers.mod('storage')
+  local view = helpers.fake_view()
+  solution.prepare(view)
+  solution.open(view)
+  vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, { 'draft', 'code' })
+  vim.api.nvim_set_option_value('modified', true, { buf = view.code_bufnr })
+
+  vim.api.nvim_buf_call(view.code_bufnr, function() vim.cmd('write') end)
+
+  eq(storage.read_draft('two-sum', 'python3'), 'draft\ncode')
+  eq(vim.api.nvim_get_option_value('modified', { buf = view.code_bufnr }), false)
 end
 
 T['drafts'] = new_set()

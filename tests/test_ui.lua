@@ -66,6 +66,7 @@ T['render']['applies closed folds with a status column'] = function()
     { { text = 'body two' } },
   }, {
     folds = { { start_line = 2, end_line = 3 } },
+    foldenable = true,
     foldmethod = 'manual',
     foldcolumn = 1,
     statuscolumn = '%C ',

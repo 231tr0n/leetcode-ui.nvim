@@ -370,23 +370,80 @@ T['api_question']['get_list reports failures and does not cache them'] = functio
   end)
 end
 
-T['api_question']['get_list ignores a non-numeric cache total'] = function()
+T['api_question']['get_list fetches when the cache total is non-numeric'] = function()
   local question = helpers.mod('api.question')
   local storage = helpers.mod('storage')
   storage.write_cache({ problems = { { title_slug = 'cached' } }, total = 'many', cache_time = os.time() })
 
-  local list = question.get_list()
-  eq(list.total, 1)
+  local calls = 0
+  helpers.with_stub('leetcode-ui.api', 'graphql', function()
+    calls = calls + 1
+    return { problemsetQuestionList = { total = 1, questions = { { title_slug = 'fresh' } } } }, nil
+  end, function()
+    local list = question.get_list()
+    eq(list.total, 1)
+    eq(list.questions[1].title_slug, 'fresh')
+    eq(calls, 1)
+  end)
 end
 
-T['api_question']['get_list uses a complete cache without a total field'] = function()
+T['api_question']['get_list fetches when the cache has no total'] = function()
   local question = helpers.mod('api.question')
   local storage = helpers.mod('storage')
   storage.write_cache({ problems = { { title_slug = 'cached' } }, cache_time = os.time() })
 
-  local list = question.get_list()
-  eq(list.total, 1)
-  eq(list.questions[1].title_slug, 'cached')
+  helpers.with_stub(
+    'leetcode-ui.api',
+    'graphql',
+    function() return { problemsetQuestionList = { total = 1, questions = { { title_slug = 'fresh' } } } }, nil end,
+    function()
+      local list = question.get_list()
+      eq(list.total, 1)
+      eq(list.questions[1].title_slug, 'fresh')
+    end
+  )
+end
+
+T['api_question']['get_list keeps cached problems when the total is unchanged'] = function()
+  local question = helpers.mod('api.question')
+  local storage = helpers.mod('storage')
+  storage.write_cache({ problems = { { title_slug = 'cached' } }, total = 1, cache_time = 0 })
+
+  local calls = 0
+  helpers.with_stub('leetcode-ui.api', 'graphql', function()
+    calls = calls + 1
+    return { problemsetQuestionList = { total = 1, questions = { { title_slug = 'fresh' } } } }, nil
+  end, function()
+    local list = question.get_list()
+    eq(calls, 1)
+    eq(list.total, 1)
+    eq(list.questions[1].title_slug, 'cached')
+    eq(storage.read_cache().cache_time > 0, true)
+  end)
+end
+
+T['api_question']['get_list updates cached problems when the total changes'] = function()
+  local question = helpers.mod('api.question')
+  local storage = helpers.mod('storage')
+  storage.write_cache({ problems = { { title_slug = 'cached' } }, total = 1, cache_time = 0 })
+
+  local calls = 0
+  helpers.with_stub('leetcode-ui.api', 'graphql', function()
+    calls = calls + 1
+    return {
+      problemsetQuestionList = {
+        total = 2,
+        questions = { { title_slug = 'fresh-a' }, { title_slug = 'fresh-b' } },
+      },
+    },
+      nil
+  end, function()
+    local list = question.get_list()
+    eq(calls, 1)
+    eq(list.total, 2)
+    eq(list.questions[2].title_slug, 'fresh-b')
+    eq(storage.read_cache().total, 2)
+  end)
 end
 
 T['api_question']['find_in_list uses the cache then falls back'] = function()

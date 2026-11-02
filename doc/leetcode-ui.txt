@@ -385,8 +385,8 @@ Show a buffer in the central window.
 Parameters ~
 {bufnr} `(number)`
 {opts} `(table|nil)` Options: `number`, `wrap`, `cursorline`,
-`cursorline_hl`, `hide_cursor`, `foldmethod`, `foldcolumn`,
-`statuscolumn`, and `folds`.
+`cursorline_hl`, `hide_cursor`, `signcolumn`, `foldenable`, `foldmethod`,
+`foldcolumn`, `statuscolumn`, and `folds`.
 Return ~
 `(number)` winid
 
@@ -431,7 +431,7 @@ Create or reuse a scratch buffer.
 
 Parameters ~
 {name} `(string)` Unique buffer name.
-{opts} `(table|nil)` { listed = boolean, ft = string, modifiable = boolean }
+{opts} `(table|nil)` { listed = boolean, ft = string, modifiable = boolean, buftype = string }
 Return ~
 `(number)` bufnr
 
@@ -1290,7 +1290,8 @@ Return ~
 ------------------------------------------------------------------------------
                                                    *LeetCodeQuestion.get_list()*
                          `LeetCodeQuestion.get_list`()
-Fetch the full problem list, using the on-disk cache when fresh.
+Fetch the full problem list, using the on-disk cache when fresh and complete.
+The cache contents are only replaced when the API reports a different total.
 
 Return ~
 `(table|nil)` { total, questions }
