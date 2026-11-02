@@ -103,7 +103,7 @@ LeetCodeSolution.prepare = function(view)
     ft = LeetCodeSolution.filetype(view.lang),
     listed = true,
   })
-  vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, vim.split(content, '\n'))
+  LeetCodeSolution.set_code(view, content)
 end
 
 --- Apply buffer options and draft persistence for a view.
@@ -137,7 +137,9 @@ end
 ---@return string
 LeetCodeSolution.code = function(view)
   if view.code_bufnr == nil or not vim.api.nvim_buf_is_valid(view.code_bufnr) then return '' end
-  return table.concat(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false), '\n')
+  local lines = vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)
+  if lines[1] == '' then table.remove(lines, 1) end
+  return table.concat(lines, '\n')
 end
 
 --- Replace the code buffer contents.
@@ -145,7 +147,9 @@ end
 ---@param view table
 ---@param content string
 LeetCodeSolution.set_code = function(view, content)
-  vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, vim.split(content, '\n'))
+  local lines = vim.split(content, '\n')
+  table.insert(lines, 1, '')
+  vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, lines)
 end
 
 --- Format the current code using LeetCode's formatter, a CLI formatter, or LSP.
@@ -207,6 +211,7 @@ LeetCodeSolution.format = function(view)
   local get_clients = vim.lsp.get_clients or vim.lsp.get_active_clients
   local clients = get_clients({ bufnr = view.code_bufnr, method = 'textDocument/formatting' })
   if #clients > 0 and pcall(vim.lsp.buf.format, { bufnr = view.code_bufnr, async = false }) then
+    LeetCodeSolution.set_code(view, LeetCodeSolution.code(view))
     LeetCodeSolution.save_draft(view)
     view.busy = false
     log.info('Code formatted with LSP')

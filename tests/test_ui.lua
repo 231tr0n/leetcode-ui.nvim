@@ -20,6 +20,7 @@ T['window']['ensure opens one reusable window'] = function()
   eq(first, second)
   eq(ui.is_open(), true)
   eq(vim.api.nvim_win_get_buf(first), ui.panel())
+  eq(vim.api.nvim_win_get_config(first).title, nil)
 end
 
 T['window']['panel is a read-only scratch buffer'] = function()
@@ -48,34 +49,19 @@ T['render']['renders spans and keeps the panel read-only'] = function()
   eq(vim.api.nvim_get_option_value('number', { win = winid }), false)
 end
 
-T['render']['pad_top adds exactly one virtual line above the content'] = function()
+T['render']['pad_top adds one empty line before the content'] = function()
   local ui = helpers.mod('ui')
-  local buffer = helpers.mod('buffer')
-  local bufnr = buffer.scratch('leetcode-ui://pad-top')
-  buffer.spans_write(bufnr, { { { text = 'content' } } })
-
-  ui.show(bufnr, { pad_top = true })
-  ui.show(bufnr, { pad_top = true })
-
-  local padded = 0
-  for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(bufnr, -1, 0, -1, { details = true })) do
-    if mark[4].virt_lines ~= nil then padded = padded + 1 end
-  end
-  eq(padded, 1)
+  local winid = ui.render({ { { text = 'content' } } }, { pad_top = true })
+  local lines = vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)
+  eq(vim.api.nvim_win_get_buf(winid), ui.panel())
+  eq(lines[1], '')
+  eq(lines[2], 'content')
 end
 
 T['render']['does not pad by default'] = function()
   local ui = helpers.mod('ui')
-  local buffer = helpers.mod('buffer')
-  local bufnr = buffer.scratch('leetcode-ui://no-pad')
-  buffer.spans_write(bufnr, { { { text = 'content' } } })
-
-  ui.show(bufnr)
-  local padded = 0
-  for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(bufnr, -1, 0, -1, { details = true })) do
-    if mark[4].virt_lines ~= nil then padded = padded + 1 end
-  end
-  eq(padded, 0)
+  ui.render({ { { text = 'content' } } })
+  eq(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)[1], 'content')
 end
 
 T['render']['shows another buffer in the same window'] = function()

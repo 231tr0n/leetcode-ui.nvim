@@ -71,7 +71,7 @@ T['prepare']['loads the starter snippet'] = function()
   local view = helpers.fake_view()
   solution.prepare(view)
   eq(vim.api.nvim_buf_is_valid(view.code_bufnr), true)
-  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'class Solution:')
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'class Solution:')
   eq(vim.api.nvim_get_option_value('filetype', { buf = view.code_bufnr }), 'python')
 end
 
@@ -81,7 +81,15 @@ T['prepare']['prefers an existing draft'] = function()
   local solution = helpers.mod('solution')
   local view = helpers.fake_view()
   solution.prepare(view)
-  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'draft code')
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'draft code')
+end
+
+T['prepare']['strips the visual top padding from code'] = function()
+  local solution = helpers.mod('solution')
+  local view = helpers.fake_view()
+  solution.prepare(view)
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, 1, false)[1], '')
+  eq(solution.code(view), solution.snippet(view))
 end
 
 T['prepare']['reuses an existing buffer'] = function()
@@ -157,7 +165,7 @@ T['format']['applies LeetCode formatter output'] = function()
     function()
       solution.format(view)
       local lines = vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)
-      eq(lines[2], '    pass')
+      eq(lines[3], '    pass')
       eq(view.busy, false)
     end
   )
@@ -172,7 +180,7 @@ T['format']['supports plain-text formatter responses'] = function()
     function() return { status = 200, body = 'formatted' }, nil end,
     function()
       solution.format(view)
-      eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'formatted')
+      eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'formatted')
     end
   )
 end
@@ -183,7 +191,7 @@ T['format']['falls back to a CLI formatter'] = function()
   solution.cli_formatters.kotlin = { 'printf', 'formatted' }
   helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
     solution.format(view)
-    eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'formatted')
+    eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'formatted')
   end)
   solution.cli_formatters.kotlin = nil
 end
@@ -197,7 +205,7 @@ T['format']['falls back to LSP'] = function()
   vim.lsp.buf.format = function() vim.api.nvim_buf_set_lines(view.code_bufnr, 0, -1, true, { 'lsp formatted' }) end
   helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
     solution.format(view)
-    eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'lsp formatted')
+    eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'lsp formatted')
   end)
   vim.lsp.get_clients = original_clients
   vim.lsp.buf.format = original_format
@@ -238,7 +246,7 @@ T['reset']['restores the snippet and removes the draft'] = function()
   local view = with_code_buffer(helpers.fake_view(), 'junk')
   storage.write_draft('two-sum', 'python3', 'junk')
   solution.reset(view)
-  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'class Solution:')
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'class Solution:')
   eq(storage.read_draft('two-sum', 'python3'), nil)
   eq(pcall(solution.reset, { code_bufnr = 999999 }), true)
 end
@@ -254,7 +262,7 @@ T['switch_language']['switches, saves the old draft, and loads the new one'] = f
   solution.switch_language(view, 'golang')
   eq(view.lang, 'golang')
   eq(vim.api.nvim_get_option_value('filetype', { buf = view.code_bufnr }), 'go')
-  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'my go')
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[2], 'my go')
   eq(storage.read_draft('two-sum', 'python3'), 'my python')
 end
 

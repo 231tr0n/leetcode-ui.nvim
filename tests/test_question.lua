@@ -37,13 +37,6 @@ local function make_view()
   return view
 end
 
-local function has_virtual_padding(bufnr)
-  for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(bufnr, -1, 0, -1, { details = true })) do
-    if mark[4].virt_lines ~= nil then return true end
-  end
-  return false
-end
-
 T['module'] = new_set()
 
 T['module']['exposes the tab API'] = function()
@@ -127,7 +120,7 @@ T['open']['fetches and opens a question'] = function()
   eq(view.active, 'code')
   eq(view.show_hints, false)
   eq(vim.api.nvim_buf_is_valid(view.code_bufnr), true)
-  eq(has_virtual_padding(view.code_bufnr), true)
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, 1, false)[1], '')
   eq(vim.api.nvim_get_current_buf(), view.code_bufnr)
   eq(question.views['two-sum'], view)
   question.close(view)
@@ -181,7 +174,7 @@ T['tabs']['switches between all tabs'] = function()
   question.show_tab(view, 'description')
   eq(view.active, 'description')
   eq(vim.api.nvim_win_get_buf(ui.state.winid), ui.panel())
-  eq(has_virtual_padding(ui.panel()), true)
+  eq(vim.api.nvim_buf_get_lines(ui.panel(), 0, 1, false)[1], '')
   local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
   eq(helpers.contains(text, 'Two Sum'), true)
 
@@ -292,11 +285,13 @@ T['winbar']['renders tabs and busy state'] = function()
   ui.ensure()
   question.render_winbar(view)
   local winbar = vim.api.nvim_get_option_value('winbar', { win = ui.state.winid })
-  eq(helpers.contains(winbar, '%#LeetCodeHeader#Two Sum %#Normal#'), true)
-  eq(helpers.contains(winbar, 'LeetCode  '), false)
+  eq(helpers.contains(winbar, '%#LeetCodeHeader#LeetCode Two Sum %#Normal#'), true)
+  eq(helpers.contains(winbar, 'LeetCode'), true)
   eq(helpers.contains(winbar, 'Description'), true)
   eq(helpers.contains(winbar, 'Code (python3)'), true)
   eq(helpers.contains(winbar, '…'), true)
+  eq(helpers.contains(winbar, '%#LeetCodeTab# Description %#X%#Normal#'), true)
+  eq(helpers.contains(winbar, '%#LeetCodeTabActive# Code (python3) %#X%#Normal#'), true)
   for _, tab in ipairs({ 'Description', 'Code', 'Console', 'Info' }) do
     eq(helpers.contains(winbar, ('%%@v:lua.LeetCodeClick%s@'):format(tab)), true)
   end

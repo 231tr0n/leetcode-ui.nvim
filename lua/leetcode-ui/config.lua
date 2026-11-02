@@ -99,6 +99,8 @@ LeetCodeConfig.highlights = {
   LeetCodeMedium = { fg = '#ffab28' },
   LeetCodeHard = { fg = '#ff4772' },
   LeetCodeHeader = { fg = '#61afef', bold = true },
+  LeetCodeTab = { fg = '#81a2be' },
+  LeetCodeTabActive = { fg = '#ffab28', bold = true },
 }
 
 local default_config = {

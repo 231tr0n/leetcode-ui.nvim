@@ -117,6 +117,11 @@ T['highlights']['link highlights are not underlined'] = function()
   eq(link.underline, nil)
 end
 
+T['highlights']['active tab color differs from inactive tabs'] = function()
+  local config = require('leetcode-ui.config')
+  eq(config.highlights.LeetCodeTab.fg ~= config.highlights.LeetCodeTabActive.fg, true)
+end
+
 T['langs'] = new_set()
 
 T['langs']['get_lang returns metadata'] = function()

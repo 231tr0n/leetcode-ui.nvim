@@ -358,7 +358,7 @@ Show a buffer in the central window.
 
 Parameters ~
 {bufnr} `(number)`
-{opts} `(table|nil)` { number = boolean, wrap = boolean, pad_top = boolean }
+{opts} `(table|nil)` { number = boolean, wrap = boolean }
 Return ~
 `(number)` winid
 
