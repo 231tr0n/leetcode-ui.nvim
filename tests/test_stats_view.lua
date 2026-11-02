@@ -74,6 +74,14 @@ T['skills_lines']['renders sections and limits rows'] = function()
   eq(helpers.contains(text, 'Intermediate'), true)
   eq(helpers.contains(text, 'Tag12'), true)
   eq(helpers.contains(text, 'Tag2'), false)
+
+  local line_texts = helpers.mod('buffer').spans_to_texts(lines)
+  local skills_index, advanced_index = nil, nil
+  for index, line_text in ipairs(line_texts) do
+    if line_text == 'Skills' then skills_index = index end
+    if helpers.contains(line_text, 'Advanced') then advanced_index = index end
+  end
+  eq(advanced_index, skills_index + 1)
 end
 
 T['build_lines'] = new_set()

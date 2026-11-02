@@ -77,11 +77,13 @@ LeetCodeStatsView.skills_lines = function(tags)
     { 'Fundamental', tags.fundamental or {} },
   }
 
+  local first_section = true
   for _, section in ipairs(sections) do
     local name, rows = section[1], section[2]
     table.sort(rows, function(a, b) return (a.problems_solved or 0) > (b.problems_solved or 0) end)
     if #rows > 0 then
-      table.insert(lines, {})
+      if not first_section then table.insert(lines, {}) end
+      first_section = false
       table.insert(lines, { { text = ('  %s'):format(name), hl = 'LeetCodeLink' } })
       for index, row in ipairs(rows) do
         if index > 10 then break end
