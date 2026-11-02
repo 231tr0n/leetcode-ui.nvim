@@ -234,6 +234,40 @@ Default configuration:
   })
 <
 
+Highlight groups:
+
+All groups are linked to standard Neovim groups by default, so colorschemes
+control them. Override any group after setup with |nvim_set_hl()|:
+
+>lua
+  require('leetcode-ui').setup({})
+  vim.api.nvim_set_hl(0, 'LeetCodeOk', { fg = '#00ff00' })
+<
+
+- `LeetCodeOk` -> `String`
+- `LeetCodeErr` -> `DiagnosticError`
+- `LeetCodeWarn` -> `DiagnosticWarn`
+- `LeetCodeDim` -> `Comment`
+- `LeetCodeTitle` -> `Title`
+- `LeetCodeCode` -> `Identifier`
+- `LeetCodeLink` -> `DiagnosticInfo`
+- `LeetCodeItalic` -> `@markup.italic`
+- `LeetCodeEasy` -> `String`
+- `LeetCodeMedium` -> `DiagnosticWarn`
+- `LeetCodeHard` -> `DiagnosticError`
+- `LeetCodeHeader` -> `Title`
+- `LeetCodeTab` -> `DiagnosticInfo`
+- `LeetCodeTabActive` -> `String`
+- `LeetCodeCursorLine` -> `CursorLine`
+- `LeetCodeCursor` - hidden cursor used in read-only tabs
+- `LeetCodeNormalFloat` -> `NormalFloat`
+- `LeetCodeFloatBorder` -> `FloatBorder`
+- `LeetCodeWinBar` -> `WinBar`
+- `LeetCodeWinBarNC` -> `WinBarNC`
+
+Read-only tabs hide the cursor and use `LeetCodeCursorLine` for the active
+line. The Code tab uses the normal `Cursor` and `CursorLine` groups.
+
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeConfig.reset()*
@@ -358,7 +392,8 @@ Show a buffer in the central window.
 
 Parameters ~
 {bufnr} `(number)`
-{opts} `(table|nil)` { number = boolean, wrap = boolean }
+{opts} `(table|nil)` Options: `number`, `wrap`, `cursorline`,
+`cursorline_hl`, and `hide_cursor`.
 Return ~
 `(number)` winid
 

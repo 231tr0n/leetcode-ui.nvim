@@ -235,7 +235,7 @@ LeetCodeQuestionView.refresh = function(view)
 
   if view.active == 'code' then
     if view.code_bufnr ~= nil and vim.api.nvim_buf_is_valid(view.code_bufnr) then
-      ui.show(view.code_bufnr, { number = true, wrap = false, cursorline = vim.o.cursorline })
+      ui.show(view.code_bufnr, { number = true, wrap = false, cursorline = vim.go.cursorline })
     end
   else
     local lines = nil

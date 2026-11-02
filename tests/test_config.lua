@@ -130,7 +130,7 @@ T['highlights']['groups link to existing Neovim highlights'] = function()
       eq(spec.nocombine, true)
     else
       assert(type(spec.link) == 'string', 'highlight not linked: ' .. name)
-      eq(vim.fn.hlexists(spec.link), 1, 'missing link target for ' .. name .. ': ' .. spec.link)
+      assert(vim.fn.hlexists(spec.link) == 1, 'missing link target for ' .. name .. ': ' .. spec.link)
     end
   end
 end

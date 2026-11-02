@@ -87,6 +87,9 @@
 --- - `LeetCodeWinBar` -> `WinBar`
 --- - `LeetCodeWinBarNC` -> `WinBarNC`
 ---
+--- Read-only tabs hide the cursor and use `LeetCodeCursorLine` for the active
+--- line. The Code tab uses the normal `Cursor` and `CursorLine` groups.
+---
 ---@tag LeetCodeConfig
 ---@toc_entry Configuration
 

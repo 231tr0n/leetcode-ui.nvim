@@ -53,14 +53,14 @@ local function ensure_cursor_autocmd()
 end
 
 local function window_highlight(cursorline_hl)
-  local pairs = {
+  local groups = {
     'Normal:LeetCodeNormalFloat',
     'FloatBorder:LeetCodeFloatBorder',
     'WinBar:LeetCodeWinBar',
     'WinBarNC:LeetCodeWinBarNC',
   }
-  if cursorline_hl ~= nil then table.insert(pairs, 'CursorLine:' .. cursorline_hl) end
-  return table.concat(pairs, ',')
+  if cursorline_hl ~= nil then table.insert(groups, 'CursorLine:' .. cursorline_hl) end
+  return table.concat(groups, ',')
 end
 
 -- Helper functionality =============================================================================================
