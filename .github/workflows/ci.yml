@@ -98,7 +98,7 @@ jobs:
           timeout 300 nvim --headless -u scripts/minidoc.lua
 
       - name: Commit docs
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: regenerate"
           file_pattern: doc/*.txt
