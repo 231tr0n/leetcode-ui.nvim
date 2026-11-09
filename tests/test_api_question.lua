@@ -161,6 +161,28 @@ T['api_question']['get_list fetches when the cache total is non-numeric'] = func
   end)
 end
 
+T['api_question']['get_list fetches when a fresh cache has total zero'] = function()
+  local question = helpers.mod('api.question')
+  local storage = helpers.mod('storage')
+  storage.write_cache({
+    domain = 'leetcode.com',
+    problems = {},
+    total = 0,
+    cache_time = os.time(),
+  })
+
+  local calls = 0
+  helpers.with_stub('leetcode-ui.api', 'graphql', function()
+    calls = calls + 1
+    return { problemsetQuestionList = { total = 1, questions = { { title_slug = 'fresh' } } } }, nil
+  end, function()
+    local list = question.get_list()
+    eq(list.total, 1)
+    eq(list.questions[1].title_slug, 'fresh')
+    eq(calls, 1)
+  end)
+end
+
 T['api_question']['get_list fetches when the cache has no total'] = function()
   local question = helpers.mod('api.question')
   local storage = helpers.mod('storage')
@@ -720,6 +742,17 @@ T['api_question']['get_random retries paid-only questions'] = function()
     eq(question.get_random(), 'free')
     eq(calls, 2)
   end)
+end
+
+T['api_question']['get_random returns paid questions when premium is not hidden'] = function()
+  helpers.configure({ hide_premium = false })
+  local question = helpers.mod('api.question')
+  helpers.with_stub(
+    'leetcode-ui.api',
+    'graphql',
+    function() return { randomQuestion = { title_slug = 'paid', is_paid_only = true } }, nil end,
+    function() eq(question.get_random(), 'paid') end
+  )
 end
 
 T['api_question']['get_random reports when every premium retry is paid-only'] = function()

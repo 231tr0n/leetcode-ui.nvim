@@ -89,12 +89,6 @@ end
 
 local function question_payload(view) return { id = view.detail.id, title_slug = view.slug, lang_slug = view.lang } end
 
-local function has_code_buffer(view)
-  return view.code_bufnr ~= nil
-    and vim.api.nvim_buf_is_valid(view.code_bufnr)
-    and vim.api.nvim_buf_is_loaded(view.code_bufnr)
-end
-
 local function rendered_hints(view)
   local value = (view.detail or {}).hints
   if type(value) ~= 'table' then return {} end
@@ -422,6 +416,8 @@ LeetCodeQuestionView.open = function(title_slug)
     if generation ~= open_generation then return end
     LeetCodeQuestionView.loading_slugs[title_slug] = nil
     local current_key = auth.cache_key()
+    -- `cache_key()` can yield while importing browser cookies, so another
+    -- navigation may have invalidated this load.
     if generation ~= open_generation then return end
     if config.url_epoch ~= url_epoch or current_key ~= user_key then return end
     if err ~= nil or detail == nil then
@@ -434,10 +430,15 @@ LeetCodeQuestionView.open = function(title_slug)
     if not vim.tbl_contains(available, lang) then lang = available[1] or lang end
     if #available == 0 then log.warn('No supported solution language is available') end
 
+    local entry = questions.find_in_list(title_slug)
+    if generation ~= open_generation then return end
+    if ui.state.owner_serial ~= overlay_serial then return end
+    if config.url_epoch ~= url_epoch or auth.cache_key() ~= user_key then return end
+
     local view = {
       slug = title_slug,
       detail = detail,
-      entry = questions.find_in_list(title_slug) or {
+      entry = entry or {
         ac_rate = detail.ac_rate,
         status = questions.normalize_status(detail.status),
         topic_tags = detail.topic_tags,
@@ -466,7 +467,9 @@ end
 --- Close a question view.
 ---
 ---@param view table|nil
-LeetCodeQuestionView.close = function(view)
+---@param force boolean|nil Finalize even if the draft cannot be saved.
+---@param skip_save boolean|nil Skip saving when the caller already saved the draft.
+LeetCodeQuestionView.close = function(view, force, skip_save)
   view = view or LeetCodeQuestionView.current()
   if view == nil then
     invalidate_loads()
@@ -474,7 +477,10 @@ LeetCodeQuestionView.close = function(view)
     return
   end
 
-  if not solution.save_draft(view) then return end
+  if not skip_save and not solution.save_draft(view) then
+    if force ~= true then return end
+    log.error('Failed to save the solution draft before closing')
+  end
   view.closed = true
   if view.console ~= nil then view.console:stop_spinner() end
 
@@ -508,8 +514,17 @@ LeetCodeQuestionView.set_hints = function(view, show)
   else
     view.show_hints = show
   end
-  if view.show_hints and view.active ~= 'description' then
-    LeetCodeQuestionView.show_tab(view, 'description')
+  if view.show_hints then
+    if
+      view.active == 'description'
+      and LeetCodeQuestionView.active == view
+      and ui.is_open()
+      and ui.state.owner == 'question'
+    then
+      LeetCodeQuestionView.refresh(view)
+    else
+      LeetCodeQuestionView.show_tab(view, 'description')
+    end
   elseif view.active == 'description' then
     LeetCodeQuestionView.refresh(view)
   end
@@ -527,7 +542,7 @@ end
 LeetCodeQuestionView.reset_code = function(view)
   view = usable_view(view)
   if view == nil then return end
-  if not has_code_buffer(view) then
+  if not solution.has_code_buffer(view) then
     log.error('Solution buffer is missing; reopen the code tab')
     return
   end
@@ -543,7 +558,7 @@ end
 LeetCodeQuestionView.switch_language = function(view)
   view = usable_view(view)
   if view == nil then return end
-  if not has_code_buffer(view) then
+  if not solution.has_code_buffer(view) then
     log.error('Solution buffer is missing; reopen the code tab')
     return
   end
@@ -596,6 +611,40 @@ local function mark_running(view, indexes)
   LeetCodeQuestionView.show_tab(view, 'console')
 end
 
+local function case_result_for(result, position, single)
+  if result.compare == nil then
+    return {
+      status = result.status,
+      message = result.message,
+      runtime_ms = result.runtime_ms,
+      stdout = result.pretty_stdout,
+      answer = result.code_output,
+      expected_answer = result.expected_output,
+    }
+  end
+
+  local compare = type(result.compare) == 'string' and result.compare or tostring(result.compare)
+  local bit = single and compare:sub(1, 1) or compare:sub(position, position)
+  if bit == '' then bit = '0' end
+  local stdout_index = single and 1 or position
+  local stdouts = type(result.stdouts) == 'table' and result.stdouts or {}
+  local answers = type(result.answers) == 'table' and result.answers or {}
+  local expected_answers = type(result.expected_answers) == 'table' and result.expected_answers or {}
+
+  return {
+    status = result.status,
+    message = result.message,
+    runtime_ms = result.runtime_ms,
+    compare = bit,
+    correct = bit == '1' and 1 or 0,
+    total = 1,
+    stdout = stdouts[stdout_index] or result.pretty_stdout,
+    answer = answers[stdout_index] or result.code_output,
+    expected_answer = expected_answers[stdout_index] or result.expected_output,
+    is_submit = false,
+  }
+end
+
 local function run_cases(view, question, code, indexes, index)
   local cases = view.console.cases
   local result, err
@@ -636,41 +685,7 @@ local function run_cases(view, question, code, indexes, index)
   for _, case_index in ipairs(indexes) do
     local case = cases[case_index]
     case.running = false
-
-    local case_result
-    if result.compare ~= nil then
-      local compare = type(result.compare) == 'string' and result.compare or tostring(result.compare)
-      local bit = index ~= nil and compare:sub(1, 1) or compare:sub(case_index, case_index)
-      if bit == '' then bit = '0' end
-      local stdout_index = index ~= nil and 1 or case_index
-      local stdouts = type(result.stdouts) == 'table' and result.stdouts or {}
-      local answer = type(result.answers) == 'table' and result.answers[stdout_index] or nil
-      local expected_answer = type(result.expected_answers) == 'table' and result.expected_answers[stdout_index] or nil
-
-      case_result = {
-        status = result.status,
-        message = result.message,
-        runtime_ms = result.runtime_ms,
-        compare = bit,
-        correct = bit == '1' and 1 or 0,
-        total = 1,
-        stdout = stdouts[stdout_index] or result.pretty_stdout,
-        answer = answer or result.code_output,
-        expected_answer = expected_answer or result.expected_output,
-        is_submit = false,
-      }
-    else
-      case_result = {
-        status = result.status,
-        message = result.message,
-        runtime_ms = result.runtime_ms,
-        stdout = result.pretty_stdout,
-        answer = result.code_output,
-        expected_answer = result.expected_output,
-      }
-    end
-
-    view.console:set_case_result(case_index, case_result, false)
+    view.console:set_case_result(case_index, case_result_for(result, case_index, index ~= nil), false)
     if case.status == 'passed' then passed = passed + 1 end
   end
 
@@ -685,12 +700,16 @@ end
 --- Run all testcases or one testcase.
 ---
 ---@param view table|nil
----@param index number|string|nil
+---@param index any Testcase index (number or numeric string).
 LeetCodeQuestionView.run = function(view, index)
   view = usable_view(view)
   if view == nil then return end
-  if not has_code_buffer(view) then
+  if not solution.has_code_buffer(view) then
     log.error('Solution buffer is missing; reopen the code tab')
+    return
+  end
+  if view.console == nil then
+    log.error('Test console is missing; reopen the question')
     return
   end
 
@@ -761,12 +780,16 @@ end
 LeetCodeQuestionView.submit = function(view)
   view = usable_view(view)
   if view == nil then return end
-  if not has_code_buffer(view) then
+  if not solution.has_code_buffer(view) then
     log.error('Solution buffer is missing; reopen the code tab')
     return
   end
+  if view.console == nil then
+    log.error('Test console is missing; reopen the question')
+    return
+  end
 
-  if view.console ~= nil then view.console.submission_result = nil end
+  view.console.submission_result = nil
   view.busy = true
   local url_epoch = config.url_epoch
   local auth_epoch = config.auth_epoch

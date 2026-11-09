@@ -126,8 +126,8 @@ end
 
 --- Build all statistics lines.
 ---
---- `data` may contain `solved`, `languages`, `skills`, `err`, `session`, and
---- `streak` values; every field is optional.
+--- `data` may contain `solved`, `languages`, `skills`, `err`, `auth_err`,
+--- `session`, and `streak` values; every field is optional.
 ---
 ---@param data table
 ---@return table lines
@@ -139,6 +139,7 @@ LeetCodeStatsView.lines = function(data)
   local skills = type(data.skills) == 'table' and data.skills or nil
   local streak = type(data.streak) == 'table' and data.streak or nil
   local err = type(data.err) == 'string' and data.err or nil
+  local explicit_auth_err = type(data.auth_err) == 'string' and data.auth_err or nil
 
   local lines = {
     {
@@ -148,7 +149,7 @@ LeetCodeStatsView.lines = function(data)
   }
 
   local signed_in = session.signed_in == true
-  local auth_error = is_auth_error(err)
+  local auth_error = explicit_auth_err ~= nil or is_auth_error(err)
   if signed_in and not auth_error then
     local session_text = session.name or 'unknown'
     if session.is_premium then session_text = session_text .. ' (premium)' end
@@ -196,7 +197,7 @@ LeetCodeStatsView.lines = function(data)
     end
   end
 
-  if err ~= nil and not auth_error then
+  if err ~= nil and not is_auth_error(err) then
     table.insert(lines, {})
     local label = 'Statistics unavailable: '
     for index, line in ipairs(vim.split(err, '\n', { plain = true })) do
@@ -235,14 +236,15 @@ LeetCodeStatsView.open = function()
 
     local languages, skills, streak = nil, nil, nil
     local errors = { err }
+    local solved_auth_error = err ~= nil and is_auth_error(err)
 
-    if err == nil then
+    if current_generation ~= generation or ui.state.owner ~= 'stats' then return end
+
+    if auth_err == nil and session ~= nil and session.signed_in and not solved_auth_error then
       local language_err, skills_err, streak_err
       languages, language_err = stats.languages()
       skills, skills_err = stats.skills()
-      if session ~= nil and session.signed_in then
-        streak, streak_err = stats.streak()
-      end
+      streak, streak_err = stats.streak()
       if language_err ~= nil then table.insert(errors, language_err) end
       if skills_err ~= nil then table.insert(errors, skills_err) end
       if streak_err ~= nil then table.insert(errors, streak_err) end
@@ -250,26 +252,36 @@ LeetCodeStatsView.open = function()
 
     if current_generation ~= generation then return end
     local auth_error = false
+    local auth_messages, other_messages = {}, {}
     for _, message in ipairs(errors) do
-      if is_auth_error(message) then auth_error = true end
+      if message ~= nil then
+        if is_auth_error(message) then
+          auth_error = true
+          table.insert(auth_messages, message)
+        else
+          table.insert(other_messages, message)
+        end
+      end
     end
     local key_changed = auth.cache_key() ~= user_key
+    if current_generation ~= generation then return end
     if config.url_epoch ~= url_epoch or (key_changed and not auth_error) then
       if ui.state.owner == 'stats' then ui.close() end
       return
     end
     if ui.state.owner ~= 'stats' then return end
-
-    local messages = {}
-    for _, message in ipairs(errors) do
-      if message ~= nil then table.insert(messages, message) end
+    if key_changed then
+      solved, languages, skills, streak = nil, nil, nil, nil
     end
-    local display_err = #messages > 0 and table.concat(messages, '; ') or nil
+
+    local display_err = #other_messages > 0 and table.concat(other_messages, '; ') or nil
+    local display_auth_err = #auth_messages > 0 and table.concat(auth_messages, '; ') or nil
     local lines = LeetCodeStatsView.lines({
       solved = solved,
       languages = languages,
       skills = skills,
       err = display_err,
+      auth_err = display_auth_err,
       session = session,
       streak = streak,
     })
@@ -278,8 +290,8 @@ LeetCodeStatsView.open = function()
 
     if err ~= nil then
       log.warn('Statistics unavailable: ' .. err)
-    elseif display_err ~= nil then
-      log.warn('Some statistics are unavailable: ' .. display_err)
+    elseif display_err ~= nil or display_auth_err ~= nil then
+      log.warn('Some statistics are unavailable: ' .. (display_err or display_auth_err))
     else
       log.info('Statistics loaded')
     end

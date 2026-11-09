@@ -8,10 +8,10 @@
 --- |LeetCodeAuth.verify()| lazily runs the `userStatus` GraphQL query and
 --- caches successful results as `{ checked, signed_in, name, is_premium,
 --- user_id }` until reset, the first setup, or a credential/URL change.
---- Signed-out checks are not cached. With no resolved credentials, browser
---- caches are cleared so a fresh sign-in is found on the next check; sources
---- that rejected credentials stay skipped in `auto` browser mode until the
---- cookie cache TTL expires.
+--- Signed-out checks are not cached. With incomplete or missing credentials,
+--- browser caches are cleared so a fresh sign-in is found on the next check;
+--- sources that rejected credentials stay skipped in `auto` browser mode until
+--- the cookie cache TTL expires.
 ---@tag LeetCodeAuth
 ---@toc_entry Authentication
 
@@ -36,6 +36,7 @@ local session_key = nil
 LeetCodeAuth.cookie_file = function()
   local path = config.config.cookie_file
   if path == nil or path == '' then return nil end
+  path = path:gsub('^~[^/\\]*', function(user) return vim.fn.expand(user) end)
   return vim.fs.normalize(path)
 end
 
@@ -110,19 +111,23 @@ LeetCodeAuth.cache_key = function()
   local jar = LeetCodeAuth.cookie_file()
   if jar ~= nil then
     local session = jar_value(jar, 'LEETCODE_SESSION')
-    return 'jar:' .. vim.fn.sha256(session ~= nil and session or jar)
+    local csrf = jar_value(jar, 'csrftoken')
+    if session == nil and csrf == nil then return 'jar:' .. vim.fn.sha256(jar) end
+    return 'jar:' .. vim.fn.sha256((session or '') .. '\0' .. (csrf or ''))
   end
 
-  local session = LeetCodeAuth.cookies().LEETCODE_SESSION
+  local cookies = LeetCodeAuth.cookies()
+  local session = cookies.LEETCODE_SESSION
   if session == nil or session == '' then return 'anonymous' end
-  return 'session:' .. vim.fn.sha256(session)
+  return 'session:' .. vim.fn.sha256(session .. '\0' .. (cookies.csrftoken or ''))
 end
 
 --- Whether complete session credentials are available.
 ---
 ---@return boolean
 LeetCodeAuth.has_session = function()
-  if LeetCodeAuth.cookie_file() ~= nil then return true end
+  local jar = LeetCodeAuth.cookie_file()
+  if jar ~= nil then return jar_value(jar, 'LEETCODE_SESSION') ~= nil and jar_value(jar, 'csrftoken') ~= nil end
   local cookies = LeetCodeAuth.cookies()
   return type(cookies.LEETCODE_SESSION) == 'string'
     and cookies.LEETCODE_SESSION ~= ''
@@ -186,6 +191,8 @@ end
 ---@return string|nil err
 LeetCodeAuth.handle_status = function(res)
   if res == nil then return nil, 'Network request failed' end
+  -- `net` retries transient 403 responses; a final 401/403 is treated as
+  -- expired or rejected credentials.
   if res.status == 401 or res.status == 403 then
     LeetCodeAuth.reset()
     require('leetcode-ui.browser').reset_cookies()
@@ -202,7 +209,11 @@ end
 ---@return string|nil err
 LeetCodeAuth.verify = function()
   if LeetCodeAuth.session ~= nil and LeetCodeAuth.session.checked then
-    if session_key == LeetCodeAuth.cache_key() then return LeetCodeAuth.session, nil end
+    local generation = verify_generation
+    local key = LeetCodeAuth.cache_key()
+    if generation == verify_generation and LeetCodeAuth.session.checked and session_key == key then
+      return LeetCodeAuth.session, nil
+    end
     LeetCodeAuth.reset()
   end
   local generation = verify_generation

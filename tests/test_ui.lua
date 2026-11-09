@@ -23,6 +23,237 @@ T['window']['ensure opens one reusable window'] = function()
   eq(vim.api.nvim_win_get_config(first).title, nil)
 end
 
+T['window']['enables mini.clue triggers once for unlisted buffers'] = function()
+  local ui = helpers.mod('ui')
+  local buffer = helpers.mod('buffer')
+  local original = rawget(_G, 'MiniClue')
+  local seen = {}
+  _G.MiniClue = {
+    ensure_buf_triggers = function(bufnr) table.insert(seen, bufnr) end,
+  }
+  MiniTest.finally(function() _G.MiniClue = original end)
+
+  local lines = { { { text = 'content' } } }
+  ui.render(lines)
+  ui.render(lines)
+  eq(#seen, 1)
+  eq(seen[1], ui.panel())
+
+  _G.MiniClue.config = {}
+  ui.render(lines)
+  eq(#seen, 2)
+
+  -- Listed buffers are managed by mini.clue itself.
+  local code = buffer.scratch('leetcode-ui://clue-code', { ft = 'lua', listed = true })
+  ui.show(code, {})
+  eq(vim.tbl_contains(seen, code), false)
+end
+
+T['window']['ignores missing or failing mini.clue integrations'] = function()
+  local ui = helpers.mod('ui')
+  local original = rawget(_G, 'MiniClue')
+  MiniTest.finally(function() _G.MiniClue = original end)
+
+  _G.MiniClue = nil
+  eq(pcall(ui.render, { { { text = 'content' } } }), true)
+
+  _G.MiniClue = { ensure_buf_triggers = function() error('boom') end }
+  ui.close()
+  eq(pcall(ui.render, { { { text = 'content' } } }), true)
+
+  local seen = {}
+  _G.MiniClue = { ensure_buf_triggers = function(bufnr) table.insert(seen, bufnr) end }
+  ui.render({ { { text = 'content' } } })
+  eq(vim.tbl_contains(seen, ui.panel()), true)
+end
+
+T['window']['re-enables mini.clue triggers after recording'] = function()
+  local ui = helpers.mod('ui')
+  local original = rawget(_G, 'MiniClue')
+  local seen = {}
+  _G.MiniClue = {
+    config = {},
+    ensure_buf_triggers = function(bufnr) table.insert(seen, bufnr) end,
+  }
+  MiniTest.finally(function() _G.MiniClue = original end)
+
+  ui.render({ { { text = 'content' } } })
+  eq(#seen, 1)
+  vim.api.nvim_exec_autocmds('RecordingLeave', {})
+  eq(helpers.wait_for(function() return #seen == 2 end), true)
+  eq(#seen, 2)
+end
+
+T['window']['does not cache mini.clue triggers while disabled'] = function()
+  local ui = helpers.mod('ui')
+  local original = rawget(_G, 'MiniClue')
+  local seen = {}
+  _G.MiniClue = {
+    config = {},
+    ensure_buf_triggers = function(bufnr) table.insert(seen, bufnr) end,
+  }
+  vim.g.miniclue_disable = true
+  MiniTest.finally(function()
+    _G.MiniClue = original
+    vim.g.miniclue_disable = nil
+  end)
+
+  ui.render({ { { text = 'content' } } })
+  eq(#seen, 0)
+  vim.g.miniclue_disable = false
+  vim.b[ui.panel()].miniclue_disable = true
+  ui.render({ { { text = 'content' } } })
+  eq(#seen, 0)
+  vim.b[ui.panel()].miniclue_disable = nil
+  ui.render({ { { text = 'content' } } })
+  eq(#seen, 1)
+end
+
+T['window']['resize uses the float tab rather than the current tab'] = function()
+  helpers.configure({ float_width = 40, float_height = 9 })
+  local ui = helpers.mod('ui')
+  local winid = ui.ensure()
+  local original = { showtabline = vim.o.showtabline, laststatus = vim.o.laststatus, cmdheight = vim.o.cmdheight }
+  MiniTest.finally(function()
+    vim.o.showtabline = original.showtabline
+    vim.o.laststatus = original.laststatus
+    vim.o.cmdheight = original.cmdheight
+    if ui.is_open() then ui.close() end
+    vim.cmd('silent! tabonly')
+  end)
+
+  vim.o.showtabline = 0
+  vim.o.laststatus = 1
+  vim.o.cmdheight = 1
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'laststatus' })
+  eq(vim.api.nvim_win_get_config(winid).row, 15)
+
+  vim.cmd('tabnew')
+  vim.cmd('split')
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'laststatus' })
+  eq(vim.api.nvim_win_get_config(winid).row, 15)
+end
+
+T['window']['recenters when showtabline or cmdheight changes'] = function()
+  helpers.configure({ float_width = 40, float_height = 9 })
+  local ui = helpers.mod('ui')
+  local winid = ui.ensure()
+  local original = { showtabline = vim.o.showtabline, laststatus = vim.o.laststatus, cmdheight = vim.o.cmdheight }
+  MiniTest.finally(function()
+    vim.o.showtabline = original.showtabline
+    vim.o.laststatus = original.laststatus
+    vim.o.cmdheight = original.cmdheight
+    if ui.is_open() then ui.close() end
+  end)
+
+  vim.o.showtabline = 1
+  vim.o.laststatus = 2
+  vim.o.cmdheight = 1
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'showtabline' })
+  eq(vim.api.nvim_win_get_config(winid).row, 14)
+
+  vim.o.showtabline = 2
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'showtabline' })
+  eq(vim.api.nvim_win_get_config(winid).row, 15)
+
+  vim.o.cmdheight = 2
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'cmdheight' })
+  eq(vim.api.nvim_win_get_config(winid).row, 14)
+end
+
+T['window']['recenters after closing a split with laststatus=1'] = function()
+  helpers.configure({ float_width = 40, float_height = 9 })
+  local ui = helpers.mod('ui')
+  local winid = ui.ensure()
+  local normal
+  for _, window in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_config(window).relative == '' then
+      normal = window
+      break
+    end
+  end
+  for _, window in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if window ~= winid and window ~= normal then pcall(vim.api.nvim_win_close, window, true) end
+  end
+  local original = { showtabline = vim.o.showtabline, laststatus = vim.o.laststatus, cmdheight = vim.o.cmdheight }
+  MiniTest.finally(function()
+    vim.o.showtabline = original.showtabline
+    vim.o.laststatus = original.laststatus
+    vim.o.cmdheight = original.cmdheight
+    if ui.is_open() then ui.close() end
+    vim.cmd('silent! only')
+  end)
+
+  vim.o.showtabline = 0
+  vim.o.laststatus = 1
+  vim.o.cmdheight = 1
+  vim.api.nvim_set_current_win(normal)
+  vim.cmd('split')
+  local split_win = vim.api.nvim_get_current_win()
+  local before = vim.api.nvim_win_get_config(winid).row
+  vim.api.nvim_win_close(split_win, true)
+
+  eq(helpers.wait_for(function() return vim.api.nvim_win_get_config(winid).row == 15 end), true)
+  eq(vim.api.nvim_win_get_config(winid).row, 15)
+  eq(before, 14)
+end
+
+T['window']['recenters when layout options change'] = function()
+  helpers.configure({ float_width = 40, float_height = 9 })
+  local ui = helpers.mod('ui')
+  local winid = ui.ensure()
+  local original = { laststatus = vim.o.laststatus, number = vim.o.number }
+  MiniTest.finally(function()
+    vim.o.laststatus = original.laststatus
+    vim.o.number = original.number
+  end)
+
+  local before = vim.api.nvim_win_get_config(winid).row
+  vim.o.laststatus = original.laststatus == 0 and 2 or 0
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'laststatus' })
+  eq(vim.api.nvim_win_get_config(winid).row, 15)
+  eq(before, 14)
+
+  local row = vim.api.nvim_win_get_config(winid).row
+  local buffer = helpers.mod('buffer')
+  local real_float_config = buffer.float_config
+  local calls = 0
+  helpers.with_stub('leetcode-ui.buffer', 'float_config', function(opts)
+    calls = calls + 1
+    return real_float_config(opts)
+  end, function()
+    vim.o.number = not vim.o.number
+    vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'number' })
+  end)
+  eq(vim.api.nvim_win_get_config(winid).row, row)
+  eq(calls, 0)
+end
+
+T['window']['recenters when tabs are opened and closed'] = function()
+  helpers.configure({ float_width = 40, float_height = 8 })
+  local ui = helpers.mod('ui')
+  local winid = ui.ensure()
+  local original = { showtabline = vim.o.showtabline, laststatus = vim.o.laststatus, cmdheight = vim.o.cmdheight }
+  MiniTest.finally(function()
+    vim.o.showtabline = original.showtabline
+    vim.o.laststatus = original.laststatus
+    vim.o.cmdheight = original.cmdheight
+    if ui.is_open() then ui.close() end
+    vim.cmd('silent! tabonly')
+  end)
+
+  vim.o.showtabline = 1
+  vim.o.laststatus = 0
+  vim.o.cmdheight = 1
+  vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'laststatus' })
+  eq(vim.api.nvim_win_get_config(winid).row, 15)
+
+  vim.cmd('tabnew')
+  eq(helpers.wait_for(function() return vim.api.nvim_win_get_config(winid).row == 16 end), true)
+  vim.cmd('tabclose')
+  eq(helpers.wait_for(function() return vim.api.nvim_win_get_config(winid).row == 15 end), true)
+end
+
 T['window']['panel is a read-only scratch buffer'] = function()
   local ui = helpers.mod('ui')
   local panel = ui.panel()
@@ -108,7 +339,7 @@ end
 T['render']['read-only views hide the cursor and highlight the active line'] = function()
   local ui = helpers.mod('ui')
   local original_guicursor = vim.o.guicursor
-  local test_guicursor = 'a:block,c:ver50,ci:ver50,cr:ver50'
+  local test_guicursor = 'n-v-c-sm:block,c:ver50-iCursor-blinkon50,ci:ver50,cr:ver50'
   vim.o.guicursor = test_guicursor
   MiniTest.finally(function()
     vim.o.guicursor = original_guicursor
@@ -116,8 +347,9 @@ T['render']['read-only views hide the cursor and highlight the active line'] = f
   end)
   local winid = ui.render({ { { text = 'content' } } }, { pad_top = true })
 
-  eq(helpers.contains(vim.o.guicursor, 'a:LeetCodeCursor'), true)
-  eq(helpers.contains(vim.o.guicursor, 'c:ver50'), true)
+  eq(helpers.contains(vim.o.guicursor, 'n-v-ve-o-i-r-sm:LeetCodeCursor'), true)
+  eq(helpers.contains(vim.o.guicursor, 'c:ver50-iCursor-blinkon50'), true)
+  eq(helpers.contains(vim.o.guicursor, 'ci:ver50'), true)
   eq(vim.api.nvim_get_option_value('cursorline', { win = winid }), true)
   local winhl = vim.api.nvim_get_option_value('winhighlight', { win = winid })
   eq(helpers.contains(winhl, 'CursorLine:LeetCodeCursorLine'), true)
@@ -131,6 +363,47 @@ T['render']['read-only views hide the cursor and highlight the active line'] = f
 
   ui.close()
   eq(vim.o.guicursor, test_guicursor)
+end
+
+T['render']['restores the cursor when leaving the central window'] = function()
+  local ui = helpers.mod('ui')
+  local original_guicursor = vim.o.guicursor
+  local test_guicursor = 'a:block,c:ver50,ci:ver50,cr:ver50'
+  vim.o.guicursor = test_guicursor
+  MiniTest.finally(function()
+    vim.o.guicursor = original_guicursor
+    ui.close()
+  end)
+
+  ui.render({ { { text = 'content' } } })
+  eq(helpers.contains(vim.o.guicursor, 'n-v-ve-o-i-r-sm:LeetCodeCursor'), true)
+
+  vim.cmd('new')
+  local other_win = vim.api.nvim_get_current_win()
+  local other_buf = vim.api.nvim_get_current_buf()
+  MiniTest.finally(function()
+    if vim.api.nvim_win_is_valid(other_win) then pcall(vim.api.nvim_win_close, other_win, true) end
+    pcall(vim.api.nvim_buf_delete, other_buf, { force = true })
+  end)
+  eq(vim.o.guicursor, test_guicursor)
+
+  vim.api.nvim_set_current_win(ui.state.winid)
+  eq(helpers.contains(vim.o.guicursor, 'n-v-ve-o-i-r-sm:LeetCodeCursor'), true)
+end
+
+T['render']['handles an empty guicursor'] = function()
+  local ui = helpers.mod('ui')
+  local original_guicursor = vim.o.guicursor
+  vim.o.guicursor = ''
+  MiniTest.finally(function()
+    vim.o.guicursor = original_guicursor
+    ui.close()
+  end)
+
+  ui.render({ { { text = 'content' } } })
+  eq(helpers.contains(vim.o.guicursor, 'n-v-ve-o-i-r-sm:LeetCodeCursor'), true)
+  ui.close()
+  eq(vim.o.guicursor, '')
 end
 
 T['render']['shows another buffer in the same window'] = function()

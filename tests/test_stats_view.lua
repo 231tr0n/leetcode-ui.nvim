@@ -291,6 +291,79 @@ T['open']['renders sign-in guidance when statistics fail'] = function()
   )
 end
 
+T['open']['keeps independent sections when solved fails'] = function()
+  local stats_view = helpers.mod('stats_view')
+  local ui = helpers.mod('ui')
+  helpers.with_stub(
+    'leetcode-ui.auth',
+    'verify',
+    function() return { signed_in = true, name = 'user' }, nil end,
+    function()
+      helpers.with_stub('leetcode-ui.api.stats', 'solved', function() return nil, 'HTTP 500' end, function()
+        helpers.with_stub(
+          'leetcode-ui.api.stats',
+          'languages',
+          function() return { { language_name = 'Python3', problems_solved = 3 } }, nil end,
+          function()
+            helpers.with_stub(
+              'leetcode-ui.api.stats',
+              'skills',
+              function() return { fundamental = { { tag_name = 'Array', problems_solved = 2 } } }, nil end,
+              function()
+                helpers.with_stub(
+                  'leetcode-ui.api.stats',
+                  'streak',
+                  function() return { streak_count = 1 }, nil end,
+                  function() stats_view.open() end
+                )
+              end
+            )
+          end
+        )
+      end)
+    end
+  )
+
+  local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, 'Languages'), true)
+  eq(helpers.contains(text, 'Skills'), true)
+  eq(helpers.contains(text, 'streak: 1'), true)
+  eq(helpers.contains(text, 'Statistics unavailable: HTTP 500'), true)
+end
+
+T['open']['renders non-auth errors alongside session errors'] = function()
+  local stats_view = helpers.mod('stats_view')
+  local ui = helpers.mod('ui')
+  helpers.with_stub(
+    'leetcode-ui.auth',
+    'verify',
+    function() return { signed_in = true, name = 'user' }, nil end,
+    function()
+      helpers.with_stub('leetcode-ui.api.stats', 'solved', function() return nil, 'HTTP 500' end, function()
+        helpers.with_stub(
+          'leetcode-ui.api.stats',
+          'languages',
+          function() return nil, 'Authentication failed or session expired (check cookies)' end,
+          function()
+            helpers.with_stub('leetcode-ui.api.stats', 'skills', function() return {}, nil end, function()
+              helpers.with_stub(
+                'leetcode-ui.api.stats',
+                'streak',
+                function() return {}, nil end,
+                function() stats_view.open() end
+              )
+            end)
+          end
+        )
+      end)
+    end
+  )
+
+  local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, 'Session expired'), true)
+  eq(helpers.contains(text, 'Statistics unavailable: HTTP 500'), true)
+end
+
 T['open']['discards results after a credential change during the request'] = function()
   local stats_view = helpers.mod('stats_view')
   local ui = helpers.mod('ui')
@@ -322,6 +395,39 @@ T['open']['discards results after a credential change during the request'] = fun
   eq(ui.is_open(), false)
 end
 
+T['open']['discards results after a domain change during the request'] = function()
+  local stats_view = helpers.mod('stats_view')
+  local ui = helpers.mod('ui')
+  local config = helpers.mod('config')
+  local epoch = config.url_epoch
+  MiniTest.finally(function() config.url_epoch = epoch end)
+
+  helpers.with_stub(
+    'leetcode-ui.auth',
+    'verify',
+    function() return { signed_in = true, name = 'user' }, nil end,
+    function()
+      helpers.with_stub('leetcode-ui.api.stats', 'solved', function()
+        config.url_epoch = epoch + 1
+        return { total = {}, solved = {} }, nil
+      end, function()
+        helpers.with_stub('leetcode-ui.api.stats', 'languages', function() return {}, nil end, function()
+          helpers.with_stub('leetcode-ui.api.stats', 'skills', function() return {}, nil end, function()
+            helpers.with_stub(
+              'leetcode-ui.api.stats',
+              'streak',
+              function() return {}, nil end,
+              function() stats_view.open() end
+            )
+          end)
+        end)
+      end)
+    end
+  )
+
+  eq(ui.is_open(), false)
+end
+
 T['open']['renders authentication errors even when the credential state resets'] = function()
   local stats_view = helpers.mod('stats_view')
   local ui = helpers.mod('ui')
@@ -342,6 +448,46 @@ T['open']['renders authentication errors even when the credential state resets']
   local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
   eq(helpers.contains(text, 'Session expired'), true)
   eq(ui.is_open(), true)
+end
+
+T['open']['discards old payloads when credentials change alongside an auth error'] = function()
+  local stats_view = helpers.mod('stats_view')
+  local ui = helpers.mod('ui')
+  local key = 'old-user'
+
+  helpers.with_stub('leetcode-ui.auth', 'cache_key', function() return key end, function()
+    helpers.with_stub(
+      'leetcode-ui.auth',
+      'verify',
+      function() return { signed_in = true, name = 'user' }, nil end,
+      function()
+        helpers.with_stub(
+          'leetcode-ui.api.stats',
+          'solved',
+          function() return { total = { Easy = 10 }, solved = { Easy = 5 } }, nil end,
+          function()
+            helpers.with_stub('leetcode-ui.api.stats', 'languages', function()
+              key = 'new-user'
+              return nil, 'Authentication failed or session expired (check cookies)'
+            end, function()
+              helpers.with_stub('leetcode-ui.api.stats', 'skills', function() return {}, nil end, function()
+                helpers.with_stub(
+                  'leetcode-ui.api.stats',
+                  'streak',
+                  function() return {}, nil end,
+                  function() stats_view.open() end
+                )
+              end)
+            end)
+          end
+        )
+      end
+    )
+  end)
+
+  local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, 'Session expired'), true)
+  eq(helpers.contains(text, 'Easy'), false)
 end
 
 T['open']['renders a failure instead of staying on the loading screen'] = function()
@@ -367,9 +513,30 @@ T['open']['reports authentication failures without querying statistics'] = funct
   local ui = helpers.mod('ui')
   helpers.with_stub('leetcode-ui.auth', 'verify', function() return nil, 'network down' end, function()
     helpers.with_stub('leetcode-ui.api.stats', 'solved', function() error('statistics should not load') end, function()
-      stats_view.open()
-      local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
-      eq(helpers.contains(text, 'network down'), true)
+      helpers.with_stub(
+        'leetcode-ui.api.stats',
+        'languages',
+        function() error('sections should not load') end,
+        function()
+          helpers.with_stub(
+            'leetcode-ui.api.stats',
+            'skills',
+            function() error('sections should not load') end,
+            function()
+              helpers.with_stub(
+                'leetcode-ui.api.stats',
+                'streak',
+                function() error('sections should not load') end,
+                function()
+                  stats_view.open()
+                  local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
+                  eq(helpers.contains(text, 'network down'), true)
+                end
+              )
+            end
+          )
+        end
+      )
     end)
   end)
 end
@@ -423,6 +590,7 @@ T['open']['ignores a superseded statistics request'] = function()
   local stats_view = helpers.mod('stats_view')
   local ui = helpers.mod('ui')
   local calls, thread = 0, nil
+  local sections = { languages = 0, skills = 0, streak = 0 }
 
   helpers.with_stub(
     'leetcode-ui.auth',
@@ -438,9 +606,18 @@ T['open']['ignores a superseded statistics request'] = function()
         end
         return { solved = { Easy = 1 }, total = { Easy = 2 } }, nil
       end, function()
-        helpers.with_stub('leetcode-ui.api.stats', 'languages', function() return {}, nil end, function()
-          helpers.with_stub('leetcode-ui.api.stats', 'skills', function() return {}, nil end, function()
-            helpers.with_stub('leetcode-ui.api.stats', 'streak', function() return nil, nil end, function()
+        helpers.with_stub('leetcode-ui.api.stats', 'languages', function()
+          sections.languages = sections.languages + 1
+          return {}, nil
+        end, function()
+          helpers.with_stub('leetcode-ui.api.stats', 'skills', function()
+            sections.skills = sections.skills + 1
+            return {}, nil
+          end, function()
+            helpers.with_stub('leetcode-ui.api.stats', 'streak', function()
+              sections.streak = sections.streak + 1
+              return nil, nil
+            end, function()
               stats_view.open()
               stats_view.open()
               eq(helpers.mod('async').resume(thread), true)
@@ -454,6 +631,53 @@ T['open']['ignores a superseded statistics request'] = function()
   local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
   eq(helpers.contains(text, 'stale response'), false)
   eq(helpers.contains(text, 'Easy'), true)
+  eq(sections, { languages = 1, skills = 1, streak = 1 })
+end
+
+T['open']['ignores a request superseded during the final credential check'] = function()
+  local stats_view = helpers.mod('stats_view')
+  local ui = helpers.mod('ui')
+  local solved_calls, thread = 0, nil
+  local yield_next, yielded = false, false
+
+  helpers.with_stub('leetcode-ui.auth', 'cache_key', function()
+    if yield_next and not yielded then
+      yielded = true
+      thread = coroutine.running()
+      coroutine.yield()
+    end
+    return 'user'
+  end, function()
+    helpers.with_stub(
+      'leetcode-ui.auth',
+      'verify',
+      function() return { signed_in = true, name = 'user' }, nil end,
+      function()
+        helpers.with_stub('leetcode-ui.api.stats', 'solved', function()
+          solved_calls = solved_calls + 1
+          if solved_calls == 1 then
+            yield_next = true
+            return { solved = { Easy = 1 }, total = { Easy = 2 } }, nil
+          end
+          return { solved = { Easy = 2 }, total = { Easy = 2 } }, nil
+        end, function()
+          helpers.with_stub('leetcode-ui.api.stats', 'languages', function() return {}, nil end, function()
+            helpers.with_stub('leetcode-ui.api.stats', 'skills', function() return {}, nil end, function()
+              helpers.with_stub('leetcode-ui.api.stats', 'streak', function() return nil, nil end, function()
+                stats_view.open()
+                stats_view.open()
+                eq(helpers.mod('async').resume(thread), true)
+              end)
+            end)
+          end)
+        end)
+      end
+    )
+  end)
+
+  local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, '   2/'), true)
+  eq(helpers.contains(text, '   1/'), false)
 end
 
 T['open']['does not verify twice for a signed-out session'] = function()
@@ -481,6 +705,7 @@ T['open']['does not reopen a closed view when a request finishes'] = function()
   local stats_view = helpers.mod('stats_view')
   local ui = helpers.mod('ui')
   local thread
+  local sections = { languages = 0, skills = 0, streak = 0 }
   helpers.with_stub(
     'leetcode-ui.auth',
     'verify',
@@ -491,13 +716,29 @@ T['open']['does not reopen a closed view when a request finishes'] = function()
         coroutine.yield()
         return nil, 'late response'
       end, function()
-        stats_view.open()
-        ui.close()
-        eq(helpers.mod('async').resume(thread), true)
-        eq(ui.is_open(), false)
+        helpers.with_stub('leetcode-ui.api.stats', 'languages', function()
+          sections.languages = sections.languages + 1
+          return {}, nil
+        end, function()
+          helpers.with_stub('leetcode-ui.api.stats', 'skills', function()
+            sections.skills = sections.skills + 1
+            return {}, nil
+          end, function()
+            helpers.with_stub('leetcode-ui.api.stats', 'streak', function()
+              sections.streak = sections.streak + 1
+              return nil, nil
+            end, function()
+              stats_view.open()
+              ui.close()
+              eq(helpers.mod('async').resume(thread), true)
+              eq(ui.is_open(), false)
+            end)
+          end)
+        end)
       end)
     end
   )
+  eq(sections, { languages = 0, skills = 0, streak = 0 })
 end
 
 T['session'] = new_set()
@@ -569,7 +810,7 @@ T['session']['discards notifications after a credential change'] = function()
   end)
   eq(verified, true)
   eq(streaked, true)
-  eq(#messages > 0, true)
+  eq(#messages, 1)
   for _, message in ipairs(messages) do
     eq(helpers.contains(message.message, 'user'), false)
     eq(helpers.contains(message.message, 'streak: 3'), false)

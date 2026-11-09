@@ -319,11 +319,7 @@ LeetCodeCommands.question_commands = {
         log.warn('Another action is already running')
         return
       end
-      if
-        view.code_bufnr == nil
-        or not vim.api.nvim_buf_is_valid(view.code_bufnr)
-        or not vim.api.nvim_buf_is_loaded(view.code_bufnr)
-      then
+      if not require('leetcode-ui.solution').has_code_buffer(view) then
         log.error('Solution buffer is missing; reopen the code tab')
         return
       end
@@ -347,11 +343,7 @@ LeetCodeCommands.question_commands = {
         log.warn('Another action is already running')
         return
       end
-      if
-        view.code_bufnr == nil
-        or not vim.api.nvim_buf_is_valid(view.code_bufnr)
-        or not vim.api.nvim_buf_is_loaded(view.code_bufnr)
-      then
+      if not require('leetcode-ui.solution').has_code_buffer(view) then
         log.error('Solution buffer is missing; reopen the code tab')
         return
       end

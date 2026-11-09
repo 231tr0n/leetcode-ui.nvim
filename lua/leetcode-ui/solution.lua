@@ -45,7 +45,11 @@ local function snippets(view)
   return type(value) == 'table' and value or {}
 end
 
-local function has_code_buffer(view)
+--- Whether the view is open and has a valid, loaded code buffer.
+---
+---@param view table|nil
+---@return boolean
+LeetCodeSolution.has_code_buffer = function(view)
   return view ~= nil
     and view.closed ~= true
     and view.code_bufnr ~= nil
@@ -53,9 +57,13 @@ local function has_code_buffer(view)
     and vim.api.nvim_buf_is_loaded(view.code_bufnr)
 end
 
+local has_code_buffer = LeetCodeSolution.has_code_buffer
+
 local function remote_formatted(lang_slug, code)
   local formatter = formatter_for(lang_slug)
   local remote = formatter.remote
+  -- Languages without an explicit formatter try LeetCode's `lsp-<slug>`
+  -- endpoint before falling back to LSP.
   if remote == nil and formatter.cli == nil then remote = { lang_slug } end
 
   local domain = config.config.url:gsub('^www%.', ''):lower()
@@ -236,6 +244,7 @@ LeetCodeSolution.open = function(view)
     vim.api.nvim_create_autocmd('BufLeave', {
       buffer = view.code_bufnr,
       callback = function()
+        if view.closed then return end
         if LeetCodeSolution.save_draft(view) then
           vim.api.nvim_set_option_value('modified', false, { buf = view.code_bufnr })
         end
@@ -338,14 +347,17 @@ LeetCodeSolution.format = function(view)
   view.busy = true
   log.info('Formatting code…')
 
-  local tick = vim.api.nvim_buf_get_changedtick(view.code_bufnr)
+  local bufnr = view.code_bufnr
+  local tick = vim.api.nvim_buf_get_changedtick(bufnr)
   local code = LeetCodeSolution.code(view)
   local formatted = remote_formatted(view.lang, code) or cli_formatted(view.lang, code)
-  if not has_code_buffer(view) then
+  local function still_usable() return has_code_buffer(view) and view.code_bufnr == bufnr end
+
+  if not still_usable() then
     view.busy = false
     return
   end
-  if vim.api.nvim_buf_get_changedtick(view.code_bufnr) ~= tick then
+  if vim.api.nvim_buf_get_changedtick(bufnr) ~= tick then
     view.busy = false
     log.warn('Code changed during formatting; result discarded')
     return
@@ -354,15 +366,17 @@ LeetCodeSolution.format = function(view)
   local message, level = 'No formatter is available for this language', vim.log.levels.WARN
   local changed = false
   if formatted ~= nil then
-    LeetCodeSolution.set_code(view, formatted)
-    changed = true
+    if formatted ~= code then
+      LeetCodeSolution.set_code(view, formatted)
+      changed = true
+    end
     message, level = 'Code formatted', vim.log.levels.INFO
-  elseif lsp_formatted(view.code_bufnr) then
-    if not has_code_buffer(view) then
+  elseif lsp_formatted(bufnr) then
+    if not still_usable() then
       view.busy = false
       return
     end
-    if vim.api.nvim_buf_get_changedtick(view.code_bufnr) == tick then
+    if vim.api.nvim_buf_get_changedtick(bufnr) == tick then
       message, level = 'Code is already formatted', vim.log.levels.INFO
     else
       LeetCodeSolution.set_code(view, LeetCodeSolution.code(view))
@@ -371,10 +385,11 @@ LeetCodeSolution.format = function(view)
     end
   end
 
-  local saved = LeetCodeSolution.save_draft(view)
+  local saved = true
+  if changed then saved = LeetCodeSolution.save_draft(view) end
   view.busy = false
   if not saved then
-    if changed then vim.api.nvim_set_option_value('modified', true, { buf = view.code_bufnr }) end
+    if changed and still_usable() then vim.api.nvim_set_option_value('modified', true, { buf = bufnr }) end
     log.notify('Failed to save the formatted code', vim.log.levels.ERROR)
     return
   end

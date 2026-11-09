@@ -39,6 +39,12 @@ T['api_stats']['username requires a verified signed-in session'] = function()
     eq(err, 'Not signed in (check cookies)')
   end)
 
+  helpers.with_stub('leetcode-ui.auth', 'verify', function() return { signed_in = true, name = '' }, nil end, function()
+    local name, err = stats.username()
+    eq(name, nil)
+    eq(err, 'Not signed in (check cookies)')
+  end)
+
   helpers.with_stub(
     'leetcode-ui.auth',
     'verify',
@@ -63,6 +69,22 @@ T['api_stats']['solved returns totals and counts'] = function()
       eq(solved.total.Easy, 10)
       eq(solved.solved.Easy, 3)
     end)
+  end)
+end
+
+T['api_stats']['solved rejects a missing user'] = function()
+  local stats = helpers.mod('api.stats')
+  helpers.with_stub('leetcode-ui.api.stats', 'username', function() return 'user', nil end, function()
+    helpers.with_stub(
+      'leetcode-ui.api',
+      'graphql',
+      function() return { allQuestionsCount = {}, matchedUser = vim.NIL }, nil end,
+      function()
+        local solved, err = stats.solved()
+        eq(solved, nil)
+        eq(err, 'User statistics are not available')
+      end
+    )
   end)
 end
 

@@ -17,6 +17,7 @@ H.new_set = MiniTest.new_set
 H.tmpdir = function()
   local dir = vim.fn.tempname() .. '-lcui-test'
   vim.fn.mkdir(dir, 'p')
+  dir = vim.fn.resolve(dir)
   _G.LEETCODE_UI_TEST_TEMP_DIRS = _G.LEETCODE_UI_TEST_TEMP_DIRS or {}
   table.insert(_G.LEETCODE_UI_TEST_TEMP_DIRS, dir)
   return dir
@@ -63,6 +64,13 @@ end
 ---
 ---@param opts table|nil Extra setup overrides.
 H.setup = function(opts)
+  -- Keep geometry tests independent of the host terminal size/options.
+  vim.o.lines = 40
+  vim.o.columns = 100
+  vim.o.laststatus = 2
+  vim.o.showtabline = 1
+  vim.o.cmdheight = 1
+
   local config = require('leetcode-ui.config')
   local previous_storage = config.config.storage_path
   config.setup({})
@@ -399,5 +407,19 @@ end
 
 --- Wait for an async predicate (default 5s).
 H.wait_for = function(predicate, ms) return vim.wait(ms or 5000, predicate, 20) end
+
+--- Snapshot editor layout options and restore them after the current case.
+H.preserve_layout = function()
+  local names = { 'showtabline', 'laststatus', 'cmdheight' }
+  local original = {}
+  for _, name in ipairs(names) do
+    original[name] = vim.o[name]
+  end
+  MiniTest.finally(function()
+    for _, name in ipairs(names) do
+      vim.o[name] = original[name]
+    end
+  end)
+end
 
 return H

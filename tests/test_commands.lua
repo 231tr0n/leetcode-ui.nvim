@@ -522,6 +522,8 @@ T['case']['requires explicit index and input arguments'] = function()
   helpers.mod('commands').run({ 'question', 'case', 'add' })
   helpers.mod('commands').run({ 'question', 'case', 'edit' })
   helpers.mod('commands').run({ 'question', 'case', 'edit', '1' })
+  helpers.mod('commands').run({ 'question', 'case', 'edit', '9', 'changed' })
+  helpers.mod('commands').run({ 'question', 'case', 'edit', '1', '' })
   helpers.mod('commands').run({ 'question', 'case', 'delete' })
   helpers.mod('commands').run({ 'question', 'case', 'delete', '9' })
 

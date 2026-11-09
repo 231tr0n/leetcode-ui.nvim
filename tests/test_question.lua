@@ -413,6 +413,55 @@ T['open']['does not open after closing during a load'] = function()
   eq(ui.is_open(), false)
 end
 
+T['open']['discards a load invalidated while resolving the cached entry'] = function()
+  local question = helpers.mod('question')
+  local ui = helpers.mod('ui')
+  ui.claim('stats')
+  ui.render({ { { text = 'statistics' } } }, { owner = 'stats' })
+
+  helpers.with_stub(
+    'leetcode-ui.api.question',
+    'get_detail',
+    function(slug) return helpers.fake_detail({ title_slug = slug }), nil end,
+    function()
+      helpers.with_stub('leetcode-ui.api.question', 'find_in_list', function()
+        question.close(nil)
+        return { ac_rate = 1, status = nil, topic_tags = {} }
+      end, function() question.open('late-question') end)
+    end
+  )
+
+  eq(question.views['late-question'], nil)
+  eq(question.loading_slugs['late-question'], nil)
+  eq(ui.state.owner, 'stats')
+end
+
+T['open']['discards a load invalidated while reading the cached entry'] = function()
+  local question = helpers.mod('question')
+  local keys = 0
+  helpers.with_stub('leetcode-ui.auth', 'cache_key', function()
+    keys = keys + 1
+    return keys < 3 and 'old-user' or 'new-user'
+  end, function()
+    helpers.with_stub(
+      'leetcode-ui.api.question',
+      'get_detail',
+      function(slug) return helpers.fake_detail({ title_slug = slug }), nil end,
+      function()
+        helpers.with_stub(
+          'leetcode-ui.api.question',
+          'find_in_list',
+          function() return { ac_rate = 1, status = nil, topic_tags = {} } end,
+          function() question.open('late-question') end
+        )
+      end
+    )
+  end)
+
+  eq(question.views['late-question'], nil)
+  eq(question.loading_slugs['late-question'], nil)
+end
+
 T['open']['does not reopen after an overlay is opened and closed during a load'] = function()
   local question = helpers.mod('question')
   local async = helpers.mod('async')
@@ -829,6 +878,37 @@ T['close']['removes an inactive view without closing the active one'] = function
   eq(vim.api.nvim_buf_is_valid(second.code_bufnr), true)
 end
 
+T['close']['external window close finalizes even when the draft cannot be saved'] = function()
+  local question, view = opened_view()
+  local ui = helpers.mod('ui')
+
+  helpers.with_stub(
+    'leetcode-ui.solution',
+    'save_draft',
+    function() return false end,
+    function() vim.api.nvim_win_close(ui.state.winid, true) end
+  )
+
+  eq(ui.is_open(), false)
+  eq(question.views[view.slug], nil)
+  eq(question.active, nil)
+  eq(vim.api.nvim_buf_is_valid(view.code_bufnr), false)
+end
+
+T['close']['skip_save skips draft persistence'] = function()
+  local question, view = opened_view()
+  local saves = 0
+
+  helpers.with_stub('leetcode-ui.solution', 'save_draft', function()
+    saves = saves + 1
+    return true
+  end, function() question.close(view, true, true) end)
+
+  eq(saves, 0)
+  eq(question.views[view.slug], nil)
+  eq(question.active, nil)
+end
+
 T['close']['tolerates a view without a console'] = function()
   local question = helpers.mod('question')
   local view = { slug = 'without-console' }
@@ -901,6 +981,25 @@ T['hints']['shows, hides, and toggles hints'] = function()
   question.close(view)
 end
 
+T['hints']['shows the description even when another overlay is open'] = function()
+  local question = helpers.mod('question')
+  local ui = helpers.mod('ui')
+  local view = make_view()
+  view.detail.hints = { '<p>overlay hint</p>' }
+  view.show_hints = false
+  view.active = 'description'
+  question.views[view.slug] = view
+  question.active = view
+
+  ui.claim('stats')
+  ui.render({ { { text = 'statistics' } } }, { owner = 'stats' })
+  question.set_hints(view, true)
+
+  eq(ui.state.owner, 'question')
+  local text = table.concat(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false), '\n')
+  eq(helpers.contains(text, 'overlay hint'), true)
+end
+
 T['hints']['indents continuation lines'] = function()
   local question = helpers.mod('question')
   local view = make_view()
@@ -912,6 +1011,25 @@ T['hints']['indents continuation lines'] = function()
     if helpers.contains(line, 'first') or helpers.contains(line, 'second') then table.insert(found, line) end
   end
   eq(found, { '1. first', '   second' })
+end
+
+T['hints']['preserves the description viewport when toggling'] = function()
+  local question = helpers.mod('question')
+  local ui = helpers.mod('ui')
+  local view = make_view()
+  view.detail.content = string.rep('<p>line</p>', 80)
+  view.detail.hints = { '<p>hint</p>' }
+  view.show_hints = false
+  view.active = 'description'
+  question.views[view.slug] = view
+  question.active = view
+  question.show_tab(view, 'description')
+
+  vim.api.nvim_win_call(ui.state.winid, function() vim.fn.winrestview({ topline = 30, lnum = 30 }) end)
+  question.set_hints(view, true)
+  local saved = vim.api.nvim_win_call(ui.state.winid, vim.fn.winsaveview)
+  eq(saved.topline, 30)
+  eq(saved.lnum, 30)
 end
 
 T['hints']['does nothing when a question has no hints'] = function()
@@ -1015,6 +1133,42 @@ T['switch_language']['uses the picker and switches'] = function()
   eq(refreshed, 1)
   eq(view.console.submission_result, nil)
   eq(view.console.cases[1].status, 'unknown')
+end
+
+T['switch_language']['uses the picker label when the backend omits an index'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  question.active = view
+  local switched = nil
+
+  helpers.with_stub('leetcode-ui.solution', 'languages', function() return { 'python3', 'golang' } end, function()
+    helpers.with_stub(
+      'leetcode-ui.solution',
+      'label',
+      function(slug) return slug == 'golang' and 'Go' or 'Python3' end,
+      function()
+        helpers.with_stub(
+          'leetcode-ui.picker',
+          'select',
+          function(_items, _title, on_choice) on_choice('Go', nil) end,
+          function()
+            helpers.with_stub('leetcode-ui.solution', 'switch_language', function(_, slug)
+              switched = slug
+              return true
+            end, function()
+              helpers.with_stub(
+                'leetcode-ui.question',
+                'refresh',
+                function() end,
+                function() question.switch_language(view) end
+              )
+            end)
+          end
+        )
+      end
+    )
+  end)
+  eq(switched, 'golang')
 end
 
 T['switch_language']['rejects a missing code buffer'] = function()
@@ -1219,7 +1373,7 @@ T['run']['stops silently when the view closes during polling'] = function()
   end)
 
   eq(interpreted, true)
-  eq(#messages > 0, true)
+  eq(#messages, 1)
   for _, message in ipairs(messages) do
     eq(message.level >= vim.log.levels.WARN, false)
   end
@@ -1247,6 +1401,24 @@ T['run']['rejects a missing code buffer'] = function()
   end)
   eq(calls, 0)
   eq(helpers.contains(messages[1].message, 'Solution buffer is missing'), true)
+  eq(view.busy, false)
+end
+
+T['run']['rejects a missing console'] = function()
+  helpers.configure({ notifications = true })
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.console = nil
+  question.active = view
+  local calls = 0
+  local messages = helpers.capture_notify(function()
+    with_runner_stubs(function()
+      calls = calls + 1
+      return nil, 'should not run'
+    end, function() question.run(view) end)
+  end)
+  eq(calls, 0)
+  eq(helpers.contains(messages[1].message, 'Test console is missing'), true)
   eq(view.busy, false)
 end
 
@@ -1482,6 +1654,24 @@ T['submit']['does not reopen a closed window after completing'] = function()
   eq(ui.is_open(), false)
   eq(question.views[view.slug], nil)
   eq(view.console.submission_result, nil)
+end
+
+T['submit']['rejects a missing console'] = function()
+  helpers.configure({ notifications = true })
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.console = nil
+  question.active = view
+  local calls = 0
+  local messages = helpers.capture_notify(function()
+    helpers.with_stub('leetcode-ui.api.runner', 'submit', function()
+      calls = calls + 1
+      return nil, 'should not submit'
+    end, function() question.submit(view) end)
+  end)
+  eq(calls, 0)
+  eq(helpers.contains(messages[1].message, 'Test console is missing'), true)
+  eq(view.busy, false)
 end
 
 T['submit']['omits absent runtime and memory from notifications'] = function()

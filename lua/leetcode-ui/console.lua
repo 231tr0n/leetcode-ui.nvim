@@ -56,13 +56,14 @@ LeetCodeConsole.new = function(view)
   }, { __index = LeetCodeConsole })
 end
 
---- Replace all testcases from raw inputs.
+--- Replace all testcases from raw inputs and clear any previous submission.
 ---
 ---@param console table
 ---@param testcases table|nil Array of raw inputs.
 LeetCodeConsole.set_cases = function(console, testcases)
   console.cases = cases_from(testcases)
   console.selected = 1
+  console.submission_result = nil
 end
 
 --- Normalize a testcase entered on one line.
@@ -236,7 +237,6 @@ LeetCodeConsole.reset_cases = function(console)
   if console.view ~= nil and not storage.write_testcases(console.view.slug, nil) then return end
   local testcases = console.view ~= nil and (console.view.detail or {}).testcases or {}
   console:set_cases(testcases)
-  console:clear_results()
   console:refresh()
 end
 
@@ -369,7 +369,7 @@ LeetCodeConsole.refresh = function(console)
   require('leetcode-ui.question').refresh(console.view)
 end
 
--- Refresh only when the console tab is visible.
+-- Refresh only when the console tab is selected.
 local function refresh_visible(console)
   if console.view ~= nil and console.view.active == 'console' then console:refresh() end
 end

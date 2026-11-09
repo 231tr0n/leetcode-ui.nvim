@@ -47,6 +47,15 @@ T['set_cases']['always leaves one case'] = function()
   eq(#console.cases, 1)
 end
 
+T['set_cases']['clears previous submission state'] = function()
+  local console = make_console({ '[1]\n1' })
+  console.submission_result = { status = 'Accepted' }
+  console.cases[1].status = 'passed'
+  console:set_cases({ '[2]\n2' })
+  eq(console.submission_result, nil)
+  eq(console.cases[1].status, 'unknown')
+end
+
 T['input'] = new_set()
 
 T['input']['normalizes literal backslash-n'] = function()

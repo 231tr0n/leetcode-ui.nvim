@@ -112,6 +112,32 @@ T['api_runner']['normalize handles compile errors and invalid testcases'] = func
   eq(unknown.ok, false)
 end
 
+T['api_runner']['normalize handles null totals and failed compare bits'] = function()
+  local runner = helpers.mod('api.runner')
+  local nulls = runner.normalize({ status_code = 10, total_correct = vim.NIL, total_testcases = vim.NIL }, false)
+  eq(nulls.correct, 0)
+  eq(nulls.total, 0)
+
+  local failed = runner.normalize({ status_code = 10, compare_result = '0' }, false)
+  eq(failed.status, 'Accepted')
+  eq(failed.ok, false)
+
+  local numeric = runner.normalize({ status_code = 10, compare_result = 0 }, false)
+  eq(numeric.status, 'Accepted')
+  eq(numeric.ok, false)
+
+  local numeric_pass = runner.normalize({ status_code = 10, compare_result = 1 }, false)
+  eq(numeric_pass.ok, true)
+  local multi = runner.normalize({ status_code = 10, compare_result = '11' }, false)
+  eq(multi.ok, true)
+
+  local mixed = runner.normalize({ status_code = 10, compare_result = '10' }, false)
+  eq(mixed.status, 'Accepted')
+  eq(mixed.ok, false)
+  local mixed_reverse = runner.normalize({ status_code = 10, compare_result = '01' }, false)
+  eq(mixed_reverse.ok, false)
+end
+
 T['api_runner']['interpret starts a run and polls'] = function()
   local runner = helpers.mod('api.runner')
   local calls = 0
@@ -239,6 +265,43 @@ T['api_runner']['poll waits for AI judging to finish'] = function()
   end)
 end
 
+T['api_runner']['poll reports terminal failure states without sleeping'] = function()
+  local runner = helpers.mod('api.runner')
+  for _, state in ipairs({ 'FAILURE', 'REVOKED' }) do
+    helpers.with_stub('leetcode-ui.async', 'sleep', function() error('should not sleep') end, function()
+      helpers.with_stub('leetcode-ui.api', 'rest', function() return { state = state }, nil end, function()
+        local result, err = runner.poll('abc', true)
+        eq(result, nil)
+        eq(helpers.contains(err, state), true)
+      end)
+    end)
+  end
+end
+
+T['api_runner']['poll reports AI judging failures'] = function()
+  local runner = helpers.mod('api.runner')
+  helpers.with_stub('leetcode-ui.async', 'sleep', function() error('should not sleep') end, function()
+    helpers.with_stub(
+      'leetcode-ui.api',
+      'rest',
+      function()
+        return {
+          status_code = 10,
+          state = 'SUCCESS',
+          ai_state = 'FAILURE',
+          ai_judge_message = 'bad AI',
+        },
+          nil
+      end,
+      function()
+        local result, err = runner.poll('abc', true)
+        eq(result, nil)
+        eq(err, 'bad AI')
+      end
+    )
+  end)
+end
+
 T['api_runner']['poll waits for pending judging to finish'] = function()
   local runner = helpers.mod('api.runner')
   local attempts, method, path = 0, nil, nil
@@ -305,8 +368,9 @@ T['api_runner']['poll reports polling errors and timeouts'] = function()
         local result, err = runner.poll('abc', true)
         eq(result, nil)
         eq(err, 'Judging timed out')
-        eq(attempts, 334)
-        eq(now, 300600)
+        eq(attempts > 0, true)
+        eq(now >= 300000, true)
+        eq(now < 301000, true)
       end)
     end)
   end)

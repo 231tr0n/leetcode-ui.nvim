@@ -13,6 +13,8 @@
 --- `testcases/{slug}.json` are migrated into the `leetcode.com` layout on
 --- first read; they are left untouched when another domain is configured.
 --- Changing `storage_path` copies saved drafts and testcases into the new root.
+--- A target nested inside the current root is rejected. The first setup in a
+--- new process does not migrate from the default root.
 ---@tag LeetCodeStorage
 ---@toc_entry Storage
 
@@ -27,11 +29,67 @@ LeetCodeStorage.root = nil
 
 -- Helper functionality =============================================================================================
 
+-- Resolve a path through symlinks, including dangling links and existing
+-- ancestors.
+local function resolve_path(path) return vim.fs.normalize(vim.fn.resolve(path)) end
+
+local function expand_user(path)
+  return (path:gsub('^~[^/\\]*', function(user) return vim.fn.expand(user) end))
+end
+
 local function root_path(configured)
   if configured == nil or configured == '' then configured = vim.fs.joinpath(vim.fn.stdpath('data'), 'leetcode-ui') end
-  configured = vim.fn.expand(configured)
-  return vim.fs.normalize(vim.fn.fnamemodify(configured, ':p'))
+  return resolve_path(vim.fn.fnamemodify(vim.fs.normalize(expand_user(configured)), ':p'))
 end
+
+local function delete_file(file)
+  if vim.fn.getftype(file) == '' then return true end
+  local ok, result = pcall(vim.fn.delete, file)
+  return ok and result == 0
+end
+
+local function write_file_lines(lines, file)
+  local ok, result = pcall(vim.fn.writefile, lines, file)
+  return ok and result == 0
+end
+
+local function write_atomic(lines, file)
+  local temp = ('%s.tmp.%d.%d'):format(file, vim.fn.getpid(), vim.uv.hrtime())
+  local ok = write_file_lines(lines, temp)
+  if ok then ok = vim.uv.fs_rename(temp, file) == true end
+  if not ok then delete_file(temp) end
+  return ok
+end
+
+-- Whether `path` is `parent` or is nested under it.
+local function path_is_within(path, parent)
+  path, parent = vim.fs.normalize(path), vim.fs.normalize(parent)
+  if vim.fn.has('win32') == 1 or vim.fn.has('mac') == 1 then
+    path, parent = path:lower(), parent:lower()
+  end
+  if path == parent then return true end
+  local prefix = parent:sub(-1) == '/' and parent or (parent .. '/')
+  return path:sub(1, #prefix) == prefix
+end
+
+local function ensure_dir(path)
+  local ok = pcall(vim.fn.mkdir, path, 'p')
+  return ok and vim.fn.isdirectory(path) == 1
+end
+
+local function path_equal(a, b)
+  a, b = vim.fs.normalize(a), vim.fs.normalize(b)
+  if a == b then return true end
+  if vim.fn.has('win32') == 1 or vim.fn.has('mac') == 1 then return a:lower() == b:lower() end
+  return false
+end
+
+--- Whether two paths identify the same location.
+---
+---@param a string
+---@param b string
+---@return boolean
+LeetCodeStorage.path_equal = function(a, b) return path_equal(a, b) end
 
 --- Ensure the storage directory layout exists.
 ---
@@ -44,9 +102,9 @@ LeetCodeStorage.init = function()
     return configured
   end
 
-  vim.fn.mkdir(configured, 'p')
-  vim.fn.mkdir(drafts, 'p')
-  vim.fn.mkdir(testcases, 'p')
+  if not ensure_dir(configured) or not ensure_dir(drafts) or not ensure_dir(testcases) then
+    log.error(('Failed to create storage directories under `%s`'):format(configured))
+  end
   LeetCodeStorage.root = configured
   return configured
 end
@@ -60,11 +118,15 @@ end
 LeetCodeStorage.migrate = function(target)
   local source_root = LeetCodeStorage.init()
   target = root_path(target)
-  if source_root == target then return true end
+  if path_equal(source_root, target) then return true end
+  if path_is_within(target, source_root) then
+    log.error('The new storage_path cannot be inside the current storage root')
+    return false
+  end
 
   local function copy_tree(source, destination)
     if vim.fn.isdirectory(source) == 0 then return true end
-    vim.fn.mkdir(destination, 'p')
+    if not ensure_dir(destination) then return false end
     local ok = true
     for name, kind in vim.fs.dir(source) do
       local from = vim.fs.joinpath(source, name)
@@ -73,11 +135,7 @@ LeetCodeStorage.migrate = function(target)
         ok = copy_tree(from, to) and ok
       elseif kind == 'file' and vim.fn.getftype(to) == '' then
         local read_ok, lines = pcall(vim.fn.readfile, from)
-        local write_ok, result = false, 1
-        if read_ok then
-          write_ok, result = pcall(vim.fn.writefile, lines, to)
-        end
-        if not read_ok or not write_ok or result ~= 0 then ok = false end
+        if not read_ok or not write_atomic(lines, to) then ok = false end
       end
     end
     return ok
@@ -98,9 +156,17 @@ LeetCodeStorage.cache_file = function() return vim.fs.joinpath(LeetCodeStorage.i
 
 local function domain_dir(kind)
   local dir = vim.fs.joinpath(LeetCodeStorage.init(), kind, config.config.url)
-  vim.fn.mkdir(dir, 'p')
+  if not ensure_dir(dir) then log.warn(('Failed to create `%s` storage directory'):format(kind)) end
   return dir
 end
+
+--- Absolute, symlink-resolved storage root for a configured path.
+---
+--- Uses `stdpath('data')/leetcode-ui` when `configured` is nil or empty.
+---
+---@param configured string|nil
+---@return string
+LeetCodeStorage.root_path = function(configured) return root_path(configured) end
 
 local function empty_cache() return { problems = {}, total = 0, cache_time = 0 } end
 
@@ -123,25 +189,6 @@ end
 
 local function file_component(value)
   return (tostring(value):gsub('[^%w_-]', function(char) return ('%%%02X'):format(char:byte()) end))
-end
-
-local function delete_file(file)
-  if vim.fn.getftype(file) == '' then return true end
-  local ok, result = pcall(vim.fn.delete, file)
-  return ok and result == 0
-end
-
-local function write_file_lines(lines, file)
-  local ok, result = pcall(vim.fn.writefile, lines, file)
-  return ok and result == 0
-end
-
-local function write_atomic(lines, file)
-  local temp = ('%s.tmp.%d.%d'):format(file, vim.fn.getpid(), vim.uv.hrtime())
-  local ok = write_file_lines(lines, temp)
-  if ok then ok = vim.uv.fs_rename(temp, file) == true end
-  if not ok then delete_file(temp) end
-  return ok
 end
 
 local function legacy_file(kind, file)
@@ -238,7 +285,9 @@ LeetCodeStorage.write_testcases = function(title_slug, inputs)
   local legacy = legacy_file('testcases', file)
   local ok
   if inputs == nil or type(inputs) ~= 'table' or #inputs == 0 then
-    ok = remove_legacy('testcases', legacy) and delete_file(file)
+    local legacy_ok = remove_legacy('testcases', legacy)
+    local file_ok = delete_file(file)
+    ok = legacy_ok and file_ok
   else
     ok = write_atomic({ vim.json.encode(inputs) }, file)
     if ok then remove_legacy('testcases', legacy) end
@@ -280,7 +329,9 @@ LeetCodeStorage.write_draft = function(title_slug, lang_slug, code)
   local legacy = legacy_file('drafts', file)
   local ok
   if code == nil then
-    ok = remove_legacy('drafts', legacy) and delete_file(file)
+    local legacy_ok = remove_legacy('drafts', legacy)
+    local file_ok = delete_file(file)
+    ok = legacy_ok and file_ok
   else
     ok = write_atomic(vim.split(code, '\n', { plain = true }), file)
     if ok then remove_legacy('drafts', legacy) end

@@ -2,8 +2,9 @@
 ---
 --- Configuration is validated and applied by |LeetCode.setup()|.
 ---
---- Nested tables are replaced whole (not deep-merged). Supply the complete
---- nested table when overriding one.
+--- Each call to |LeetCode.setup()| replaces the whole configuration. Unspecified
+--- options return to their defaults; values from a previous call are not
+--- merged. Nested tables are replaced whole as well.
 ---
 --- Options:
 ---
@@ -17,12 +18,14 @@
 --- - `browser` (`string`) - cookie import source: `none` (default), `auto`,
 ---   `firefox`, `epiphany`, `safari`, `chrome`, `brave`, `edge`, or `chromium`.
 --- - `browser_paths` (`table`) - per-browser database path overrides.
---- - `float_width`, `float_height` (`number`) - central window size.
+--- - `float_width`, `float_height` (`number`) - preferred central window
+---   content size, clamped to the usable editor area. Borders are extra.
 --- - `float_border` (`string|nil`) - central window border.
 --- - `picker` (`string`) - `auto` (use `mini.pick` when `MiniPick` is set up),
 ---   `mini` (prefer it explicitly), or `builtin` (use |vim.ui.select()|).
 --- - `cooldown` (`number`) - problem-list cache lifetime in minutes.
---- - `hide_premium` (`boolean`) - hide premium-only problems from pickers.
+--- - `hide_premium` (`boolean`) - hide premium-only problems from pickers,
+---   random selection, and completions.
 --- - `show_hints` (`boolean`) - show hints in the Description tab by default.
 --- - `notifications` (`boolean`) - show notifications.
 --- - `icons` (`table`) - status and testcase icon overrides.
@@ -197,7 +200,8 @@ local default_config = {
   -- Problem-list cache lifetime in minutes.
   cooldown = 60,
 
-  -- Whether to hide premium-only problems from pickers.
+  -- Whether to hide premium-only problems from pickers, random selection, and
+  -- completions.
   hide_premium = false,
 
   -- Whether to show question hints by default.
@@ -374,7 +378,11 @@ local function prepare(opts)
   return merged
 end
 
-LeetCodeConfig.prepare = prepare
+--- Validate and fill defaults for a setup table.
+---
+---@param opts table|nil User configuration.
+---@return table prepared
+LeetCodeConfig.prepare = function(opts) return prepare(opts) end
 
 --- Set up |leetcode-ui| configuration.
 ---

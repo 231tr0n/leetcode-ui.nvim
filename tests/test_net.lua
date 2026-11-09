@@ -288,4 +288,81 @@ T['net']['request_once reports curl exit codes without stderr'] = function()
   )
 end
 
+T['net']['read_response is silent about missing temporary files'] = function()
+  helpers.configure({ notifications = true })
+  local net = helpers.mod('net')
+  local messages = helpers.capture_notify(
+    function() eq(net.read_response('/definitely/missing/headers', '/definitely/missing/body'), nil) end
+  )
+  eq(messages, {})
+end
+
+T['net']['read_response warns when temporary cleanup fails'] = function()
+  helpers.configure({ notifications = true })
+  local net = helpers.mod('net')
+  local dir = helpers.tmpdir()
+  local headers, body = dir .. '/headers', dir .. '/body'
+  vim.fn.writefile({ 'HTTP/1.1 200 OK', '' }, headers)
+  vim.fn.writefile({ 'ok' }, body)
+
+  local messages = {}
+  helpers.with_field(vim.fn, 'delete', function() return -1 end, function()
+    messages = helpers.capture_notify(function() net.read_response(headers, body) end)
+  end)
+  vim.fn.delete(headers)
+  vim.fn.delete(body)
+  eq(helpers.contains(messages[1] and messages[1].message, 'Failed to remove temporary request data'), true)
+end
+
+T['net']['request_once reports temporary directory creation failures'] = function()
+  local net = helpers.mod('net')
+  helpers.with_field(vim.fn, 'mkdir', function() error('denied') end, function()
+    local response, err = net.request_once({ url = 'https://example.com' })
+    eq(response, nil)
+    eq(err, 'Failed to create temporary directory')
+  end)
+end
+
+T['net']['request_once reports header-file creation failures'] = function()
+  local net = helpers.mod('net')
+  local dir = helpers.tmpdir() .. '/request'
+  local original_writefile = vim.fn.writefile
+
+  helpers.with_field(vim.fn, 'tempname', function() return dir end, function()
+    helpers.with_field(vim.fn, 'writefile', function(lines, path, ...)
+      if type(path) == 'string' and path:find('request%-headers') ~= nil then error('denied') end
+      return original_writefile(lines, path, ...)
+    end, function()
+      local response, err = net.request_once({ url = 'https://example.com', headers = { 'X-Test: yes' } })
+      eq(response, nil)
+      eq(err, 'Failed to create request headers')
+    end)
+  end)
+
+  eq(vim.fn.isdirectory(dir), 0)
+end
+
+T['net']['request_once assembles a successful response and cleans up'] = function()
+  local net = helpers.mod('net')
+  local temp_dir
+  helpers.with_stub('leetcode-ui.async', 'system', function(args)
+    local header, body
+    for index, value in ipairs(args) do
+      if value == '-D' then header = args[index + 1] end
+      if value == '-o' then body = args[index + 1] end
+    end
+    temp_dir = vim.fs.dirname(header)
+    vim.fn.writefile({ 'HTTP/1.1 200 OK', 'X-Test: yes', '' }, header)
+    vim.fn.writefile({ 'hello' }, body)
+    return { code = 0, stdout = '', stderr = '' }
+  end, function()
+    local response, err = net.request_once({ url = 'https://example.com', headers = { 'X: y' }, body = 'data' })
+    eq(err, nil)
+    eq(response.status, 200)
+    eq(response.headers['x-test'], 'yes')
+    eq(response.body, 'hello\n')
+  end)
+  eq(vim.fn.isdirectory(temp_dir), 0)
+end
+
 return T

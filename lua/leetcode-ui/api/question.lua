@@ -104,7 +104,7 @@ LeetCodeQuestion.get_list = function(opts)
   local cache_time = tonumber(cache.cache_time or cache.saved) or 0
   local cache_total = tonumber(cache.total)
   local cache_problems = type(cache.problems) == 'table' and cache.problems or {}
-  local complete = cache_total ~= nil and #cache_problems == cache_total
+  local complete = cache_total ~= nil and cache_total > 0 and #cache_problems == cache_total
   local age = os.time() - cache_time
   local fresh = cache_time > 0 and age >= 0 and age < (config.config.cooldown * 60)
   local request_key = auth.cache_key()
@@ -259,7 +259,7 @@ end
 
 --- Random question slug.
 ---
----@param opts table|nil { difficulty = 'Easy'|'Medium'|'Hard' }
+---@param opts table|nil { difficulty = 'Easy', 'Medium', or 'Hard' }
 ---@return string|nil title_slug
 ---@return string|nil err
 LeetCodeQuestion.get_random = function(opts)
@@ -280,7 +280,7 @@ LeetCodeQuestion.get_random = function(opts)
     if type(question) ~= 'table' or type(question.title_slug) ~= 'string' or question.title_slug == '' then
       return nil, 'No random question found'
     end
-    if question.is_paid_only ~= true then return question.title_slug, nil end
+    if question.is_paid_only ~= true or not config.config.hide_premium then return question.title_slug, nil end
   end
   return nil, 'No free random question found'
 end

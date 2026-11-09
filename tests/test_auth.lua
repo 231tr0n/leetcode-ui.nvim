@@ -31,12 +31,24 @@ T['cookie_file']['normalizes configured path'] = function()
   eq(auth.cookie_file(), vim.fs.normalize('~/cookies.txt'))
 end
 
+T['cookie_file']['expands user-home shorthand'] = function()
+  local user = vim.env.USER
+  if user == nil or user == '' then return end
+  helpers.configure({ cookie_file = '~' .. user .. '/cookies.txt', browser = 'none' })
+  local auth = helpers.mod('auth')
+  eq(auth.cookie_file(), vim.fn.expand('~') .. '/cookies.txt')
+end
+
 T['cookies'] = new_set()
 
 T['cookies']['reads configured cookies before environment'] = function()
   helpers.configure({ browser = 'none', cookies = { LEETCODE_SESSION = 's1', csrftoken = 'c1' } })
   vim.env.LEETCODE_SESSION = 'env-session'
   vim.env.CSRFTOKEN = 'env-csrf'
+  MiniTest.finally(function()
+    vim.env.LEETCODE_SESSION = nil
+    vim.env.CSRFTOKEN = nil
+  end)
   local cookies = helpers.mod('auth').cookies()
   eq(cookies.LEETCODE_SESSION, 's1')
   eq(cookies.csrftoken, 'c1')
@@ -45,11 +57,13 @@ end
 T['cookies']['falls back to environment variables'] = function()
   vim.env.LEETCODE_SESSION = 'env-session'
   vim.env.CSRFTOKEN = 'env-csrf'
+  MiniTest.finally(function()
+    vim.env.LEETCODE_SESSION = nil
+    vim.env.CSRFTOKEN = nil
+  end)
   local cookies = helpers.mod('auth').cookies()
   eq(cookies.LEETCODE_SESSION, 'env-session')
   eq(cookies.csrftoken, 'env-csrf')
-  vim.env.LEETCODE_SESSION = nil
-  vim.env.CSRFTOKEN = nil
 end
 
 T['cookies']['browser cookies only fill missing entries'] = function()
@@ -153,6 +167,25 @@ T['has_session']['requires both cookies or a cookie jar'] = function()
   eq(auth.has_session(), true)
 end
 
+T['has_session']['rejects missing and incomplete cookie jars'] = function()
+  local auth = helpers.mod('auth')
+  local path = helpers.tmpdir() .. '/cookies.txt'
+  helpers.configure({ browser = 'none', cookies = {}, cookie_file = path })
+  eq(auth.has_session(), false)
+
+  vim.fn.writefile({ '.leetcode.com\tTRUE\t/\tTRUE\t0\tcsrftoken\tc' }, path)
+  eq(auth.has_session(), false)
+
+  vim.fn.writefile({ '.leetcode.com\tTRUE\t/\tTRUE\t0\tLEETCODE_SESSION\ts' }, path)
+  eq(auth.has_session(), false)
+
+  vim.fn.writefile({
+    '.leetcode.com\tTRUE\t/\tTRUE\t0\tcsrftoken\tc',
+    '.leetcode.com\tTRUE\t/\tTRUE\t0\tLEETCODE_SESSION\ts',
+  }, path)
+  eq(auth.has_session(), true)
+end
+
 T['cache_key'] = new_set()
 
 T['cache_key']['distinguishes credential sources'] = function()
@@ -181,6 +214,27 @@ T['cache_key']['distinguishes credential sources'] = function()
   eq(auth.cache_key() ~= jar_key, true)
 end
 
+T['cache_key']['changes when the csrf cookie changes'] = function()
+  local auth = helpers.mod('auth')
+  local path = helpers.tmpdir() .. '/cookies.txt'
+  vim.fn.writefile({
+    '.leetcode.com\tTRUE\t/\tTRUE\t0\tLEETCODE_SESSION\ts',
+    '.leetcode.com\tTRUE\t/\tTRUE\t0\tcsrftoken\tfirst',
+  }, path)
+  helpers.configure({ browser = 'none', cookies = {}, cookie_file = path })
+  local first = auth.cache_key()
+  vim.fn.writefile({
+    '.leetcode.com\tTRUE\t/\tTRUE\t0\tLEETCODE_SESSION\ts',
+    '.leetcode.com\tTRUE\t/\tTRUE\t0\tcsrftoken\tsecond',
+  }, path)
+  eq(auth.cache_key() ~= first, true)
+
+  helpers.configure({ browser = 'none', cookies = { LEETCODE_SESSION = 's', csrftoken = 'first' } })
+  local configured = auth.cache_key()
+  helpers.configure({ browser = 'none', cookies = { LEETCODE_SESSION = 's', csrftoken = 'second' } })
+  eq(auth.cache_key() ~= configured, true)
+end
+
 T['headers'] = new_set()
 
 T['headers']['omits session headers when anonymous'] = function()
@@ -206,6 +260,17 @@ T['headers']['adds only csrf header for a cookie jar'] = function()
   local headers = helpers.mod('auth').headers()
   eq(has_header(headers, 'Cookie:'), nil)
   eq(has_header(headers, 'X-CSRFToken:'), 'X-CSRFToken: jar-csrf')
+end
+
+T['headers']['omits session headers for partial credentials'] = function()
+  local auth = helpers.mod('auth')
+  helpers.configure({ browser = 'none', cookies = { LEETCODE_SESSION = 's' } })
+  eq(has_header(auth.headers(), 'Cookie:'), nil)
+  eq(has_header(auth.headers(), 'X-CSRFToken:'), nil)
+
+  helpers.configure({ browser = 'none', cookies = { csrftoken = 'c' } })
+  eq(has_header(auth.headers(), 'Cookie:'), nil)
+  eq(has_header(auth.headers(), 'X-CSRFToken:'), nil)
 end
 
 T['handle_status'] = new_set()

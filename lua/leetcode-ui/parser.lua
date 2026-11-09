@@ -122,17 +122,23 @@ local function encode_script(text, glyphs)
   return table.concat(parts)
 end
 
--- Strip invisible blocks and normalize superscripts, subscripts, and breaks.
+-- Strip invisible blocks and normalize superscripts and subscripts.
 local function preprocess(html)
   html = html:gsub('<!%-%-.-%-%->', '')
 
-  -- Strip invisible/pointless blocks.
-  html = html:gsub('<%s*style[^>]->.-</%s*style%s->', '')
-  html = html:gsub('<%s*script[^>]->.-</%s*script%s->', '')
+  -- Strip invisible blocks.
+  html = html:gsub('<%s*[sS][tT][yY][lL][eE][^>]->.-</%s*[sS][tT][yY][lL][eE]%s->', '')
+  html = html:gsub('<%s*[sS][cC][rR][iI][pP][tT][^>]->.-</%s*[sS][cC][rR][iI][pP][tT]%s->', '')
 
   -- Unicode-ify simple superscripts/subscripts before anything else.
-  html = html:gsub('<sup>%s*([^<]-)%s*</sup>', function(text) return encode_script(text, sup_chars) end)
-  html = html:gsub('<sub>%s*([^<]-)%s*</sub>', function(text) return encode_script(text, sub_chars) end)
+  html = html:gsub(
+    '<[sS][uU][pP]>%s*([^<]-)%s*</[sS][uU][pP]>',
+    function(text) return encode_script(text, sup_chars) end
+  )
+  html = html:gsub(
+    '<[sS][uU][bB]>%s*([^<]-)%s*</[sS][uU][bB]>',
+    function(text) return encode_script(text, sub_chars) end
+  )
 
   return html
 end
@@ -143,24 +149,67 @@ local function tokenize(html)
   local position = 1
 
   while true do
-    local open, close, tag, attrs = html:find('<([/%w%-]+)([^>]*)>', position)
+    local open = html:find('<', position, true)
     if open == nil then break end
 
-    if open > position then table.insert(tokens, { text = html:sub(position, open - 1) }) end
+    local closing = open + 1
+    local quote = nil
+    while closing <= #html do
+      local char = html:sub(closing, closing)
+      if quote ~= nil then
+        if char == quote then quote = nil end
+      elseif char == '"' or char == "'" then
+        quote = char
+      elseif char == '>' then
+        break
+      end
+      closing = closing + 1
+    end
+    if closing > #html then break end
 
-    table.insert(tokens, { tag = tag:gsub('/$', ''):lower(), attrs = attrs })
-    position = close + 1
+    local inner = html:sub(open + 1, closing - 1)
+    local tag, attrs = inner:match('^([/%w%-]+)(.*)$')
+    if tag == nil then
+      -- A bare '<' is text, not a tag.
+      table.insert(tokens, { text = html:sub(position, open) })
+      position = open + 1
+    else
+      if open > position then table.insert(tokens, { text = html:sub(position, open - 1) }) end
+      table.insert(tokens, { tag = tag:gsub('/$', ''):lower(), attrs = attrs })
+      position = closing + 1
+    end
   end
 
   if position <= #html then table.insert(tokens, { text = html:sub(position) }) end
   return tokens
 end
 
--- Read an HTML attribute value.
+-- Read an HTML attribute value (attribute names are case-insensitive).
 local function attr(attrs, name)
   attrs = attrs or ''
-  local prefix = '%s+' .. name .. '%s*=%s*'
-  return attrs:match(prefix .. '"([^"]*)"') or attrs:match(prefix .. "'([^']*)'") or attrs:match(prefix .. '([^%s>]+)')
+  local position = 1
+  while true do
+    local _, name_end, raw_name = attrs:find('([%w_:%-]+)%s*=%s*', position)
+    if raw_name == nil then return nil end
+
+    local value_start = name_end + 1
+    local quote = attrs:sub(value_start, value_start)
+    local value, next_position
+    if quote == '"' or quote == "'" then
+      local close = attrs:find(quote, value_start + 1, true)
+      if close == nil then return nil end
+      value = attrs:sub(value_start + 1, close - 1)
+      next_position = close + 1
+    else
+      local _, value_end = attrs:find('^[^%s>]+', value_start)
+      if value_end == nil then return nil end
+      value = attrs:sub(value_start, value_end)
+      next_position = value_end + 1
+    end
+
+    if raw_name:lower() == name then return value end
+    position = next_position
+  end
 end
 
 -- Public API ========================================================================================================
@@ -178,17 +227,88 @@ LeetCodeParser.render = function(content)
   local spans = {}
   local styles = {}
   local lists = {}
+  local cell_open = false
+  local row_open = false
+  local last_was_br = false
+  local strip_leading = false
+  local style_id = 0
 
-  local current_hl = function()
-    local n = #styles
-    while n > 0 and styles[n] == nil do
-      n = n - 1
-    end
-    return n > 0 and styles[n] or nil
+  local function push_style(tag, hl)
+    style_id = style_id + 1
+    table.insert(styles, { tag = tag, hl = hl, id = style_id })
   end
 
+  local function pop_style(tags)
+    for index = #styles, 1, -1 do
+      local style = styles[index]
+      if style ~= nil and vim.tbl_contains(tags, style.tag) then
+        table.remove(styles, index)
+        return
+      end
+    end
+  end
+
+  -- Track block depth so closing a block also discards inline styles opened
+  -- inside it, even if their own closing tags are missing.
   local pre_depth = 0
+  local strip_pre_newline = false
+  local blocks = {}
+  local function begin_block(tag, depth)
+    last_was_br = false
+    local floor = styles[#styles] and styles[#styles].id or 0
+    table.insert(blocks, { tag = tag, floor = floor, depth = depth })
+  end
+  local function end_block(tag, depth)
+    for index = #blocks, 1, -1 do
+      local block = blocks[index]
+      if block.tag == tag and (depth == nil or block.depth == depth) then
+        local floor = block.floor
+        while #styles > 0 and styles[#styles].id > floor do
+          table.remove(styles)
+        end
+        for position = #blocks, index, -1 do
+          if blocks[position].tag == 'pre' then
+            pre_depth = 0
+            strip_pre_newline = false
+          end
+          table.remove(blocks, position)
+        end
+        if tag == 'pre' then
+          pre_depth = 0
+          strip_pre_newline = false
+        end
+        last_was_br = false
+        return
+      end
+    end
+  end
+
+  local function in_container() return cell_open or #lists > 0 end
+
+  local current_hl = function()
+    local style = styles[#styles]
+    return style ~= nil and style.hl or nil
+  end
+
+  local function ensure_space()
+    if #spans == 0 then return end
+    local last = spans[#spans]
+    if last.text ~= '' and last.text:match('%s$') == nil then table.insert(spans, { text = ' ', hl = current_hl() }) end
+  end
+
   local flush
+
+  local function trim_trailing_spans()
+    while #spans > 0 do
+      local last = spans[#spans]
+      last.text = last.text:gsub('%s+$', '')
+      if last.text == '' then
+        table.remove(spans)
+      else
+        break
+      end
+    end
+  end
 
   local push = function(text)
     if text == nil or text == '' then return end
@@ -196,13 +316,20 @@ LeetCodeParser.render = function(content)
     if text == '' then return end
 
     text = text:gsub('\r\n', '\n'):gsub('\r', '\n')
+    if cell_open or (pre_depth == 0 and #lists > 0) then
+      text = text:gsub('%s*\n%s*', ' ')
+      if #spans > 0 and spans[#spans].text:match('%s$') ~= nil then text = text:gsub('^ +', '') end
+    end
     for index, part in ipairs(vim.split(text, '\n', { plain = true })) do
-      if index > 1 then flush(nil, pre_depth > 0) end
+      if index > 1 then flush(pre_depth > 0) end
+      if index > 1 and pre_depth == 0 then part = part:gsub('^%s+', '') end
       if part ~= '' then table.insert(spans, { text = part, hl = current_hl() }) end
     end
   end
 
-  flush = function(drop_blank, keep_empty)
+  flush = function(keep_empty)
+    if not keep_empty then trim_trailing_spans() end
+
     local visible = false
     for _, span in ipairs(spans) do
       if span.text:gsub('%s', '') ~= '' then
@@ -217,8 +344,8 @@ LeetCodeParser.render = function(content)
         table.insert(line, { text = span.text, hl = span.hl })
       end
       table.insert(lines, line)
-    elseif keep_empty or (not drop_blank and #spans > 0) then
-      -- Whitespace-only or explicitly empty content is a true blank line.
+    elseif keep_empty then
+      -- Explicitly preserved empty content (used inside <pre>).
       table.insert(lines, {})
     end
     spans = {}
@@ -228,68 +355,162 @@ LeetCodeParser.render = function(content)
     if #lines > 0 and #lines[#lines] ~= 0 then table.insert(lines, {}) end
   end
 
-  local last_was_br = false
   for _, token in ipairs(tokens) do
     local tag = token.tag
 
     if tag == nil then
       if token.text:gsub('%s', '') ~= '' then last_was_br = false end
-      local text = token.text
+      local text = token.text:gsub('\r\n', '\n'):gsub('\r', '\n')
+      if strip_pre_newline then
+        strip_pre_newline = false
+        text = text:gsub('^\r?\n', '')
+      elseif pre_depth == 0 then
+        -- Collapse source newlines in normal text while preserving a single
+        -- space between adjacent inline elements.
+        text = text:gsub('\r\n', '\n'):gsub('\r', '\n')
+        if text:gsub('%s', '') == '' then
+          if text:find('\n') ~= nil then text = ' ' end
+        else
+          text = text:gsub('%s*\n%s*', ' ')
+        end
+        if #spans == 0 then text = text:gsub('^%s+', '') end
+      end
+      if pre_depth > 0 and cell_open then text = text:gsub('\r\n', '\n'):gsub('\r', '\n'):gsub('%s*\n%s*', ' ') end
+      if
+        pre_depth == 0
+        and text ~= ''
+        and #spans > 0
+        and spans[#spans].text:match('%s$') ~= nil
+        and text:match('^%s') ~= nil
+      then
+        text = text:gsub('^%s+', '')
+      end
+      if strip_leading and pre_depth == 0 then
+        if text:gsub('%s', '') == '' then
+          text = ''
+        else
+          text = text:gsub('^%s+', '')
+          strip_leading = false
+        end
+      end
       local parts = vim.split(text, '\n', { plain = true })
       for index, part in ipairs(parts) do
-        if index > 1 then flush(nil, pre_depth > 0) end
+        if index > 1 then flush(pre_depth > 0) end
         push(part)
       end
     elseif tag == 'pre' then
-      flush()
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+      end
       pre_depth = pre_depth + 1
-      table.insert(styles, 'LeetCodeCode')
+      strip_pre_newline = true
+      strip_leading = false
+      begin_block('pre')
+      push_style('pre', 'LeetCodeCode')
     elseif tag == '/pre' then
-      table.remove(styles)
-      pre_depth = math.max(0, pre_depth - 1)
-      flush()
-      ensure_blank()
+      local in_cell = cell_open
+      end_block('pre')
+      if in_cell then ensure_space() end
+      if not in_cell then
+        flush()
+        if #lists == 0 then ensure_blank() end
+      end
     elseif tag == 'code' then
-      table.insert(styles, 'LeetCodeCode')
+      push_style('code', 'LeetCodeCode')
     elseif tag == '/code' then
-      table.remove(styles)
+      pop_style({ 'code' })
     elseif tag == 'strong' or tag == 'b' then
-      table.insert(styles, 'LeetCodeTitle')
+      push_style(tag, 'LeetCodeTitle')
     elseif tag == '/strong' or tag == '/b' then
-      table.remove(styles)
+      pop_style({ 'strong', 'b' })
     elseif tag == 'em' or tag == 'i' then
-      table.insert(styles, 'LeetCodeItalic')
+      push_style(tag, 'LeetCodeItalic')
     elseif tag == '/em' or tag == '/i' then
-      table.remove(styles)
+      pop_style({ 'em', 'i' })
     elseif tag == 'a' then
-      table.insert(styles, 'LeetCodeLink')
+      push_style('a', 'LeetCodeLink')
     elseif tag == '/a' then
-      table.remove(styles)
+      pop_style({ 'a' })
     elseif tag == 'blockquote' then
-      flush()
-      ensure_blank()
-      table.insert(styles, 'LeetCodeDim')
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
+      begin_block('blockquote')
+      push_style('blockquote', 'LeetCodeDim')
     elseif tag == '/blockquote' then
-      table.remove(styles)
-      flush()
-      ensure_blank()
+      end_block('blockquote')
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
     elseif tag:find('^h%d$') ~= nil then
-      flush()
-      ensure_blank()
-      table.insert(styles, 'LeetCodeHeader')
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
+      begin_block(tag)
+      push_style(tag, 'LeetCodeHeader')
     elseif tag:find('^/h%d$') ~= nil then
-      table.remove(styles)
-      flush()
-      ensure_blank()
+      end_block(tag:sub(2))
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
+    elseif tag == 'p' or tag == 'div' then
+      if in_container() then
+        if tag == 'p' then end_block('p') end
+        ensure_space()
+        begin_block(tag)
+      else
+        if tag == 'p' then end_block('p') end
+        flush()
+        begin_block(tag)
+      end
     elseif tag == 'ul' or tag == 'ol' then
-      flush(true)
-      local start = tag == 'ol' and tonumber(attr(token.attrs, 'start')) or nil
-      table.insert(lists, { ordered = tag == 'ol', index = math.floor(start or 1) - 1 })
+      if cell_open then
+        ensure_space()
+      else
+        flush()
+      end
+      begin_block(tag)
+      local start
+      if tag == 'ol' then
+        local raw = LeetCodeParser.decode_entities(attr(token.attrs, 'start') or '')
+        local value = tonumber(raw)
+        if value ~= nil and value == value and value ~= math.huge and value ~= -math.huge then
+          start = math.floor(value)
+        end
+      end
+      table.insert(lists, { ordered = tag == 'ol', index = (start or 1) - 1 })
     elseif tag == '/ul' or tag == '/ol' then
-      flush(true)
+      end_block('li', #lists)
+      end_block(tag:sub(2))
+      if cell_open then
+        ensure_space()
+      else
+        flush()
+      end
       table.remove(lists)
+      if not cell_open and #lists == 0 then ensure_blank() end
     elseif tag == 'li' then
-      flush(true)
+      end_block('li', #lists)
+      if cell_open then
+        ensure_space()
+      else
+        flush()
+      end
+      begin_block('li', #lists)
       local top = lists[#lists]
       if top ~= nil then
         top.index = top.index + 1
@@ -297,30 +518,125 @@ LeetCodeParser.render = function(content)
         push(indent)
         push(top.ordered and ('%d.'):format(top.index) or '•')
         push(' ')
+        strip_leading = true
+      end
+    elseif tag == '/li' then
+      end_block('li', #lists)
+      if cell_open then
+        ensure_space()
+      else
+        flush()
       end
     elseif tag == '/p' or tag == '/div' then
-      flush()
-      ensure_blank()
+      if in_container() then
+        end_block(tag:sub(2))
+        ensure_space()
+      else
+        end_block(tag:sub(2))
+        flush()
+        ensure_blank()
+      end
+    elseif tag == 'table' then
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+      end
+      begin_block('table')
     elseif tag == 'tr' then
-      flush()
-      push('|')
+      end_block('th')
+      end_block('td')
+      end_block('tr')
+      if cell_open then
+        push(' |')
+        cell_open = false
+      end
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+      end
+      begin_block('tr')
+      row_open = true
     elseif tag == 'td' or tag == 'th' then
+      end_block('th')
+      end_block('td')
+      if row_open then
+        if not in_container() then trim_trailing_spans() end
+        push('|')
+        row_open = false
+      end
+      if cell_open then push(' |') end
+      trim_trailing_spans()
       push(' ')
-      if tag == 'th' then table.insert(styles, 'LeetCodeTitle') end
+      begin_block(tag)
+      cell_open = true
+      strip_leading = true
+      if tag == 'th' then push_style('th', 'LeetCodeTitle') end
     elseif tag == '/th' then
-      table.remove(styles)
-      push(' |')
+      end_block('th')
+      trim_trailing_spans()
+      if cell_open then
+        push(' |')
+        cell_open = false
+      end
     elseif tag == '/td' then
-      push(' |')
+      end_block('td')
+      trim_trailing_spans()
+      if cell_open then
+        push(' |')
+        cell_open = false
+      end
     elseif tag == '/tr' then
-      flush()
+      end_block('th')
+      end_block('td')
+      end_block('tr')
+      row_open = false
+      trim_trailing_spans()
+      if cell_open then
+        push(' |')
+        cell_open = false
+      end
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+      end
+    elseif tag == '/table' then
+      end_block('th')
+      end_block('td')
+      end_block('tr')
+      end_block('table')
+      row_open = false
+      trim_trailing_spans()
+      if cell_open then
+        push(' |')
+        cell_open = false
+      end
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
     elseif tag == 'br' then
-      flush()
-      if last_was_br then table.insert(lines, {}) end
-      last_was_br = true
+      if cell_open then
+        ensure_space()
+        strip_leading = true
+      elseif #lists > 0 and pre_depth == 0 then
+        ensure_space()
+        strip_leading = true
+      else
+        flush()
+        if last_was_br then table.insert(lines, {}) end
+        last_was_br = true
+      end
     elseif tag == 'img' then
       local alt = attr(token.attrs, 'alt')
-      if alt ~= nil and alt ~= '' then push('[image: ' .. alt .. ']') end
+      if alt ~= nil and alt ~= '' then
+        push('[image: ' .. alt .. ']')
+        last_was_br = false
+      end
     end
     -- Other unknown tags (span, font, ...) render as plain text flow.
   end

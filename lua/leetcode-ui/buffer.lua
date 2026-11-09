@@ -16,6 +16,47 @@ LeetCodeBuffer.namespace = vim.api.nvim_create_namespace('leetcode-ui')
 
 -- Helper functionality =============================================================================================
 
+-- Number of rows occupied by the tabline.
+-- @return integer
+local function tabline_rows()
+  local showtabline = vim.o.showtabline
+  if showtabline == 0 then return 0 end
+
+  -- GUIs that advertise `ext_tabline` draw the tabline themselves, so the
+  -- editor grid has no tabline row reserved.
+  local uis = vim.api.nvim_list_uis()
+  if #uis > 0 then
+    local external = true
+    for _, ui in ipairs(uis) do
+      if not ui.ext_tabline then
+        external = false
+        break
+      end
+    end
+    if external then return 0 end
+  end
+
+  if showtabline == 1 and #vim.api.nvim_list_tabpages() <= 1 then return 0 end
+  return 1
+end
+
+-- Number of rows occupied by the statusline at the bottom of the editor.
+-- @param tabpage integer|nil Tabpage to inspect (default: current).
+-- @return integer
+local function statusline_rows(tabpage)
+  local laststatus = vim.o.laststatus
+  if laststatus == 2 or laststatus == 3 then return 1 end
+  if laststatus ~= 1 then return 0 end
+
+  -- With 'laststatus' 1 the statusline is only shown for real windows, not
+  -- floating ones (including the central window itself).
+  local windows = 0
+  for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(tabpage or 0)) do
+    if vim.api.nvim_win_get_config(winid).relative == '' then windows = windows + 1 end
+  end
+  return windows > 1 and 1 or 0
+end
+
 --- Create or reuse a scratch buffer.
 ---
 ---@param name string Unique buffer name.
@@ -24,7 +65,13 @@ LeetCodeBuffer.namespace = vim.api.nvim_create_namespace('leetcode-ui')
 LeetCodeBuffer.scratch = function(name, opts)
   opts = opts or {}
 
-  local bufnr = vim.fn.bufnr(name)
+  local bufnr = -1
+  for _, candidate in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_get_name(candidate) == name then
+      bufnr = candidate
+      break
+    end
+  end
   if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
     bufnr = vim.api.nvim_create_buf(opts.listed == true, true)
     vim.api.nvim_buf_set_name(bufnr, name)
@@ -45,18 +92,30 @@ end
 
 --- Build a centered, editor-bounded floating-window configuration.
 ---
----@param opts table|nil Geometry, border, and title overrides.
+--- The window is centered in the editor text area: tabline, statusline, and
+--- command-line rows are excluded. Width and height are clamped to the
+--- available text area (the outer border is not counted). Pass `tabpage` to
+--- compute statusline rows for a specific tabpage.
+---
+---@param opts table|nil Geometry, border, title, and `tabpage` overrides.
 ---@return table config
 LeetCodeBuffer.float_config = function(opts)
   opts = opts or {}
+  -- Only center inside the editor text area. The tabline, statusline, and
+  -- command line are part of the `editor` grid, so counting them would push
+  -- the float down over the statusline.
+  local top = tabline_rows()
+  local bottom = (vim.o.cmdheight or 0) + statusline_rows(opts.tabpage)
+  local available = math.max(1, vim.o.lines - top - bottom)
+
   local width = math.floor(opts.width or config.config.float_width)
   local height = math.floor(opts.height or config.config.float_height)
   width = math.max(1, math.min(width, vim.o.columns - 4))
-  height = math.max(1, math.min(height, vim.o.lines - 4))
+  height = math.max(1, math.min(height, available - 4))
 
   local win_opts = {
     relative = 'editor',
-    row = math.max(0, math.floor((vim.o.lines - height) / 2)),
+    row = top + math.max(0, math.floor((available - height) / 2)),
     col = math.max(0, math.floor((vim.o.columns - width) / 2)),
     width = width,
     height = height,

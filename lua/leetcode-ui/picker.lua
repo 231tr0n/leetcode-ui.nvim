@@ -126,7 +126,7 @@ end
 
 --- Browse the problem list.
 ---
----@param opts table|nil { difficulty = 'Easy'|'Medium'|'Hard' }
+---@param opts table|nil { difficulty = 'Easy', 'Medium', or 'Hard' }
 LeetCodePicker.problem = function(opts)
   opts = opts or {}
   local generation = begin_request()
@@ -176,7 +176,7 @@ end
 
 --- Open a random question.
 ---
----@param opts table|nil { difficulty = 'Easy'|'Medium'|'Hard' }
+---@param opts table|nil { difficulty = 'Easy', 'Medium', or 'Hard' }
 LeetCodePicker.random = function(opts)
   log.info('Fetching a random question…')
   local generation = begin_request()

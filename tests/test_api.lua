@@ -56,6 +56,16 @@ T['api']['graphql encodes nil variables as an object'] = function()
   eq(helpers.contains(body or '', '"variables":{}'), true)
 end
 
+T['api']['graphql encodes empty variables as an object'] = function()
+  local api = helpers.mod('api')
+  local body = nil
+  helpers.with_stub('leetcode-ui.net', 'request', function(opts)
+    body = opts.body
+    return { status = 200, body = json({ data = { ok = true } }) }, nil
+  end, function() api.graphql('query { ok }', {}) end)
+  eq(helpers.contains(body or '', '"variables":{}'), true)
+end
+
 T['api']['graphql forwards non-empty variables'] = function()
   local api = helpers.mod('api')
   local body = nil
@@ -213,6 +223,37 @@ T['api']['rest forwards method, path, body, headers, and request options'] = fun
   eq(request.body, '{"x":1}')
   eq(request.timeout, 5)
   eq(vim.tbl_contains(request.headers, 'X-Extra: yes'), true)
+end
+
+T['api']['rest does not let opts replace authentication'] = function()
+  helpers.configure({ cookies = { LEETCODE_SESSION = 's', csrftoken = 'c' } })
+  local api = helpers.mod('api')
+  ---@type table|nil
+  local request = nil
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function(opts)
+      request = opts
+      return { status = 200, body = '{}' }, nil
+    end,
+    function()
+      api.rest('GET', '/test', nil, nil, {
+        url = 'https://evil.example/',
+        method = 'DELETE',
+        body = 'nope',
+        headers = { 'X-Override: no' },
+        cookie_file = '/bad',
+      })
+    end
+  )
+  assert(request ~= nil)
+  eq(request.url, 'https://leetcode.com/test')
+  eq(request.method, 'GET')
+  eq(request.body, nil)
+  eq(vim.tbl_contains(request.headers, 'X-Override: no'), false)
+  eq(request.cookie_file, nil)
+  eq(helpers.contains(table.concat(request.headers, '\n'), 'Cookie:'), true)
 end
 
 T['api']['rest rejects non-success HTTP responses'] = function()

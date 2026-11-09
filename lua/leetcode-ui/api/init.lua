@@ -40,7 +40,8 @@ LeetCodeApi.is_null = function(value) return value == nil or value == vim.NIL en
 ---@return table|nil data Decoded `data` field.
 ---@return string|nil err Error message.
 LeetCodeApi.graphql = function(query, variables)
-  local body = vim.json.encode({ query = query, variables = variables or vim.empty_dict() })
+  if variables == nil or next(variables) == nil then variables = vim.empty_dict() end
+  local body = vim.json.encode({ query = query, variables = variables })
   local res, err = net.request({
     url = LeetCodeApi.base_url() .. '/graphql/',
     method = 'POST',
@@ -81,17 +82,22 @@ end
 ---@param path string Path like '/problems/two-sum/submit/'.
 ---@param body string|nil Raw request body (JSON already encoded).
 ---@param headers table|nil Extra raw headers.
----@param opts table|nil Additional |LeetCodeNet.request()| options.
+---@param opts table|nil Extra |LeetCodeNet.request()| options such as `timeout` and
+--- `retries`. Endpoint, body, headers, and authentication fields cannot be
+--- overridden here; pass extra headers through `headers`.
 ---@return table|nil data Decoded JSON object.
 ---@return string|nil err
 LeetCodeApi.rest = function(method, path, body, headers, opts)
-  local request = vim.tbl_extend('force', {
+  opts = opts or {}
+  local request = {
     url = LeetCodeApi.base_url() .. path,
     method = method,
     body = body,
     headers = auth.headers(headers),
     cookie_file = auth.cookie_file(),
-  }, opts or {})
+    timeout = opts.timeout,
+    retries = opts.retries,
+  }
   local res, err = net.request(request)
 
   if err ~= nil then return nil, err end

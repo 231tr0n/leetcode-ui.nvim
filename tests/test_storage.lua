@@ -118,6 +118,24 @@ T['testcases']['empty or nil inputs remove the file'] = function()
   eq(storage.read_testcases('two-sum'), nil)
 end
 
+T['testcases']['removes the scoped file when legacy cleanup fails'] = function()
+  local storage = helpers.mod('storage')
+  local root = storage.init()
+  local legacy = vim.fs.joinpath(root, 'testcases', 'two-sum.json')
+  local scoped = storage.testcase_file('two-sum')
+  vim.fn.writefile({ '["legacy"]' }, legacy)
+  vim.fn.writefile({ '["scoped"]' }, scoped)
+
+  local original_delete = vim.fn.delete
+  helpers.with_field(vim.fn, 'delete', function(path, ...)
+    if path == legacy then return 1 end
+    return original_delete(path, ...)
+  end, function() eq(storage.write_testcases('two-sum', nil), false) end)
+
+  eq(vim.fn.filereadable(scoped), 0)
+  eq(vim.fn.filereadable(legacy), 1)
+end
+
 T['testcases']['malformed files return nil'] = function()
   local storage = helpers.mod('storage')
   vim.fn.writefile({ 'not json' }, storage.testcase_file('two-sum'))
@@ -289,6 +307,24 @@ T['drafts']['removing a draft also removes a legacy file'] = function()
   eq(storage.read_draft('two-sum', 'python3'), nil)
 end
 
+T['drafts']['removes the scoped draft when legacy cleanup fails'] = function()
+  local storage = helpers.mod('storage')
+  local root = storage.init()
+  local legacy = vim.fs.joinpath(root, 'drafts', 'two-sum.python3')
+  local scoped = storage.draft_file('two-sum', 'python3')
+  vim.fn.writefile({ 'legacy' }, legacy)
+  vim.fn.writefile({ 'scoped' }, scoped)
+
+  local original_delete = vim.fn.delete
+  helpers.with_field(vim.fn, 'delete', function(path, ...)
+    if path == legacy then return 1 end
+    return original_delete(path, ...)
+  end, function() eq(storage.write_draft('two-sum', 'python3', nil), false) end)
+
+  eq(vim.fn.filereadable(scoped), 0)
+  eq(vim.fn.filereadable(legacy), 1)
+end
+
 T['drafts']['reports failures deleting an unreadable draft'] = function()
   local storage = helpers.mod('storage')
   local scoped = storage.draft_file('x', 'py')
@@ -342,6 +378,28 @@ T['paths']['repairs missing layout directories'] = function()
   eq(vim.fn.isdirectory(testcases), 1)
 end
 
+T['paths']['root_path does not glob-expand literal paths'] = function()
+  local storage = helpers.mod('storage')
+  local literal = helpers.tmpdir() .. '/a*b'
+  local root = storage.root_path(literal)
+  eq(root:find('a*b', 1, true) ~= nil, true)
+  eq(root:find('\n', 1, true), nil)
+end
+
+T['paths']['root_path expands environment variables before becoming absolute'] = function()
+  local storage = helpers.mod('storage')
+  local home = vim.fn.expand('~')
+  eq(storage.root_path('$HOME/leetcode'), home .. '/leetcode')
+end
+
+T['paths']['root_path expands user-home shorthand'] = function()
+  local storage = helpers.mod('storage')
+  local home = vim.fn.expand('~')
+  eq(storage.root_path('~/leetcode'), home .. '/leetcode')
+  local user = vim.env.USER
+  if user ~= nil and user ~= '' then eq(storage.root_path('~' .. user .. '/leetcode'), home .. '/leetcode') end
+end
+
 T['paths']['root follows storage_path changes'] = function()
   local first = helpers.tmpdir()
   helpers.configure({ storage_path = first, browser = 'none' })
@@ -351,6 +409,87 @@ T['paths']['root follows storage_path changes'] = function()
   local second = helpers.tmpdir()
   helpers.configure({ storage_path = second, browser = 'none' })
   eq(storage.init(), vim.fs.normalize(second))
+end
+
+T['paths']['reports unusable storage roots without throwing'] = function()
+  local path = helpers.tmpdir() .. '/not-a-directory'
+  vim.fn.writefile({ 'x' }, path)
+  helpers.configure({ notifications = true })
+  local config = require('leetcode-ui.config')
+  local storage = helpers.mod('storage')
+  config.config.storage_path = path
+  storage.root = nil
+  local messages = helpers.capture_notify(function() eq(pcall(storage.init), true) end)
+  eq(vim.fn.isdirectory(path), 0)
+  eq(helpers.contains(messages[#messages].message, 'Failed to create storage directories under'), true)
+end
+
+T['migration'] = new_set()
+
+T['migration']['rejects targets nested inside the current root'] = function()
+  local storage = helpers.mod('storage')
+  local root = storage.init()
+  eq(storage.migrate(vim.fs.joinpath(root, 'drafts', 'nested')), false)
+  eq(vim.fn.isdirectory(vim.fs.joinpath(root, 'drafts', 'nested')), 0)
+  eq(vim.fn.isdirectory(vim.fs.joinpath(root, 'drafts', 'nested', 'drafts')), 0)
+end
+
+T['migration']['rejects symlinked targets that resolve inside the root'] = function()
+  if vim.fn.has('win32') == 1 then
+    MiniTest.skip('symlink fixture is Unix-only')
+    return
+  end
+  local storage = helpers.mod('storage')
+  local root = storage.init()
+  local link = helpers.tmpdir() .. '/link'
+  vim.uv.fs_symlink(root, link)
+  eq(storage.migrate(vim.fs.joinpath(link, 'nested')), false)
+end
+
+T['migration']['accepts a symlink alias of the current root'] = function()
+  if vim.fn.has('win32') == 1 then
+    MiniTest.skip('symlink fixture is Unix-only')
+    return
+  end
+  local storage = helpers.mod('storage')
+  local root = storage.init()
+  local link = helpers.tmpdir() .. '/link'
+  vim.uv.fs_symlink(root, link)
+  eq(storage.migrate(link), true)
+end
+
+T['migration']['allows sibling paths sharing the root prefix'] = function()
+  local storage = helpers.mod('storage')
+  local base = helpers.tmpdir()
+  local root = base .. '/root'
+  helpers.configure({ storage_path = root, browser = 'none' })
+  storage.root = nil
+  eq(storage.init(), storage.root_path(root))
+  eq(storage.migrate(root .. '-other'), true)
+end
+
+T['migration']['retries cleanly after a partial copy failure'] = function()
+  local storage = helpers.mod('storage')
+  storage.write_draft('two-sum', 'python3', 'saved draft')
+  storage.write_testcases('two-sum', { 'saved input' })
+  local target = helpers.tmpdir()
+
+  local original_writefile = vim.fn.writefile
+  local failed = false
+  helpers.with_field(vim.fn, 'writefile', function(lines, path, ...)
+    if not failed and type(path) == 'string' and path:find('%.tmp%.') ~= nil then
+      failed = true
+      return 1
+    end
+    return original_writefile(lines, path, ...)
+  end, function() eq(storage.migrate(target), false) end)
+
+  eq(vim.fn.glob(vim.fs.joinpath(target, '**', '*.tmp.*'), false, true), {})
+  eq(storage.migrate(target), true)
+  eq(vim.fn.filereadable(vim.fs.joinpath(target, 'drafts', 'leetcode.com', 'two-sum.python3')), 1)
+  eq(vim.fn.filereadable(vim.fs.joinpath(target, 'testcases', 'leetcode.com', 'two-sum.json')), 1)
+  eq(storage.read_draft('two-sum', 'python3'), 'saved draft')
+  eq(storage.read_testcases('two-sum'), { 'saved input' })
 end
 
 return T

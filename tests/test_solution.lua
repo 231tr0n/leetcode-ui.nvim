@@ -555,6 +555,68 @@ T['format']['rejects formatter errors and reports when no formatter exists'] = f
   end)
 end
 
+T['format']['does not report a save failure when nothing was formatted'] = function()
+  helpers.configure({ notifications = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'kotlin' }), 'x=1')
+  helpers.with_field(vim.lsp, 'get_clients', function() return {} end, function()
+    helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
+      local saves = 0
+      helpers.with_stub('leetcode-ui.storage', 'write_draft', function()
+        saves = saves + 1
+        return false
+      end, function()
+        local messages = helpers.capture_notify(function() solution.format(view) end)
+        eq(helpers.contains(messages[#messages].message, 'No formatter is available'), true)
+        for _, message in ipairs(messages) do
+          eq(helpers.contains(message.message, 'Failed to save'), false)
+        end
+        eq(saves, 0)
+      end)
+    end)
+  end)
+end
+
+T['format']['discards results when the buffer is replaced while waiting'] = function()
+  local solution = helpers.mod('solution')
+  local storage = helpers.mod('storage')
+  local view = with_code_buffer(helpers.fake_view(), 'original')
+
+  helpers.with_stub('leetcode-ui.net', 'request', function()
+    coroutine.yield()
+    return { status = 200, body = 'formatted' }, nil
+  end, function()
+    helpers.with_field(vim.api, 'nvim_buf_get_changedtick', function() return 10 end, function()
+      local worker = coroutine.create(function() solution.format(view) end)
+      eq(coroutine.resume(worker), true)
+
+      storage.write_draft(view.slug, view.lang, 'new draft')
+      vim.api.nvim_buf_delete(view.code_bufnr, { force = true })
+      view.code_bufnr = nil
+      solution.prepare(view)
+      eq(coroutine.resume(worker), true)
+    end)
+  end)
+
+  eq(solution.code(view), 'new draft')
+  eq(helpers.mod('storage').read_draft(view.slug, view.lang), 'new draft')
+  eq(view.busy, false)
+end
+
+T['format']['does not rewrite or save unchanged formatter output'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view(), 'x=1')
+  local saves = 0
+  helpers.with_stub('leetcode-ui.net', 'request', function() return { status = 200, body = 'x=1' }, nil end, function()
+    helpers.with_stub('leetcode-ui.storage', 'write_draft', function()
+      saves = saves + 1
+      return true
+    end, function() solution.format(view) end)
+  end)
+  eq(solution.code(view), 'x=1')
+  eq(saves, 0)
+end
+
 T['format']['stops when the view closes during formatting'] = function()
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view(), 'code')

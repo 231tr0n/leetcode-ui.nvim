@@ -12,8 +12,20 @@
 local LeetCodeNet = {}
 
 local async = require('leetcode-ui.async')
+local log = require('leetcode-ui.log')
 
 -- Helper functionality ==============================================================================================
+
+local function remove_temp(path, flags)
+  if vim.fn.getftype(path) == '' then return end
+  local ok, result
+  if flags ~= nil then
+    ok, result = pcall(vim.fn.delete, path, flags)
+  else
+    ok, result = pcall(vim.fn.delete, path)
+  end
+  if not ok or result ~= 0 then log.warn('Failed to remove temporary request data') end
+end
 
 --- Build curl arguments for one request.
 ---
@@ -63,15 +75,14 @@ end
 LeetCodeNet.parse_headers = function(text)
   local status, headers = 0, {}
 
-  for _, line in ipairs(vim.split(text, '[\r\n]+')) do
+  for _, raw_line in ipairs(vim.split(text, '\n', { plain = true })) do
+    local line = raw_line:gsub('\r$', '')
     if line:find('^HTTP/') then
       status = tonumber(line:match('^HTTP/%S+%s+(%d+)') or '') or status
       headers = {}
     elseif line ~= '' then
       local name, value = line:match('^([%w%-]+):%s*(.*)')
       if name ~= nil then headers[name:lower()] = value end
-    else
-      break
     end
   end
 
@@ -89,8 +100,8 @@ LeetCodeNet.read_response = function(header_file, body_file)
   if not body_ok or type(body_lines) ~= 'table' then body_lines = {} end
   local body = table.concat(body_lines, '\n')
 
-  vim.fn.delete(header_file)
-  vim.fn.delete(body_file)
+  remove_temp(header_file)
+  remove_temp(body_file)
 
   if not ok or header_text == nil then return nil end
 
@@ -106,7 +117,7 @@ end
 ---
 --- Options:
 --- - `url` (string, required)
---- - `method` (`'GET'|'POST'|'PUT'|'DELETE'`, default `'GET'`)
+--- - `method` (`GET`, `POST`, `PUT`, or `DELETE`; default `GET`)
 --- - `headers` (array of raw `'Name: value'` strings)
 --- - `body` (string|nil raw request body)
 --- - `timeout` (number seconds, default 30)
@@ -142,7 +153,8 @@ end
 ---@private
 LeetCodeNet.request_once = function(opts)
   local temp_dir = vim.fn.tempname()
-  if vim.fn.mkdir(temp_dir, 'p', 448) == 0 then return nil, 'Failed to create temporary directory' end
+  local dir_ok = pcall(vim.fn.mkdir, temp_dir, 'p', 448)
+  if not dir_ok or vim.fn.isdirectory(temp_dir) == 0 then return nil, 'Failed to create temporary directory' end
 
   local header_file = temp_dir .. '/headers'
   local body_file = temp_dir .. '/body'
@@ -151,7 +163,7 @@ LeetCodeNet.request_once = function(opts)
     request_file = temp_dir .. '/request-headers'
     local ok, result = pcall(vim.fn.writefile, opts.headers, request_file)
     if not ok or result ~= 0 then
-      vim.fn.delete(temp_dir, 'rf')
+      remove_temp(temp_dir, 'rf')
       return nil, 'Failed to create request headers'
     end
   end
@@ -159,7 +171,7 @@ LeetCodeNet.request_once = function(opts)
   local args = LeetCodeNet.curl_args(opts, header_file, body_file, request_file)
   local out = async.system(args, { text = true, stdin = opts.body })
   local res = LeetCodeNet.read_response(header_file, body_file)
-  vim.fn.delete(temp_dir, 'rf')
+  remove_temp(temp_dir, 'rf')
 
   local err = vim.trim(out.stderr or '')
   if err == '' then err = out.code ~= 0 and ('curl %s'):format(out.code) or 'curl failed' end

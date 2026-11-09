@@ -13,9 +13,12 @@
 --- temporary directory before reading, so browser locks are untouched. Only
 --- the two LeetCode cookie names on the configured domain and its subdomains
 --- are queried. Browser readers do not persist decrypted values; network
---- requests may place session headers in a private temporary directory. With
---- `browser = 'auto'`, sources are checked in priority order and the first
---- complete pair is used.
+--- requests may place session headers in a private temporary directory.
+--- Chromium decryption passes the derived key to the `openssl` CLI as an
+--- argument, which can be visible to other local users on shared systems.
+--- With `browser = 'auto'`, sources are checked in priority order and the first
+--- complete pair is used. If no source has a complete pair, the source with
+--- the most LeetCode cookies is used.
 ---@tag LeetCodeBrowser
 ---@toc_entry Browser cookies
 
@@ -243,6 +246,7 @@ LeetCodeBrowser.cookie_db = function(browser)
   local overridden = (config.config.browser_paths or {})[browser]
 
   if overridden ~= nil and overridden ~= '' then
+    overridden = overridden:gsub('^~[^/\\]*', function(user) return vim.fn.expand(user) end)
     local path = vim.fs.normalize(overridden)
     local stat = vim.uv.fs_stat(path)
     if stat == nil then return nested_cookie_file(path, filename, browser) end
@@ -408,12 +412,6 @@ LeetCodeBrowser.decrypt_blob = function(blob_hex, browser)
   local key_hex = LeetCodeBrowser.derive_key(password)
   if key_hex == nil then return nil, 'cannot derive the cookie key' end
 
-  local ct_file = vim.fn.tempname() .. '.lcookie'
-  local file = io.open(ct_file, 'wb')
-  if file == nil then return nil, 'cannot create temp file' end
-  file:write(raw:sub(4))
-  file:close()
-
   local out = async.system({
     'openssl',
     'enc',
@@ -423,18 +421,16 @@ LeetCodeBrowser.decrypt_blob = function(blob_hex, browser)
     key_hex,
     '-iv',
     string.rep('20', 16),
-    '-in',
-    ct_file,
-  }, { text = true })
-  os.remove(ct_file)
+  }, { text = true, stdin = raw:sub(4) })
 
   if out.code ~= 0 then return nil, 'AES-CBC decryption failed' end
 
   local value = out.stdout or ''
   if value == '' then return nil, nil end
 
-  -- Chrome prefixes the plaintext with a 32-byte integrity hash on Linux.
-  if osname == 'linux' and #value > 32 then
+  -- Chromium DB `meta.version >= 24` prefixes the plaintext with a 32-byte
+  -- integrity hash on macOS and Linux. Windows uses AES-GCM (unsupported).
+  if osname ~= 'windows' and #value > 32 then
     local prefix = value:sub(1, 32)
     local has_binary = false
     for i = 1, #prefix do
@@ -568,9 +564,10 @@ LeetCodeBrowser.get_cookies = function()
       if not source_unavailable(candidate) and LeetCodeBrowser.cookie_db(candidate) ~= nil then
         local found, read_err = LeetCodeBrowser.read_cookies(candidate)
         if found ~= nil and next(found) ~= nil and (cookies == nil or cookie_count(found) > cookie_count(cookies)) then
-          cookies, cookie_source = found, candidate
+          cookies, cookie_source, err = found, candidate, read_err
+        elseif err == nil then
+          err = read_err
         end
-        err = read_err
         if has_complete_session(found) then
           cookies, err, cookie_source = found, nil, candidate
           break

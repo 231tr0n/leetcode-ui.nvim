@@ -114,8 +114,8 @@ cookies from your browser's on-disk database and may decrypt them with system
 keyring tools and OpenSSL. These cookies grant access to your LeetCode
 account; prefer `cookie_file` or environment variables when possible.
 Linux is the tested Chromium decryption path; macOS uses the Keychain and
-PBKDF2 but is not covered by CI, and encrypted Chromium cookies on Windows are
-not supported.
+PBKDF2 and is covered by mocked unit tests, not a native macOS CI runner.
+Encrypted Chromium cookies on Windows are not supported.
 
 ## Development
 
@@ -148,7 +148,8 @@ Runtime:
 - `secret-tool` on Linux or `security` on macOS — optional; used for
   Chromium-family keyring-protected cookies (Linux `v11`, macOS `v10`/`v11`).
 - `mini.nvim` — optional; run `require('mini.pick').setup()` to use it, and
-  set `picker = 'mini'` to prefer it explicitly.
+  set `picker = 'mini'` to prefer it explicitly. `mini.clue` triggers are
+  enabled inside the central window when it is set up.
 - A language server such as `lua-language-server`, `clangd`, or `ruff` —
   optional; provides diagnostics and completion, plus LSP formatting when the
   server supports it.

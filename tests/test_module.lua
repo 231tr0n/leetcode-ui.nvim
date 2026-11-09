@@ -37,13 +37,61 @@ T['root']['ensure_setup sets up once'] = function()
   local root = require('leetcode-ui')
   local config = require('leetcode-ui.config')
   local storage_path = config.config.storage_path
-  config.is_setup = false
-  root.ensure_setup()
-  eq(config.is_setup, true)
+  local data = helpers.tmpdir()
+  local stdpath = vim.fn.stdpath
+
+  helpers.with_field(vim.fn, 'stdpath', function(name) return name == 'data' and data or stdpath(name) end, function()
+    config.is_setup = false
+    root.ensure_setup()
+    eq(config.is_setup, true)
+  end)
 
   helpers.configure({ lang = 'golang', storage_path = storage_path })
   root.ensure_setup()
   eq(config.config.lang, 'golang')
+end
+
+T['root']['first setup invalidates cached credentials'] = function()
+  local root = require('leetcode-ui')
+  local auth = require('leetcode-ui.auth')
+  local browser = require('leetcode-ui.browser')
+  local config = require('leetcode-ui.config')
+  auth.session = { checked = true, signed_in = true }
+  browser.cache = { value = {}, at = os.time() }
+
+  config.is_setup = false
+  root.setup({
+    browser = 'none',
+    cookies = {},
+    notifications = false,
+    storage_path = config.config.storage_path,
+  })
+  eq(auth.session, {})
+  eq(browser.cache, nil)
+end
+
+T['root']['first setup does not migrate from the default root'] = function()
+  local root = require('leetcode-ui')
+  local config = require('leetcode-ui.config')
+  local storage = require('leetcode-ui.storage')
+  local data = helpers.tmpdir()
+  local target = helpers.tmpdir()
+  local stdpath = vim.fn.stdpath
+  local migrated = false
+
+  helpers.with_field(vim.fn, 'stdpath', function(name) return name == 'data' and data or stdpath(name) end, function()
+    helpers.with_stub('leetcode-ui.storage', 'migrate', function()
+      migrated = true
+      return true
+    end, function()
+      config.is_setup = false
+      root.setup({ browser = 'none', cookies = {}, notifications = false, storage_path = target })
+    end)
+  end)
+
+  eq(config.config.storage_path, storage.root_path(target))
+  eq(migrated, false)
+  eq(vim.fn.isdirectory(vim.fs.joinpath(data, 'leetcode-ui')), 0)
 end
 
 T['root']['setup invalidates cached credentials'] = function()
@@ -69,6 +117,42 @@ T['root']['setup invalidates cached credentials'] = function()
   eq(auth.session, {})
   eq(browser.cache, nil)
   eq(storage.read_cache().problems[1].title_slug, 'two-sum')
+end
+
+T['root']['credential option changes reset auth and close views'] = function()
+  local root = require('leetcode-ui')
+  local auth = require('leetcode-ui.auth')
+  local browser = require('leetcode-ui.browser')
+  local config = require('leetcode-ui.config')
+  local question = require('leetcode-ui.question')
+  local base = {
+    browser = 'none',
+    cookies = {},
+    cookie_file = nil,
+    browser_paths = {},
+    notifications = false,
+    storage_path = config.config.storage_path,
+  }
+  local patches = {
+    { cookies = { LEETCODE_SESSION = 's', csrftoken = 'c' } },
+    { cookie_file = helpers.tmpdir() .. '/cookies.txt' },
+    { browser = 'firefox' },
+    { browser_paths = { firefox = helpers.tmpdir() .. '/cookies.sqlite' } },
+  }
+  for _, patch in ipairs(patches) do
+    local view = helpers.fake_view()
+    question.views[view.slug] = view
+    question.active = view
+    auth.session = { checked = true, signed_in = true }
+    browser.cache = { value = {}, at = os.time() }
+
+    root.setup(vim.tbl_extend('force', base, patch))
+    eq(auth.session, {})
+    eq(browser.cache, nil)
+    eq(question.views[view.slug], nil)
+    eq(view.closed, true)
+    base.storage_path = config.config.storage_path
+  end
 end
 
 T['root']['unrelated setup keeps cached credentials'] = function()
@@ -108,6 +192,24 @@ T['root']['domain changes close open question views'] = function()
   eq(view.closed, true)
 end
 
+T['root']['domain changes reset cached credentials'] = function()
+  local root = require('leetcode-ui')
+  local auth = require('leetcode-ui.auth')
+  local browser = require('leetcode-ui.browser')
+  auth.session = { checked = true, signed_in = true, name = 'user' }
+  browser.cache = { value = {}, at = os.time() }
+
+  root.setup({
+    url = 'leetcode.cn',
+    browser = 'none',
+    cookies = {},
+    notifications = false,
+    storage_path = require('leetcode-ui.config').config.storage_path,
+  })
+  eq(auth.session, {})
+  eq(browser.cache, nil)
+end
+
 T['root']['storage path changes close open question views'] = function()
   local root = require('leetcode-ui')
   local question = require('leetcode-ui.question')
@@ -124,6 +226,63 @@ T['root']['storage path changes close open question views'] = function()
   eq(question.views[view.slug], nil)
   eq(question.active, nil)
   eq(view.closed, true)
+end
+
+T['root']['equivalent storage paths keep the window open'] = function()
+  local root = require('leetcode-ui')
+  local ui = require('leetcode-ui.ui')
+  local config = require('leetcode-ui.config')
+  local path = helpers.tmpdir()
+  root.setup({ browser = 'none', cookies = {}, notifications = false, storage_path = path })
+  local winid = ui.ensure()
+  local migrated = false
+
+  helpers.with_stub(
+    'leetcode-ui.storage',
+    'migrate',
+    function()
+      migrated = true
+      return true
+    end,
+    function()
+      root.setup({
+        browser = 'none',
+        cookies = {},
+        notifications = false,
+        storage_path = path .. '/',
+      })
+    end
+  )
+
+  eq(ui.is_open(), true)
+  eq(vim.api.nvim_win_is_valid(winid), true)
+  eq(config.config.storage_path, require('leetcode-ui.storage').root_path(path))
+  eq(migrated, false)
+end
+
+T['root']['symlinked storage aliases keep the window open'] = function()
+  if vim.fn.has('win32') == 1 then
+    MiniTest.skip('symlink fixture is Unix-only')
+    return
+  end
+  local root = require('leetcode-ui')
+  local ui = require('leetcode-ui.ui')
+  local storage = require('leetcode-ui.storage')
+  local path = helpers.tmpdir()
+  local link = helpers.tmpdir() .. '/link'
+  vim.uv.fs_symlink(path, link)
+  root.setup({ browser = 'none', cookies = {}, notifications = false, storage_path = path })
+  ui.ensure()
+  local migrated = false
+
+  helpers.with_stub('leetcode-ui.storage', 'migrate', function()
+    migrated = true
+    return true
+  end, function() root.setup({ browser = 'none', cookies = {}, notifications = false, storage_path = link }) end)
+
+  eq(ui.is_open(), true)
+  eq(require('leetcode-ui.config').config.storage_path, storage.root_path(path))
+  eq(migrated, false)
 end
 
 T['root']['storage path changes migrate drafts and testcases'] = function()
@@ -146,6 +305,57 @@ T['root']['storage path changes migrate drafts and testcases'] = function()
   eq(config.config.storage_path, target)
   eq(storage.read_draft('two-sum', 'python3'), 'existing')
   eq(storage.read_testcases('two-sum'), { 'saved input' })
+end
+
+T['root']['storage changes save drafts before migrating'] = function()
+  local root = require('leetcode-ui')
+  local question = require('leetcode-ui.question')
+  local solution = require('leetcode-ui.solution')
+  local storage = require('leetcode-ui.storage')
+  local view = helpers.fake_view()
+  view.code_bufnr = helpers.mod('buffer').scratch('leetcode-ui://migration-draft', { listed = true })
+  solution.set_code(view, 'unsaved draft')
+  question.views[view.slug] = view
+  question.active = view
+
+  local target = helpers.tmpdir()
+  root.setup({ browser = 'none', cookies = {}, notifications = false, storage_path = target })
+
+  eq(storage.read_draft(view.slug, view.lang), 'unsaved draft')
+  eq(question.views[view.slug], nil)
+  eq(vim.api.nvim_buf_is_valid(view.code_bufnr), false)
+end
+
+T['root']['storage path changes abort when migration fails'] = function()
+  local root = require('leetcode-ui')
+  local config = require('leetcode-ui.config')
+  local question = require('leetcode-ui.question')
+  local ui = require('leetcode-ui.ui')
+  local previous = config.config.storage_path
+  local view = helpers.fake_view()
+  question.views[view.slug] = view
+  question.active = view
+  ui.ensure()
+
+  helpers.with_stub('leetcode-ui.storage', 'migrate', function() return false end, function()
+    expect.error(
+      function()
+        root.setup({
+          browser = 'none',
+          cookies = {},
+          notifications = false,
+          storage_path = helpers.tmpdir(),
+        })
+      end,
+      'Failed to migrate drafts and testcases'
+    )
+  end)
+
+  eq(config.config.storage_path, previous)
+  eq(question.views[view.slug], view)
+  eq(question.active, view)
+  eq(view.closed, nil)
+  eq(ui.is_open(), true)
 end
 
 T['root']['location changes abort when a view cannot be closed'] = function()

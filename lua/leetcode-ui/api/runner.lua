@@ -1,8 +1,10 @@
 --- *leetcode-ui-api-runner* Test-run and submit flows
 ---
 --- Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/v2/check/`
---- until a status code arrives; `SUCCESS` without one is an error. Normalize
---- the result for |leetcode-ui-console|.
+--- until a final status arrives. Terminal judging states (`FAILURE`,
+--- `REVOKED`) and `ai_state = FAILURE` are returned as errors; `SUCCESS`
+--- without a status code is also an error. Normalize the result for
+--- |leetcode-ui-console|.
 ---
 --- Normalized result:
 --- `{ status, ok, message, runtime_ms, memory_bytes, correct, total, compare,
@@ -84,6 +86,11 @@ LeetCodeRunnerApi.normalize = function(item, is_submit)
 
   local compare = field(item.compare_result)
   if invalid_testcase then compare = nil end
+  if not is_submit and compare ~= nil then
+    -- Interpret responses can report "Accepted" while individual cases failed.
+    local compare_text = type(compare) == 'string' and compare or tostring(compare)
+    if compare_text ~= '' then ok = ok and not compare_text:find('0', 1, true) end
+  end
 
   local stdouts = field(item.std_output_list, {})
   if type(stdouts) ~= 'table' then stdouts = {} end
@@ -94,8 +101,8 @@ LeetCodeRunnerApi.normalize = function(item, is_submit)
     message = message,
     runtime_ms = field(item.elapsed_time),
     memory_bytes = field(item.memory),
-    correct = item.total_correct or 0,
-    total = item.total_testcases or 0,
+    correct = field(item.total_correct, 0),
+    total = field(item.total_testcases, 0),
     compare = compare,
     stdouts = stdouts,
     pretty_stdout = field(item.pretty_stdout),
@@ -175,6 +182,10 @@ LeetCodeRunnerApi.poll = function(id, is_submit, cancelled)
     if res == nil then return nil, 'Empty response' end
 
     if type(res.error) == 'string' and res.error ~= '' then return nil, res.error end
+    if res.state == 'FAILURE' or res.state == 'REVOKED' then
+      return nil, first_nonempty(res.error, ('Judging failed (%s)'):format(res.state))
+    end
+    if res.ai_state == 'FAILURE' then return nil, first_nonempty(res.ai_judge_message, 'AI judging failed') end
 
     local ai_pending = res.ai_state == 'PENDING' or res.ai_state == 'STARTED'
     local status_code = res.status_code

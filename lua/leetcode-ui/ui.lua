@@ -30,6 +30,43 @@ local saved_guicursor = nil
 local cursor_is_hidden = false
 local cursor_autocmd = nil
 local resize_autocmd = nil
+local layout_autocmd = nil
+local clue_cleanup_autocmd = nil
+local clue_ensured = {}
+
+local function ensure_clue_triggers(bufnr)
+  if not vim.api.nvim_buf_is_valid(bufnr) then return end
+  -- mini.clue manages listed buffers itself; the panel is an unlisted scratch
+  -- buffer and needs explicit trigger creation.
+  if vim.fn.buflisted(bufnr) == 1 then return end
+
+  local clue = rawget(_G, 'MiniClue')
+  if type(clue) ~= 'table' or type(clue.ensure_buf_triggers) ~= 'function' then return end
+  if vim.g.miniclue_disable == true or vim.b[bufnr].miniclue_disable == true then return end
+
+  local config_id = clue.config or true
+  if clue_ensured[bufnr] == config_id then return end
+
+  local ok = pcall(clue.ensure_buf_triggers, bufnr)
+  if not ok then return end
+  clue_ensured[bufnr] = config_id
+  if clue_cleanup_autocmd == nil then
+    clue_cleanup_autocmd = vim.api.nvim_create_autocmd({ 'BufUnload', 'RecordingLeave' }, {
+      callback = function(args)
+        if args.event == 'RecordingLeave' then
+          clue_ensured = {}
+          vim.schedule(function()
+            if LeetCodeUI.is_open() and vim.api.nvim_get_current_win() == LeetCodeUI.state.winid then
+              ensure_clue_triggers(vim.api.nvim_get_current_buf())
+            end
+          end)
+        else
+          clue_ensured[args.buf] = nil
+        end
+      end,
+    })
+  end
+end
 
 local function fold_signature(folds)
   local parts = {}
@@ -46,24 +83,23 @@ local function restore_cursor()
   cursor_is_hidden = false
 end
 
-local function cmdline_cursor(value)
-  local parts = {}
-  for part in value:gmatch('[^,]+') do
-    if part:match('^c[ir]?:') ~= nil then table.insert(parts, part) end
-  end
-  if #parts == 0 then return 'c:ver25,ci:ver25,cr:ver25' end
-  return table.concat(parts, ',')
-end
-
 local function hide_cursor()
   if cursor_is_hidden then return end
   saved_guicursor = vim.o.guicursor
-  vim.o.guicursor = 'a:LeetCodeCursor,' .. cmdline_cursor(saved_guicursor)
+  local hidden = 'n-v-ve-o-i-r-sm:LeetCodeCursor'
+  -- Leave command-line modes untouched so the visible cmdline cursor is kept.
+  if saved_guicursor == '' then
+    vim.o.guicursor = hidden
+  else
+    local sep = saved_guicursor:sub(-1) == ',' and '' or ','
+    vim.o.guicursor = saved_guicursor .. sep .. hidden
+  end
   cursor_is_hidden = true
 end
 
 local function update_cursor()
   local in_central = LeetCodeUI.is_open() and vim.api.nvim_get_current_win() == LeetCodeUI.state.winid
+  if in_central then ensure_clue_triggers(vim.api.nvim_get_current_buf()) end
   if in_central and LeetCodeUI.state.cursor_hidden then
     hide_cursor()
   else
@@ -91,6 +127,7 @@ local function resize_window()
     width = config.config.float_width,
     height = config.config.float_height,
     border = config.config.float_border,
+    tabpage = vim.api.nvim_win_get_tabpage(LeetCodeUI.state.winid),
   })
   pcall(vim.api.nvim_win_set_config, LeetCodeUI.state.winid, {
     relative = 'editor',
@@ -98,6 +135,28 @@ local function resize_window()
     col = float.col,
     width = float.width,
     height = float.height,
+  })
+end
+
+local function ensure_layout_autocmds()
+  if layout_autocmd ~= nil then return end
+  layout_autocmd = vim.api.nvim_create_autocmd({ 'OptionSet', 'TabNew', 'TabClosed', 'WinNew', 'WinClosed' }, {
+    callback = function(args)
+      if
+        args.event == 'OptionSet'
+        and not vim.tbl_contains({ 'laststatus', 'showtabline', 'cmdheight' }, args.match)
+      then
+        return
+      end
+      -- WinClosed fires before the closing window leaves the layout, and tab
+      -- events fire before the tab set is fully updated. Defer to recompute
+      -- tabline/statusline rows from the new layout.
+      if args.event == 'WinClosed' or args.event == 'TabNew' or args.event == 'TabClosed' then
+        vim.schedule(resize_window)
+      else
+        resize_window()
+      end
+    end,
   })
 end
 
@@ -181,7 +240,7 @@ LeetCodeUI.ensure = function(focus)
       if owner == 'question' then
         local question = require('leetcode-ui.question')
         local view = question.active
-        if view ~= nil then question.close(view) end
+        if view ~= nil then question.close(view, true) end
       end
     end,
   })
@@ -189,6 +248,8 @@ LeetCodeUI.ensure = function(focus)
   if resize_autocmd == nil then
     resize_autocmd = vim.api.nvim_create_autocmd('VimResized', { callback = resize_window })
   end
+  ensure_layout_autocmds()
+  ensure_clue_triggers(LeetCodeUI.panel())
   return winid
 end
 
@@ -232,7 +293,7 @@ LeetCodeUI.show = function(bufnr, opts)
   vim.api.nvim_set_option_value('foldcolumn', tostring(opts.foldcolumn or 0), { win = winid })
   vim.api.nvim_set_option_value('statuscolumn', opts.statuscolumn or '', { win = winid })
   if opts.folds ~= nil then
-    local signature = fold_signature(opts.folds)
+    local signature = ('%d|%s'):format(vim.api.nvim_buf_line_count(bufnr), fold_signature(opts.folds))
     local state = LeetCodeUI.state
     if state.fold_winid ~= winid or state.fold_bufnr ~= bufnr or state.fold_signature ~= signature then
       apply_folds(winid, opts.folds)
@@ -257,6 +318,9 @@ end
 
 --- Render read-only span lines in the central window.
 ---
+--- When `pad_top` is true, one empty line is prepended and any supplied
+--- `folds` are shifted down by one line.
+---
 ---@param lines table Array of lines, each an array of `{ text, hl }` spans.
 ---@param opts table|nil All |LeetCodeUI.show()| options plus `pad_top`.
 ---@return number winid
@@ -272,8 +336,11 @@ LeetCodeUI.render = function(lines, opts)
     opts = vim.tbl_extend('force', {}, opts, { folds = folds })
   end
 
-  local previous_view = nil
-  if LeetCodeUI.is_open() then previous_view = vim.api.nvim_win_call(LeetCodeUI.state.winid, vim.fn.winsaveview) end
+  local previous_view, previous_buf = nil, nil
+  if LeetCodeUI.is_open() then
+    previous_buf = vim.api.nvim_win_get_buf(LeetCodeUI.state.winid)
+    previous_view = vim.api.nvim_win_call(LeetCodeUI.state.winid, vim.fn.winsaveview)
+  end
 
   local render_opts = vim.tbl_extend('force', {
     cursorline = true,
@@ -288,7 +355,7 @@ LeetCodeUI.render = function(lines, opts)
   local winid = LeetCodeUI.show(bufnr, render_opts)
   LeetCodeUI.set_winbar('')
 
-  if render_opts.focus == false and previous_view ~= nil then
+  if render_opts.focus == false and previous_view ~= nil and previous_buf == bufnr then
     pcall(vim.api.nvim_win_call, winid, function() vim.fn.winrestview(previous_view) end)
   else
     local first_content = render_opts.pad_top == true and 2 or 1

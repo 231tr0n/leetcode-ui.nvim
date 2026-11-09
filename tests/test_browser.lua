@@ -43,6 +43,22 @@ T['selection']['cache is invalidated when the browser changes'] = function()
   end)
 end
 
+T['selection']['cache is invalidated when the domain changes'] = function()
+  local browser = helpers.mod('browser')
+  local config = helpers.mod('config')
+  local reads = 0
+  helpers.with_stub('leetcode-ui.browser', 'read_cookies', function(name)
+    reads = reads + 1
+    return { source = name, domain = config.config.url }, nil
+  end, function()
+    helpers.configure({ browser = 'firefox' })
+    eq(browser.get_cookies().domain, 'leetcode.com')
+    config.config.url = 'leetcode.cn'
+    eq(browser.get_cookies().domain, 'leetcode.cn')
+    eq(reads, 2)
+  end)
+end
+
 T['selection']['cache expires after the TTL'] = function()
   helpers.configure({ browser = 'firefox' })
   local browser = helpers.mod('browser')
@@ -78,6 +94,23 @@ T['selection']['auto skips empty databases and uses a complete session'] = funct
       local cookies = browser.get_cookies()
       eq(cookies.LEETCODE_SESSION, 'session')
       eq(browser.cache.browser, 'chrome')
+    end)
+  end)
+end
+
+T['selection']['auto keeps warnings from the selected cookie source'] = function()
+  helpers.configure({ browser = 'auto', notifications = true })
+  local browser = helpers.mod('browser')
+  helpers.with_stub('leetcode-ui.browser', 'cookie_db', function(name)
+    if name == 'firefox' or name == 'chrome' then return '/tmp/' .. name end
+    return nil
+  end, function()
+    helpers.with_stub('leetcode-ui.browser', 'read_cookies', function(name)
+      if name == 'firefox' then return {}, 'keyring unavailable' end
+      return {}, nil
+    end, function()
+      local messages = helpers.capture_notify(function() eq(browser.get_cookies(), nil) end)
+      eq(helpers.contains(messages[#messages].message, 'keyring unavailable'), true)
     end)
   end)
 end
@@ -529,6 +562,33 @@ T['decrypt_blob']['key derivation failures return an error'] = function()
   end)
 end
 
+T['decrypt_blob']['strips integrity prefixes on macOS'] = function()
+  local browser = helpers.mod('browser')
+  local key = '00112233445566778899aabbccddeeff'
+  local script = [[
+import subprocess, sys
+plain = b'\0' * 32 + b'mac-value'
+ct = subprocess.run(
+    ['openssl', 'enc', '-e', '-aes-128-cbc', '-K', sys.argv[1], '-iv', '20' * 16],
+    input=plain, capture_output=True, check=True
+).stdout
+print(ct.hex())
+]]
+  local out = vim.system({ 'python3', '-c', script, key }, { text = true }):wait()
+  eq(out.code, 0)
+  local blob_hex = '763130' .. vim.trim(out.stdout)
+
+  helpers.with_field(vim.uv, 'os_uname', function() return { sysname = 'Darwin' } end, function()
+    helpers.with_stub('leetcode-ui.browser', 'keyring_password', function() return 'peanuts' end, function()
+      helpers.with_stub('leetcode-ui.browser', 'derive_key', function() return key end, function()
+        local value, err = browser.decrypt_blob(blob_hex, 'chrome')
+        eq(err, nil)
+        eq(value, 'mac-value')
+      end)
+    end)
+  end)
+end
+
 T['safari'] = new_set()
 
 T['safari']['parses binary cookie files'] = function()
@@ -627,6 +687,17 @@ T['paths']['cookie_db honours directory overrides'] = function()
   helpers.configure({ browser = 'firefox', browser_paths = { firefox = profile } })
   local browser = helpers.mod('browser')
   eq(browser.cookie_db('firefox'), profile .. '/cookies.sqlite')
+end
+
+T['paths']['cookie_db expands user-home overrides'] = function()
+  local user = vim.env.USER
+  if user == nil or user == '' then return end
+  local expected = vim.fn.expand('~') .. '/profile/Cookies'
+  helpers.configure({ browser = 'firefox', browser_paths = { firefox = '~' .. user .. '/profile/Cookies' } })
+  local browser = helpers.mod('browser')
+  helpers.with_field(vim.uv, 'fs_stat', function(path)
+    if path == expected then return { type = 'file' } end
+  end, function() eq(browser.cookie_db('firefox'), expected) end)
 end
 
 T['paths']['Chromium overrides discover Network/Cookies'] = function()

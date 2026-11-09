@@ -11,13 +11,21 @@ are tabs in that window. Statistics use the same window.
 # Setup ~
 
 Call |LeetCode.setup()| with your options. All settings are optional; see
-|leetcode-ui-config| for every option and the defaults.
+|leetcode-ui-config| for every option and the defaults. Every call replaces
+the complete configuration: options omitted from the new table return to
+their defaults instead of keeping values from an earlier call.
+
+Changing `url`, `storage_path`, or credential-related options closes the
+central window (question, statistics, and help views) after drafts are
+saved. `storage_path` changes may migrate saved data; `url` and credential
+changes also reset cached authentication. If a draft cannot be saved, setup
+raises an error.
 
 >lua
   require('leetcode-ui').setup({})
 <
 
-No keymaps are created by the plugin. Every action is available as a
+No action keymaps are created by the plugin. Every action is available as a
 `:LeetCode` subcommand, so you can map exactly the actions you use:
 
 >lua
@@ -81,7 +89,9 @@ Question-window actions live under `:LeetCode question`:
   cookie decryption.
 - `secret-tool` on Linux or `security` on macOS - optional; used for
   keyring-protected cookies (Linux `v11`, macOS `v10`/`v11`).
-- `mini.nvim` - optional; run `require('mini.pick').setup()` to use it.
+- `mini.nvim` - optional; run `require('mini.pick').setup()` for the
+  picker backend and `require('mini.clue').setup()` for key hints. Clue
+  triggers are enabled inside the central window when it is set up.
 - A language server such as `lua-language-server`, `clangd`, or `ruff` -
   optional; provides diagnostics and completion, plus LSP formatting when
   the server supports it.
@@ -98,8 +108,9 @@ on-disk cookie database and may decrypt Chromium-family values using system
 keyring tools and `openssl`. These cookies grant access to your LeetCode
 account; only enable this if you understand the risk. Prefer `cookie_file`
 or environment variables when possible. Linux is the tested Chromium
-decryption path; macOS uses the Keychain and PBKDF2 but is not covered by CI,
-and encrypted Chromium cookies on Windows are not supported.
+decryption path; macOS uses the Keychain and PBKDF2 and is covered by mocked
+unit tests, not a native macOS CI runner. Encrypted Chromium cookies on
+Windows are not supported.
 
 Table of contents:
 
@@ -131,6 +142,12 @@ Table of contents:
                             `LeetCode.setup`({opts})
 Set up plugin options (full docs in |leetcode-ui-config|).
 
+Each call replaces the complete configuration; omitted options return to
+their defaults. Changing `url`, `storage_path`, or credential options may
+close the central window. `url` and credential changes also reset cached
+authentication; `storage_path` changes may migrate saved drafts and
+testcases. An error is raised if a draft cannot be saved.
+
 Parameters ~
 {opts} `(table|nil)` Setup options.
 
@@ -158,7 +175,7 @@ Open today's daily coding challenge.
 Open a random question.
 
 Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+{opts} `(table|nil)` { difficulty = 'Easy', 'Medium', or 'Hard' }
 
 ------------------------------------------------------------------------------
                                                                *LeetCode.list()*
@@ -166,7 +183,7 @@ Parameters ~
 Browse the problem list.
 
 Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+{opts} `(table|nil)` { difficulty = 'Easy', 'Medium', or 'Hard' }
 
 ------------------------------------------------------------------------------
                                                                *LeetCode.open()*
@@ -272,8 +289,9 @@ Return ~
 
 Configuration is validated and applied by |LeetCode.setup()|.
 
-Nested tables are replaced whole (not deep-merged). Supply the complete
-nested table when overriding one.
+Each call to |LeetCode.setup()| replaces the whole configuration. Unspecified
+options return to their defaults; values from a previous call are not
+merged. Nested tables are replaced whole as well.
 
 Options:
 
@@ -287,12 +305,14 @@ Options:
 - `browser` (`string`) - cookie import source: `none` (default), `auto`,
   `firefox`, `epiphany`, `safari`, `chrome`, `brave`, `edge`, or `chromium`.
 - `browser_paths` (`table`) - per-browser database path overrides.
-- `float_width`, `float_height` (`number`) - central window size.
+- `float_width`, `float_height` (`number`) - preferred central window
+  content size, clamped to the usable editor area. Borders are extra.
 - `float_border` (`string|nil`) - central window border.
 - `picker` (`string`) - `auto` (use `mini.pick` when `MiniPick` is set up),
   `mini` (prefer it explicitly), or `builtin` (use |vim.ui.select()|).
 - `cooldown` (`number`) - problem-list cache lifetime in minutes.
-- `hide_premium` (`boolean`) - hide premium-only problems from pickers.
+- `hide_premium` (`boolean`) - hide premium-only problems from pickers,
+  random selection, and completions.
 - `show_hints` (`boolean`) - show hints in the Description tab by default.
 - `notifications` (`boolean`) - show notifications.
 - `icons` (`table`) - status and testcase icon overrides.
@@ -380,6 +400,16 @@ Raise a configuration error.
 
 Parameters ~
 {msg} `(string)`
+
+------------------------------------------------------------------------------
+                                                      *LeetCodeConfig.prepare()*
+                        `LeetCodeConfig.prepare`({opts})
+Validate and fill defaults for a setup table.
+
+Parameters ~
+{opts} `(table|nil)` User configuration.
+Return ~
+`(table)` prepared
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeConfig.setup()*
@@ -524,6 +554,9 @@ Return ~
                       `LeetCodeUI.render`({lines}, {opts})
 Render read-only span lines in the central window.
 
+When `pad_top` is true, one empty line is prepended and any supplied
+`folds` are shifted down by one line.
+
 Parameters ~
 {lines} `(table)` Array of lines, each an array of `{ text, hl }` spans.
 {opts} `(table|nil)` All |LeetCodeUI.show()| options plus `pad_top`.
@@ -567,8 +600,13 @@ Return ~
                      `LeetCodeBuffer.float_config`({opts})
 Build a centered, editor-bounded floating-window configuration.
 
+The window is centered in the editor text area: tabline, statusline, and
+command-line rows are excluded. Width and height are clamped to the
+available text area (the outer border is not counted). Pass `tabpage` to
+compute statusline rows for a specific tabpage.
+
 Parameters ~
-{opts} `(table|nil)` Geometry, border, and title overrides.
+{opts} `(table|nil)` Geometry, border, title, and `tabpage` overrides.
 Return ~
 `(table)` config
 
@@ -698,11 +736,13 @@ Parameters ~
 
 ------------------------------------------------------------------------------
                                                   *LeetCodeQuestionView.close()*
-                      `LeetCodeQuestionView.close`({view})
+           `LeetCodeQuestionView.close`({view}, {force}, {skip_save})
 Close a question view.
 
 Parameters ~
 {view} `(table|nil)`
+{force} `(boolean|nil)` Finalize even if the draft cannot be saved.
+{skip_save} `(boolean|nil)` Skip saving when the caller already saved the draft.
 
 ------------------------------------------------------------------------------
                                               *LeetCodeQuestionView.set_hints()*
@@ -736,7 +776,7 @@ Run all testcases or one testcase.
 
 Parameters ~
 {view} `(table|nil)`
-{index} `(number|string|nil)`
+{index} `(any)` Testcase index (number or numeric string).
 
 ------------------------------------------------------------------------------
                                                  *LeetCodeQuestionView.submit()*
@@ -767,7 +807,7 @@ Return ~
 ------------------------------------------------------------------------------
                                                    *LeetCodeConsole.set_cases()*
               `LeetCodeConsole.set_cases`({console}, {testcases})
-Replace all testcases from raw inputs.
+Replace all testcases from raw inputs and clear any previous submission.
 
 Parameters ~
 {console} `(table)`
@@ -920,6 +960,16 @@ Parameters ~
 
 Owns the editable solution buffer: starter snippets, draft persistence,
 formatting, and language switching.
+
+------------------------------------------------------------------------------
+                                            *LeetCodeSolution.has_code_buffer()*
+                   `LeetCodeSolution.has_code_buffer`({view})
+Whether the view is open and has a valid, loaded code buffer.
+
+Parameters ~
+{view} `(table|nil)`
+Return ~
+`(boolean)`
 
 ------------------------------------------------------------------------------
                                                    *LeetCodeSolution.filetype()*
@@ -1105,7 +1155,7 @@ Parameters ~
 Browse the problem list.
 
 Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+{opts} `(table|nil)` { difficulty = 'Easy', 'Medium', or 'Hard' }
 
 ------------------------------------------------------------------------------
                                                         *LeetCodePicker.daily()*
@@ -1118,7 +1168,7 @@ Open today's daily challenge.
 Open a random question.
 
 Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+{opts} `(table|nil)` { difficulty = 'Easy', 'Medium', or 'Hard' }
 
 ------------------------------------------------------------------------------
                                                              *LeetCodeStatsView*
@@ -1165,8 +1215,8 @@ Return ~
                        `LeetCodeStatsView.lines`({data})
 Build all statistics lines.
 
-`data` may contain `solved`, `languages`, `skills`, `err`, `session`, and
-`streak` values; every field is optional.
+`data` may contain `solved`, `languages`, `skills`, `err`, `auth_err`,
+`session`, and `streak` values; every field is optional.
 
 Parameters ~
 {data} `(table)`
@@ -1195,10 +1245,10 @@ when `browser` import is enabled.
 |LeetCodeAuth.verify()| lazily runs the `userStatus` GraphQL query and
 caches successful results as `{ checked, signed_in, name, is_premium,
 user_id }` until reset, the first setup, or a credential/URL change.
-Signed-out checks are not cached. With no resolved credentials, browser
-caches are cleared so a fresh sign-in is found on the next check; sources
-that rejected credentials stay skipped in `auto` browser mode until the
-cookie cache TTL expires.
+Signed-out checks are not cached. With incomplete or missing credentials,
+browser caches are cleared so a fresh sign-in is found on the next check;
+sources that rejected credentials stay skipped in `auto` browser mode until
+the cookie cache TTL expires.
 
 ------------------------------------------------------------------------------
                                                     *LeetCodeAuth.cookie_file()*
@@ -1307,9 +1357,12 @@ SQLite browser databases and available WAL sidecars are copied to a
 temporary directory before reading, so browser locks are untouched. Only
 the two LeetCode cookie names on the configured domain and its subdomains
 are queried. Browser readers do not persist decrypted values; network
-requests may place session headers in a private temporary directory. With
-`browser = 'auto'`, sources are checked in priority order and the first
-complete pair is used.
+requests may place session headers in a private temporary directory.
+Chromium decryption passes the derived key to the `openssl` CLI as an
+argument, which can be visible to other local users on shared systems.
+With `browser = 'auto'`, sources are checked in priority order and the first
+complete pair is used. If no source has a complete pair, the source with
+the most LeetCode cookies is used.
 
 ------------------------------------------------------------------------------
                                                          *LeetCodeBrowser.now()*
@@ -1453,7 +1506,7 @@ Perform an HTTP request.
 
 Options:
 - `url` (string, required)
-- `method` (`'GET'|'POST'|'PUT'|'DELETE'`, default `'GET'`)
+- `method` (`GET`, `POST`, `PUT`, or `DELETE`; default `GET`)
 - `headers` (array of raw `'Name: value'` strings)
 - `body` (string|nil raw request body)
 - `timeout` (number seconds, default 30)
@@ -1498,6 +1551,19 @@ Legacy files from older versions stored at `drafts/{slug}.{langSlug}` and
 `testcases/{slug}.json` are migrated into the `leetcode.com` layout on
 first read; they are left untouched when another domain is configured.
 Changing `storage_path` copies saved drafts and testcases into the new root.
+A target nested inside the current root is rejected. The first setup in a
+new process does not migrate from the default root.
+
+------------------------------------------------------------------------------
+                                                  *LeetCodeStorage.path_equal()*
+                     `LeetCodeStorage.path_equal`({a}, {b})
+Whether two paths identify the same location.
+
+Parameters ~
+{a} `(string)`
+{b} `(string)`
+Return ~
+`(boolean)`
 
 ------------------------------------------------------------------------------
                                                         *LeetCodeStorage.init()*
@@ -1524,6 +1590,18 @@ Return ~
                          `LeetCodeStorage.cache_file`()
 Path to the problem-list cache file.
 
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                   *LeetCodeStorage.root_path()*
+                   `LeetCodeStorage.root_path`({configured})
+Absolute, symlink-resolved storage root for a configured path.
+
+Uses `stdpath('data')/leetcode-ui` when `configured` is nil or empty.
+
+Parameters ~
+{configured} `(string|nil)`
 Return ~
 `(string)`
 
@@ -1744,7 +1822,9 @@ Parameters ~
 {path} `(string)` Path like '/problems/two-sum/submit/'.
 {body} `(string|nil)` Raw request body (JSON already encoded).
 {headers} `(table|nil)` Extra raw headers.
-{opts} `(table|nil)` Additional |LeetCodeNet.request()| options.
+{opts} `(table|nil)` Extra |LeetCodeNet.request()| options such as `timeout` and
+`retries`. Endpoint, body, headers, and authentication fields cannot be
+overridden here; pass extra headers through `headers`.
 Return ~
 `(table|nil)` data Decoded JSON object.
 Return ~
@@ -1861,7 +1941,7 @@ Return ~
 Random question slug.
 
 Parameters ~
-{opts} `(table|nil)` { difficulty = 'Easy'|'Medium'|'Hard' }
+{opts} `(table|nil)` { difficulty = 'Easy', 'Medium', or 'Hard' }
 Return ~
 `(string|nil)` title_slug
 Return ~
@@ -1884,8 +1964,10 @@ Return ~
 *leetcode-ui-api-runner* Test-run and submit flows
 
 Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/v2/check/`
-until a status code arrives; `SUCCESS` without one is an error. Normalize
-the result for |leetcode-ui-console|.
+until a final status arrives. Terminal judging states (`FAILURE`,
+`REVOKED`) and `ai_state = FAILURE` are returned as errors; `SUCCESS`
+without a status code is also an error. Normalize the result for
+|leetcode-ui-console|.
 
 Normalized result:
 `{ status, ok, message, runtime_ms, memory_bytes, correct, total, compare,

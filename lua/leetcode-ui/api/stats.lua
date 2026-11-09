@@ -20,7 +20,9 @@ local queries = require('leetcode-ui.api.queries')
 LeetCodeStatsApi.username = function()
   local session, err = auth.verify()
   if err ~= nil or session == nil then return nil, err or 'No session' end
-  if not session.signed_in or session.name == nil then return nil, 'Not signed in (check cookies)' end
+  if not session.signed_in or type(session.name) ~= 'string' or session.name == '' then
+    return nil, 'Not signed in (check cookies)'
+  end
   return session.name, nil
 end
 
@@ -44,7 +46,8 @@ LeetCodeStatsApi.solved = function()
   end
 
   local solved = {}
-  local matched = type(data.matchedUser) == 'table' and data.matchedUser or {}
+  if type(data.matchedUser) ~= 'table' then return nil, 'User statistics are not available' end
+  local matched = data.matchedUser
   local solved_counts = type(matched.solved_counts) == 'table' and matched.solved_counts or {}
   local accepted = type(solved_counts.acSubmissionNum) == 'table' and solved_counts.acSubmissionNum or {}
   for _, row in ipairs(accepted) do
