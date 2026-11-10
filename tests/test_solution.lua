@@ -356,7 +356,7 @@ end
 
 T['format'] = new_set()
 
-T['format']['uses LeetCode formatter first'] = function()
+T['format']['falls back to the LeetCode API without a user formatter'] = function()
   local solution = helpers.mod('solution')
   local storage = helpers.mod('storage')
   local view = with_code_buffer(helpers.fake_view(), 'def f():\n  pass')
@@ -434,22 +434,13 @@ T['format']['ignores error and HTML responses and sends the current code'] = fun
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view(), 'x')
   local requests = {}
-  helpers.with_field(vim.lsp, 'get_clients', function() return {} end, function()
-    helpers.with_stub(
-      'leetcode-ui.async',
-      'system',
-      function() return { code = 1, stdout = '', stderr = '' } end,
-      function()
-        helpers.with_stub('leetcode-ui.net', 'request', function(opts)
-          table.insert(requests, opts)
-          if #requests == 1 then return { status = 500, body = '<html>down</html>' }, nil end
-          return { status = 200, body = '<html>down</html>' }, nil
-        end, function()
-          solution.format(view)
-          solution.format(view)
-        end)
-      end
-    )
+  helpers.with_stub('leetcode-ui.net', 'request', function(opts)
+    table.insert(requests, opts)
+    if #requests == 1 then return { status = 500, body = '<html>down</html>' }, nil end
+    return { status = 200, body = '<html>down</html>' }, nil
+  end, function()
+    solution.format(view)
+    solution.format(view)
   end)
 
   eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'x')
@@ -644,30 +635,16 @@ T['format']['does nothing for empty code'] = function()
   eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], '   ')
 end
 
-T['format']['rejects formatter errors and reports when no formatter exists'] = function()
+T['format']['reports no formatter for unsupported languages'] = function()
   helpers.configure({ notifications = true })
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view({ lang = 'kotlin' }), 'x=1')
-  helpers.with_field(vim.lsp, 'get_clients', function() return {} end, function()
-    helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
-      local messages = helpers.capture_notify(function() solution.format(view) end)
-      eq(helpers.contains(messages[#messages].message, 'No formatter is available'), true)
-      eq(messages[#messages].level, vim.log.levels.WARN)
-      eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'x=1')
-      eq(view.busy, false)
-    end)
-
-    helpers.with_stub(
-      'leetcode-ui.net',
-      'request',
-      function() return { status = 200, body = '{"error":"format failed"}' }, nil end,
-      function()
-        local messages = helpers.capture_notify(function() solution.format(view) end)
-        eq(helpers.contains(messages[#messages].message, 'No formatter is available'), true)
-        eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'x=1')
-        eq(view.busy, false)
-      end
-    )
+  helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
+    local messages = helpers.capture_notify(function() solution.format(view) end)
+    eq(helpers.contains(messages[#messages].message, 'No formatter is available'), true)
+    eq(messages[#messages].level, vim.log.levels.WARN)
+    eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'x=1')
+    eq(view.busy, false)
   end)
 end
 
@@ -675,20 +652,18 @@ T['format']['does not report a save failure when nothing was formatted'] = funct
   helpers.configure({ notifications = true })
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view({ lang = 'kotlin' }), 'x=1')
-  helpers.with_field(vim.lsp, 'get_clients', function() return {} end, function()
-    helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
-      local saves = 0
-      helpers.with_stub('leetcode-ui.storage', 'write_draft', function()
-        saves = saves + 1
-        return false
-      end, function()
-        local messages = helpers.capture_notify(function() solution.format(view) end)
-        eq(helpers.contains(messages[#messages].message, 'No formatter is available'), true)
-        for _, message in ipairs(messages) do
-          eq(helpers.contains(message.message, 'Failed to save'), false)
-        end
-        eq(saves, 0)
-      end)
+  helpers.with_stub('leetcode-ui.net', 'request', function() return nil, 'offline' end, function()
+    local saves = 0
+    helpers.with_stub('leetcode-ui.storage', 'write_draft', function()
+      saves = saves + 1
+      return false
+    end, function()
+      local messages = helpers.capture_notify(function() solution.format(view) end)
+      eq(helpers.contains(messages[#messages].message, 'No formatter is available'), true)
+      for _, message in ipairs(messages) do
+        eq(helpers.contains(message.message, 'Failed to save'), false)
+      end
+      eq(saves, 0)
     end)
   end)
 end
