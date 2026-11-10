@@ -22,6 +22,19 @@ local storage = require('leetcode-ui.storage')
 
 -- Helper functionality =============================================================================================
 
+local function problem_label(count) return ('%d problem%s'):format(count, count == 1 and '' or 's') end
+
+local function progress(text, percent, status)
+  pcall(vim.api.nvim_echo, { { text } }, false, {
+    id = 'leetcode-ui.problems',
+    kind = 'progress',
+    status = status or 'running',
+    percent = math.max(0, math.min(100, math.floor(percent or 0))),
+    title = 'LeetCode problems',
+    source = 'leetcode-ui',
+  })
+end
+
 --- Remove `vim.NIL` values recursively and compact array entries.
 ---
 ---@param value any
@@ -117,8 +130,10 @@ LeetCodeQuestion.get_list = function(opts)
   end
 
   log.info('Loading problem list…')
+  progress('Fetching problem list…', 0)
   local page_size = 100
   local function fail(message)
+    progress('Failed to load problem list', 0, 'failed')
     log.error('Failed to load problem list: ' .. message)
     return nil, message
   end
@@ -146,13 +161,19 @@ LeetCodeQuestion.get_list = function(opts)
   local total
   while true do
     local page, err = fetch_page(skip)
-    if err ~= nil or page == nil then return nil, err or 'Empty response' end
+    if err ~= nil or page == nil then
+      if err ~= nil and err:find('domain changed', 1, true) ~= nil then
+        progress('Problem list fetch cancelled', 0, 'failed')
+      end
+      return nil, err or 'Empty response'
+    end
 
     total = page.total
     for _, row in ipairs(page.rows) do
       local cleaned = LeetCodeQuestion.remove_nil(row)
       if type(cleaned) == 'table' then table.insert(questions, LeetCodeQuestion.normalize_entry(cleaned)) end
     end
+    progress(('Loaded %d of %s'):format(#questions, problem_label(total)), math.min(#questions / total * 100, 99))
 
     if #page.rows < page_size or #questions >= total then break end
     skip = skip + page_size
@@ -176,12 +197,19 @@ LeetCodeQuestion.get_list = function(opts)
     end
   end
 
-  if current_key ~= request_key then return nil, 'Authentication state changed during fetch' end
-  if config.config.url ~= request_domain then return nil, 'LeetCode domain changed during fetch' end
+  if current_key ~= request_key then
+    progress('Problem list fetch cancelled', 0, 'failed')
+    return nil, 'Authentication state changed during fetch'
+  end
+  if config.config.url ~= request_domain then
+    progress('Problem list fetch cancelled', 0, 'failed')
+    return nil, 'LeetCode domain changed during fetch'
+  end
 
   local result = { total = total, questions = questions }
   if latest_list_revision ~= list_revision then
-    log.info(('Loaded %d problems'):format(#questions))
+    progress(('Loaded %s'):format(problem_label(#questions)), 100, 'success')
+    log.info(('Loaded %s'):format(problem_label(#questions)))
     return result, nil
   end
 
@@ -193,7 +221,8 @@ LeetCodeQuestion.get_list = function(opts)
   cache.list_revision = list_revision + 1
   cache.revision = latest_revision + 1
   storage.write_cache(cache)
-  log.info(('Loaded %d problems'):format(#questions))
+  progress(('Loaded %s'):format(problem_label(#questions)), 100, 'success')
+  log.info(('Loaded %s'):format(problem_label(#questions)))
 
   return result, nil
 end

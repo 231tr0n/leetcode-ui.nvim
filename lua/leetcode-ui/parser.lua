@@ -38,6 +38,12 @@ local entities = {
   le = '≤',
   ge = '≥',
   ne = '≠',
+  ZeroWidthSpace = '',
+  zwnj = '\226\128\140',
+  zwj = '\226\128\141',
+  ensp = ' ',
+  emsp = ' ',
+  thinsp = '\226\128\137',
 }
 
 local sup_chars = {
@@ -84,6 +90,26 @@ local sub_chars = {
 
 -- Helper functionality ==============================================================================================
 
+local invisible_chars = {
+  '\226\128\139', -- U+200B zero-width space
+  '\226\129\160', -- U+2060 word joiner
+  '\239\187\191', -- U+FEFF byte-order mark
+  '\194\173', -- U+00AD soft hyphen
+}
+
+local function strip_invisible(s)
+  for _, char in ipairs(invisible_chars) do
+    s = s:gsub(char, '')
+  end
+  return s
+end
+
+--- Remove invisible layout-control characters from text.
+---
+---@param s string
+---@return string
+LeetCodeParser.strip_invisible = function(s) return strip_invisible(s) end
+
 --- Decode named, decimal, and hexadecimal HTML entities.
 ---
 ---@param s string
@@ -106,7 +132,7 @@ LeetCodeParser.decode_entities = function(s)
 
     return entities[entity] or ('&' .. entity .. ';')
   end)
-  return s
+  return strip_invisible(s)
 end
 
 -- Replace simple text with Unicode superscript or subscript glyphs.
@@ -133,11 +159,11 @@ local function preprocess(html)
   -- Unicode-ify simple superscripts/subscripts before anything else.
   html = html:gsub(
     '<[sS][uU][pP]>%s*([^<]-)%s*</[sS][uU][pP]>',
-    function(text) return encode_script(text, sup_chars) end
+    function(text) return encode_script(LeetCodeParser.decode_entities(text), sup_chars) end
   )
   html = html:gsub(
     '<[sS][uU][bB]>%s*([^<]-)%s*</[sS][uU][bB]>',
-    function(text) return encode_script(text, sub_chars) end
+    function(text) return encode_script(LeetCodeParser.decode_entities(text), sub_chars) end
   )
 
   return html
@@ -253,27 +279,37 @@ LeetCodeParser.render = function(content)
   local pre_depth = 0
   local strip_pre_newline = false
   local blocks = {}
+  local function snapshot_structure()
+    return { lists = #lists, pre_depth = pre_depth, strip_pre_newline = strip_pre_newline }
+  end
+  local function restore_structure(snapshot)
+    while #lists > snapshot.lists do
+      table.remove(lists)
+    end
+    pre_depth = snapshot.pre_depth
+    strip_pre_newline = snapshot.strip_pre_newline
+  end
   local function begin_block(tag, depth)
     last_was_br = false
     local floor = styles[#styles] and styles[#styles].id or 0
-    table.insert(blocks, { tag = tag, floor = floor, depth = depth })
+    table.insert(blocks, { tag = tag, floor = floor, depth = depth, snapshot = snapshot_structure() })
   end
   local function end_block(tag, depth)
     for index = #blocks, 1, -1 do
       local block = blocks[index]
       if block.tag == tag and (depth == nil or block.depth == depth) then
+        local forced = index < #blocks
         local floor = block.floor
         while #styles > 0 and styles[#styles].id > floor do
           table.remove(styles)
         end
+        local removed_pre = false
         for position = #blocks, index, -1 do
-          if blocks[position].tag == 'pre' then
-            pre_depth = 0
-            strip_pre_newline = false
-          end
+          if blocks[position].tag == 'pre' then removed_pre = true end
           table.remove(blocks, position)
         end
-        if tag == 'pre' then
+        if forced and block.snapshot ~= nil then restore_structure(block.snapshot) end
+        if removed_pre or tag == 'pre' then
           pre_depth = 0
           strip_pre_newline = false
         end
@@ -415,7 +451,12 @@ LeetCodeParser.render = function(content)
       if in_cell then ensure_space() end
       if not in_cell then
         flush()
-        if #lists == 0 then ensure_blank() end
+        if #lists == 0 then
+          ensure_blank()
+        else
+          local top = lists[#lists]
+          push(('    '):rep(math.max(#lists - 1, 0)) .. (' '):rep(top.marker_width or 2))
+        end
       end
     elseif tag == 'code' then
       push_style('code', 'LeetCodeCode')
@@ -433,6 +474,13 @@ LeetCodeParser.render = function(content)
       push_style('a', 'LeetCodeLink')
     elseif tag == '/a' then
       pop_style({ 'a' })
+    elseif tag == 'hr' then
+      if in_container() then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
     elseif tag == 'blockquote' then
       if in_container() then
         ensure_space()
@@ -489,7 +537,8 @@ LeetCodeParser.render = function(content)
         local raw = LeetCodeParser.decode_entities(attr(token.attrs, 'start') or '')
         local value = tonumber(raw)
         if value ~= nil and value == value and value ~= math.huge and value ~= -math.huge then
-          start = math.floor(value)
+          value = math.floor(value)
+          if value >= 0 and value <= 999999999 then start = value end
         end
       end
       table.insert(lists, { ordered = tag == 'ol', index = (start or 1) - 1 })
@@ -502,7 +551,12 @@ LeetCodeParser.render = function(content)
         flush()
       end
       table.remove(lists)
-      if not cell_open and #lists == 0 then ensure_blank() end
+      if not cell_open and #lists > 0 then
+        local top = lists[#lists]
+        push(('    '):rep(#lists - 1) .. (' '):rep(top.marker_width or 2))
+      elseif not cell_open then
+        ensure_blank()
+      end
     elseif tag == 'li' then
       end_block('li', #lists)
       if cell_open then
@@ -515,8 +569,10 @@ LeetCodeParser.render = function(content)
       if top ~= nil then
         top.index = top.index + 1
         local indent = ('    '):rep(math.max(#lists - 1, 0))
+        local marker = top.ordered and ('%d.'):format(math.min(top.index, 999999999)) or '•'
+        top.marker_width = (top.ordered and #marker or 1) + 1
         push(indent)
-        push(top.ordered and ('%d.'):format(top.index) or '•')
+        push(marker)
         push(' ')
         strip_leading = true
       end
@@ -635,6 +691,7 @@ LeetCodeParser.render = function(content)
       local alt = attr(token.attrs, 'alt')
       if alt ~= nil and alt ~= '' then
         push('[image: ' .. alt .. ']')
+        strip_leading = false
         last_was_br = false
       end
     end
@@ -648,4 +705,611 @@ LeetCodeParser.render = function(content)
   return lines
 end
 
+local function markdown_escape(text) return (text:gsub('([\\`*_%[%]|<>~#&!])', '\\%1')) end
+
+--- Escape text for Markdown.
+---
+---@param text any
+---@return string
+LeetCodeParser.markdown_escape = function(text) return markdown_escape(tostring(text or '')) end
+
+local function markdown_url(url)
+  url = LeetCodeParser.decode_entities(url or '')
+  return (
+    url:gsub('%s', '%%20'):gsub('%(', '%%28'):gsub('%)', '%%29'):gsub('|', '%%7C'):gsub('<', '%%3C'):gsub('>', '%%3E')
+  )
+end
+
+--- Convert question HTML into Markdown.
+---
+--- Supports the same tags as |LeetCodeParser.render()| where Markdown has an
+--- equivalent representation.
+---
+---@param content string|nil Question HTML.
+---@return string markdown
+LeetCodeParser.markdown = function(content)
+  if content == nil or vim.trim(content) == '' then return '_No description._' end
+
+  local tokens = tokenize(preprocess(content))
+  local lines, current, styles, blocks, lists = {}, '', {}, {}, {}
+  local pre_depth, pre_text, strip_pre_newline, pre_in_table = 0, '', false, false
+  local quote_depth = 0
+  local quote_prefixes = {}
+  local in_table, table_rows, table_row, table_cell = false, {}, nil, nil
+  local list_continuation, last_was_br = nil, false
+
+  local function current_text()
+    if in_table and table_cell ~= nil then return table_cell end
+    return current
+  end
+
+  local function set_current_text(value)
+    if in_table and table_cell ~= nil then
+      table_cell = value
+    else
+      current = value
+    end
+  end
+
+  local function append(text)
+    if in_table and table_cell ~= nil then
+      table_cell = table_cell .. text
+    else
+      current = current .. text
+    end
+  end
+
+  local function in_code()
+    for index = #styles, 1, -1 do
+      if styles[index].tag == 'code' then return true end
+    end
+    return false
+  end
+
+  local function ensure_space()
+    local text = current_text()
+    if text == '' or text:match('%s$') ~= nil then return end
+    append(' ')
+  end
+
+  local line_prefix
+
+  local function flush()
+    local text = current:gsub('%s+$', '')
+    if text ~= '' then table.insert(lines, line_prefix(text) .. text) end
+    current = ''
+  end
+
+  local function blank_line()
+    if quote_depth == 0 then return '' end
+    local prefix = ''
+    for _, indent in ipairs(quote_prefixes) do
+      prefix = prefix .. indent .. '> '
+    end
+    return (prefix:gsub('%s+$', ''))
+  end
+
+  local function ensure_blank()
+    if #lines == 0 then return end
+    local last = lines[#lines]
+    if last ~= '' and last:match('^[%s>]+$') == nil then table.insert(lines, blank_line()) end
+  end
+
+  local function quote_prefix_text()
+    local prefix = ''
+    for _, indent in ipairs(quote_prefixes) do
+      prefix = prefix .. indent .. '> '
+    end
+    return prefix
+  end
+
+  line_prefix = function(text, always_list)
+    local quote = quote_prefix_text()
+    local list = ''
+    local marker_line = false
+    if text ~= nil then
+      marker_line = text:match('^[-+]%s') ~= nil
+        or text:match('^[-+]$') ~= nil
+        or text:match('^%d+[.)]%s') ~= nil
+        or text:match('^%d+[.)]$') ~= nil
+        or text:match('^%s') ~= nil
+    end
+    if list_continuation ~= nil and (always_list or not marker_line) then
+      if quote == '' or quote_prefixes[#quote_prefixes] ~= list_continuation then list = list_continuation end
+    end
+    if quote ~= '' then return quote .. list end
+    return list
+  end
+
+  local function prefix_line(line) return line_prefix(nil, true) .. line end
+
+  local function close_style(style)
+    if style == nil then return end
+    if style.tag == 'a' then
+      append('](' .. markdown_url(style.href) .. ')')
+      return
+    end
+    if style.tag == 'code' then
+      local text = current_text()
+      local code_content = text:sub(style.start):gsub('^%s+', ''):gsub('%s+$', '')
+      if code_content == '' then return end
+      local longest = 0
+      for run in code_content:gmatch('`+') do
+        longest = math.max(longest, #run)
+      end
+      local fence = string.rep('`', longest + 1)
+      local pad = ''
+      if code_content:sub(1, 1) == '`' or code_content:sub(-1) == '`' then pad = ' ' end
+      set_current_text(text:sub(1, style.start - 1) .. fence .. pad .. code_content .. pad .. fence)
+      return
+    end
+    if style.marker == nil then return end
+    local text = current_text()
+    local trailing = text:match('%s+$')
+    if trailing ~= nil then
+      text = text:sub(1, #text - #trailing)
+      set_current_text(text)
+    end
+    if text:sub(-#style.marker) == style.marker then
+      set_current_text(text:sub(1, #text - #style.marker))
+    else
+      append(style.marker)
+    end
+    if trailing ~= nil then append(trailing) end
+  end
+
+  local function push_style(style)
+    local enclosing = styles[#styles]
+    if enclosing ~= nil then enclosing.just_opened = false end
+    style.just_opened = style.marker ~= nil
+    table.insert(styles, style)
+  end
+
+  local function pop_style(tags)
+    for index = #styles, 1, -1 do
+      if vim.tbl_contains(tags, styles[index].tag) then
+        local style = table.remove(styles, index)
+        close_style(style)
+        return style
+      end
+    end
+  end
+
+  local finish_row, render_table
+
+  local function snapshot_structure()
+    return {
+      lists = #lists,
+      list_continuation = list_continuation,
+      quote_depth = quote_depth,
+      quote_prefixes = #quote_prefixes,
+      in_table = in_table,
+      table_rows = table_rows,
+      table_row = table_row,
+      pre_depth = pre_depth,
+      pre_text = pre_text,
+      pre_in_table = pre_in_table,
+      strip_pre_newline = strip_pre_newline,
+    }
+  end
+
+  local function restore_structure(snapshot)
+    while #lists > snapshot.lists do
+      table.remove(lists)
+    end
+    list_continuation = snapshot.list_continuation
+    quote_depth = snapshot.quote_depth
+    while #quote_prefixes > snapshot.quote_prefixes do
+      table.remove(quote_prefixes)
+    end
+    in_table = snapshot.in_table
+    table_rows = snapshot.table_rows
+    table_row = snapshot.table_row
+    pre_depth = snapshot.pre_depth
+    pre_text = snapshot.pre_text
+    pre_in_table = snapshot.pre_in_table
+    strip_pre_newline = snapshot.strip_pre_newline
+  end
+
+  local function begin_block(tag, depth)
+    last_was_br = false
+    table.insert(blocks, { tag = tag, floor = #styles, depth = depth, snapshot = snapshot_structure() })
+  end
+
+  local function end_block(tag, depth)
+    for index = #blocks, 1, -1 do
+      local block = blocks[index]
+      if block.tag == tag and (depth == nil or block.depth == depth) then
+        local forced = index < #blocks
+        local removed_table = false
+        for position = index, #blocks do
+          if blocks[position].tag == 'table' then removed_table = true end
+        end
+        if forced and removed_table and in_table then
+          if finish_row ~= nil then finish_row() end
+          if render_table ~= nil then render_table() end
+        end
+        for position = #styles, block.floor + 1, -1 do
+          close_style(table.remove(styles, position))
+        end
+        local removed_pre = false
+        for position = #blocks, index, -1 do
+          if blocks[position].tag == 'pre' then removed_pre = true end
+          table.remove(blocks, position)
+        end
+        if forced and block.snapshot ~= nil then restore_structure(block.snapshot) end
+        if removed_pre or tag == 'pre' then
+          pre_depth, strip_pre_newline, pre_text, pre_in_table = 0, false, '', false
+        end
+        last_was_br = false
+        return
+      end
+    end
+  end
+
+  local function inline_text(text)
+    local code = in_code()
+    if not code then text = text:gsub('%s+', ' ') end
+    local existing = current_text()
+    if code then
+      if in_table then text = text:gsub('|', '\\|') end
+    else
+      text = markdown_escape(text)
+    end
+    if text:gsub('%s', '') == '' then
+      if existing == '' or existing:match('%s$') ~= nil then return '' end
+      return ' '
+    end
+
+    local pending = styles[#styles]
+    if pending ~= nil and pending.just_opened then
+      if text:match('^%s') ~= nil then
+        if existing ~= '' and existing ~= pending.marker and existing:match('%s$') == nil then
+          local before = existing:sub(1, #existing - #pending.marker)
+          set_current_text(before .. ' ' .. pending.marker)
+        end
+        text = text:gsub('^%s+', '')
+      end
+      pending.just_opened = false
+    end
+    if text:match('^%s') ~= nil and (existing == '' or existing:match('%s$') ~= nil) then
+      text = text:gsub('^%s+', '')
+    end
+    local at_line_start = existing:match('^%s*$') ~= nil
+      or existing:match('^%s*[-+]%s$') ~= nil
+      or existing:match('^%s*%d+[.)]%s$') ~= nil
+    if at_line_start and not code then
+      text = text:gsub('^([-+])%s', '\\%1 ')
+      text = text:gsub('^(%d+)([.)])%s', '%1\\%2 ')
+      text = text:gsub('^(%-+)$', '\\%1')
+      text = text:gsub('^(=+)$', '\\%1')
+      text = text:gsub('^([-+])$', '\\%1')
+    end
+    return text
+  end
+
+  render_table = function()
+    if #table_rows == 0 then
+      in_table = false
+      return
+    end
+    local columns = 0
+    for _, row in ipairs(table_rows) do
+      columns = math.max(columns, #row)
+    end
+    local function row_line(row)
+      local cells = {}
+      for index = 1, columns do
+        cells[index] = (row[index] or ''):gsub('[\r\n]+', ' '):gsub('^%s+', ''):gsub('%s+$', '')
+      end
+      return '| ' .. table.concat(cells, ' | ') .. ' |'
+    end
+    table.insert(lines, prefix_line(row_line(table_rows[1])))
+    local separator = {}
+    for index = 1, columns do
+      separator[index] = '---'
+    end
+    table.insert(lines, prefix_line('| ' .. table.concat(separator, ' | ') .. ' |'))
+    for index = 2, #table_rows do
+      table.insert(lines, prefix_line(row_line(table_rows[index])))
+    end
+    if #lists == 0 and quote_depth == 0 then ensure_blank() end
+    in_table = false
+  end
+
+  finish_row = function()
+    if table_cell ~= nil then
+      table_row = table_row or {}
+      table.insert(table_row, table_cell)
+      table_cell = nil
+    end
+    if table_row ~= nil and #table_row > 0 then table.insert(table_rows, table_row) end
+    table_row = nil
+  end
+
+  local function close_list_item()
+    end_block('li', #lists)
+    flush()
+    list_continuation = nil
+  end
+
+  local function finish_pre()
+    pre_depth = math.max(0, pre_depth - 1)
+    local in_cell = pre_in_table
+    local text = pre_text
+    end_block('pre')
+    if in_cell then
+      if table_cell ~= nil then
+        ensure_space()
+        table_cell = table_cell .. inline_text(text)
+        ensure_space()
+      end
+    else
+      local fence, longest = '```', 2
+      for run in text:gmatch('`+') do
+        longest = math.max(longest, #run)
+      end
+      if longest >= 3 then fence = string.rep('`', longest + 1) end
+      table.insert(lines, prefix_line(fence))
+      local code = text:gsub('\n$', '')
+      if code ~= '' then
+        for _, line in ipairs(vim.split(code, '\n', { plain = true })) do
+          table.insert(lines, prefix_line(line))
+        end
+      end
+      table.insert(lines, prefix_line(fence))
+      if #lists == 0 then ensure_blank() end
+    end
+    pre_text = ''
+  end
+
+  local structural_closes = {
+    ['/td'] = true,
+    ['/th'] = true,
+    ['/tr'] = true,
+    ['/table'] = true,
+    ['/li'] = true,
+    ['/ul'] = true,
+    ['/ol'] = true,
+    ['/blockquote'] = true,
+    ['/p'] = true,
+    ['/div'] = true,
+    ['/h1'] = true,
+    ['/h2'] = true,
+    ['/h3'] = true,
+    ['/h4'] = true,
+    ['/h5'] = true,
+    ['/h6'] = true,
+  }
+
+  for _, token in ipairs(tokens) do
+    local tag = token.tag
+    if pre_depth > 0 and tag ~= nil and tag ~= '/pre' and structural_closes[tag] then finish_pre() end
+
+    if tag == nil then
+      local raw = LeetCodeParser.decode_entities(token.text):gsub('\r\n', '\n'):gsub('\r', '\n')
+      if pre_depth > 0 then
+        if strip_pre_newline then
+          strip_pre_newline = false
+          raw = raw:gsub('^\n', '')
+        end
+        pre_text = pre_text .. raw
+      elseif in_table then
+        if table_cell ~= nil then table_cell = table_cell .. inline_text(raw) end
+      else
+        if raw:gsub('%s', '') ~= '' then last_was_br = false end
+        append(inline_text(raw))
+      end
+    elseif tag == '/pre' then
+      if pre_depth > 0 then finish_pre() end
+    elseif pre_depth > 0 then
+      if tag == 'br' then pre_text = pre_text .. '\n' end
+    elseif tag == 'pre' then
+      pre_in_table = in_table
+      pre_depth = pre_depth + 1
+      pre_text, strip_pre_newline = '', true
+      if not in_table then
+        flush()
+        if #lists == 0 then ensure_blank() end
+      end
+      begin_block('pre')
+    elseif tag == 'code' then
+      push_style({ tag = 'code', start = #current_text() + 1 })
+    elseif tag == '/code' then
+      pop_style({ 'code' })
+    elseif tag == 'strong' or tag == 'b' then
+      append('**')
+      push_style({ tag = 'strong', marker = '**' })
+    elseif tag == '/strong' or tag == '/b' then
+      pop_style({ 'strong' })
+    elseif tag == 'em' or tag == 'i' then
+      append('*')
+      push_style({ tag = 'em', marker = '*' })
+    elseif tag == '/em' or tag == '/i' then
+      pop_style({ 'em' })
+    elseif tag == 'a' then
+      append('[')
+      push_style({ tag = 'a', href = attr(token.attrs, 'href') })
+    elseif tag == '/a' then
+      pop_style({ 'a' })
+    elseif tag == 'img' then
+      local alt = LeetCodeParser.decode_entities(attr(token.attrs, 'alt') or ''):gsub('%s+', ' ')
+      local src = attr(token.attrs, 'src')
+      if src ~= nil and src ~= '' then
+        append('![' .. markdown_escape(alt) .. '](' .. markdown_url(src) .. ')')
+        last_was_br = false
+      elseif alt ~= '' then
+        append('[image: ' .. markdown_escape(alt) .. ']')
+        last_was_br = false
+      end
+    elseif tag == 'p' or tag == 'div' then
+      if in_table or #lists > 0 then
+        begin_block(tag)
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+        begin_block(tag)
+      end
+    elseif tag == '/p' or tag == '/div' then
+      if in_table or #lists > 0 then
+        end_block(tag:sub(2))
+        ensure_space()
+      else
+        end_block(tag:sub(2))
+        flush()
+        ensure_blank()
+      end
+    elseif tag:find('^h%d$') ~= nil then
+      if in_table or #lists > 0 then
+        begin_block('heading')
+        ensure_space()
+        append('**')
+        push_style({ tag = 'heading', marker = '**' })
+      else
+        flush()
+        ensure_blank()
+        begin_block('heading')
+        local level = tonumber(tag:sub(2)) or 1
+        append(string.rep('#', level) .. ' ')
+      end
+    elseif tag:find('^/h%d$') ~= nil then
+      end_block('heading')
+      if in_table or #lists > 0 then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
+    elseif tag == 'br' then
+      if in_table or #lists > 0 then
+        ensure_space()
+      elseif last_was_br then
+        table.insert(lines, blank_line())
+        last_was_br = false
+      elseif current:gsub('%s', '') ~= '' then
+        current = current:gsub('%s+$', '') .. '\\'
+        flush()
+        last_was_br = true
+      end
+    elseif tag == 'ul' or tag == 'ol' then
+      flush()
+      ensure_blank()
+      begin_block(tag)
+      local parent = lists[#lists]
+      local indent = parent and (parent.indent + math.max(parent.marker_width, 4)) or 0
+      local start = 1
+      if tag == 'ol' then
+        local value = tonumber(LeetCodeParser.decode_entities(attr(token.attrs, 'start') or ''))
+        if value ~= nil and value == value and value ~= math.huge and value ~= -math.huge then
+          value = math.floor(value)
+          if value >= 0 and value <= 999999999 then start = value end
+        end
+      end
+      table.insert(lists, { ordered = tag == 'ol', index = start - 1, indent = indent, marker_width = 2 })
+    elseif tag == '/ul' or tag == '/ol' then
+      local depth = #lists
+      end_block(tag:sub(2))
+      if depth > 0 and #lists >= depth then table.remove(lists) end
+      flush()
+      list_continuation = nil
+      if in_table then
+        ensure_space()
+      elseif #lists > 0 then
+        list_continuation = string.rep(' ', lists[#lists].indent + lists[#lists].marker_width)
+      else
+        ensure_blank()
+      end
+    elseif tag == 'li' then
+      close_list_item()
+      if in_table then ensure_space() end
+      begin_block('li', #lists)
+      local top = lists[#lists]
+      if top ~= nil then
+        top.index = top.index + 1
+        local marker = top.ordered and ('%d. '):format(math.min(top.index, 999999999)) or '- '
+        top.marker_width = #marker
+        append(string.rep(' ', top.indent) .. marker)
+        list_continuation = string.rep(' ', top.indent + top.marker_width)
+      end
+    elseif tag == '/li' then
+      close_list_item()
+      if in_table then ensure_space() end
+    elseif tag == 'blockquote' then
+      if in_table then
+        ensure_space()
+      else
+        flush()
+        ensure_blank()
+      end
+      begin_block('blockquote')
+      table.insert(quote_prefixes, list_continuation or '')
+      quote_depth = quote_depth + 1
+    elseif tag == '/blockquote' then
+      end_block('blockquote')
+      if in_table then
+        ensure_space()
+      else
+        flush()
+      end
+      quote_depth = math.max(0, quote_depth - 1)
+      table.remove(quote_prefixes)
+      if not in_table then ensure_blank() end
+    elseif tag == 'table' then
+      flush()
+      if #lists == 0 and quote_depth == 0 then ensure_blank() end
+      begin_block('table')
+      in_table, table_rows, table_row, table_cell = true, {}, nil, nil
+    elseif tag == 'tr' then
+      end_block('th')
+      end_block('td')
+      end_block('tr')
+      finish_row()
+      table_row = {}
+    elseif tag == 'td' or tag == 'th' then
+      if table_cell ~= nil then
+        table_row = table_row or {}
+        table.insert(table_row, table_cell)
+      end
+      table_row = table_row or {}
+      table_cell = ''
+      begin_block(tag)
+    elseif tag == '/td' or tag == '/th' then
+      end_block(tag:sub(2))
+      if table_row ~= nil and table_cell ~= nil then table.insert(table_row, table_cell) end
+      table_cell = nil
+    elseif tag == '/tr' then
+      end_block('th')
+      end_block('td')
+      end_block('tr')
+      finish_row()
+    elseif tag == '/table' then
+      end_block('th')
+      end_block('td')
+      end_block('tr')
+      finish_row()
+      end_block('table')
+      render_table()
+      table_rows, table_row, table_cell = {}, nil, nil
+    elseif tag == 'hr' then
+      if in_table then
+        ensure_space()
+      else
+        flush()
+        if #lists == 0 and quote_depth == 0 then ensure_blank() end
+        table.insert(lines, prefix_line('***'))
+        if #lists == 0 and quote_depth == 0 then ensure_blank() end
+      end
+    end
+  end
+
+  if pre_depth > 0 then finish_pre() end
+  finish_row()
+  if in_table then render_table() end
+  flush()
+  while #lines > 0 and (lines[#lines] == '' or lines[#lines]:match('^[%s>]+$') ~= nil) do
+    table.remove(lines)
+  end
+  return table.concat(lines, '\n')
+end
 return LeetCodeParser

@@ -65,6 +65,7 @@ T['meter']['clamps invalid progress'] = function()
   eq(meter_percent('Easy', math.huge, 10), '   0%')
   eq(meter_percent('Easy', -math.huge, 10), '   0%')
   eq(meter_percent('Easy', 0 / 0, 10), '   0%')
+  eq(meter_percent('Easy', 1e300, 10), ' 100%')
 end
 
 T['language_lines'] = new_set()
@@ -842,6 +843,75 @@ T['session']['reports errors and anonymous sessions'] = function()
   end
   eq(failed, true)
   eq(anonymous, true)
+end
+
+T['markdown'] = new_set()
+
+T['markdown']['builds statistics tables'] = function()
+  local md = helpers.mod('stats_view').markdown({
+    session = { signed_in = true, name = 'user' },
+    solved = { solved = { Easy = 1 }, total = { Easy = 2 } },
+    languages = { { language_name = 'Python3', problems_solved = 3 } },
+    skills = { fundamental = { { tag_name = 'Array', problems_solved = 2 } } },
+    streak = { streak_count = 4 },
+  })
+  eq(helpers.contains(md, '# Progress'), true)
+  eq(helpers.contains(md, '| Easy | 1 | 2 | 50.0% |'), true)
+  eq(helpers.contains(md, '| Python3 | 3 |'), true)
+  eq(helpers.contains(md, '### Fundamental'), true)
+  eq(helpers.contains(md, 'streak: 4'), true)
+end
+
+T['markdown']['open routes through the markdown renderer'] = function()
+  local stats_view = helpers.mod('stats_view')
+  local rendered = {}
+  local span_rendered = false
+  helpers.with_stub('leetcode-ui.ui', 'markdown_enabled', function() return true end, function()
+    helpers.with_stub(
+      'leetcode-ui.ui',
+      'render_markdown',
+      function(text, opts) table.insert(rendered, { text = text, opts = opts }) end,
+      function()
+        helpers.with_stub(
+          'leetcode-ui.auth',
+          'verify',
+          function() return { signed_in = true, name = 'user' }, nil end,
+          function()
+            helpers.with_stub(
+              'leetcode-ui.api.stats',
+              'solved',
+              function() return { solved = { Easy = 1 }, total = { Easy = 2 } }, nil end,
+              function()
+                helpers.with_stub('leetcode-ui.api.stats', 'languages', function() return {}, nil end, function()
+                  helpers.with_stub('leetcode-ui.api.stats', 'skills', function() return {}, nil end, function()
+                    helpers.with_stub(
+                      'leetcode-ui.api.stats',
+                      'streak',
+                      function() return { streak_count = 1 }, nil end,
+                      function()
+                        helpers.with_stub(
+                          'leetcode-ui.ui',
+                          'render',
+                          function() span_rendered = true end,
+                          function() stats_view.open() end
+                        )
+                      end
+                    )
+                  end)
+                end)
+              end
+            )
+          end
+        )
+      end
+    )
+  end)
+
+  eq(#rendered >= 2, true)
+  local last = rendered[#rendered]
+  eq(helpers.contains(last.text, '# Progress'), true)
+  eq(last.opts.owner, 'stats')
+  eq(span_rendered, false)
 end
 
 return T

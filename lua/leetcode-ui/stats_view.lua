@@ -11,6 +11,7 @@ local async = require('leetcode-ui.async')
 local auth = require('leetcode-ui.auth')
 local config = require('leetcode-ui.config')
 local log = require('leetcode-ui.log')
+local parser = require('leetcode-ui.parser')
 local stats = require('leetcode-ui.api.stats')
 local ui = require('leetcode-ui.ui')
 
@@ -23,7 +24,7 @@ local generation = 0
 local function finite_non_negative(value)
   value = tonumber(value)
   if value == nil or value ~= value or value == math.huge or value == -math.huge then return 0 end
-  return math.max(0, value)
+  return math.min(2147483647, math.floor(math.max(0, value)))
 end
 
 local function is_auth_error(message)
@@ -84,7 +85,7 @@ LeetCodeStatsView.language_lines = function(rows)
     local name = type(row.language_name) == 'string' and row.language_name or ''
     table.insert(lines, {
       { text = ('  %-12s '):format(name), hl = 'LeetCodeCode' },
-      { text = ('%d'):format(tonumber(row.problems_solved) or 0), hl = 'LeetCodeTitle' },
+      { text = ('%d'):format(math.floor(finite_non_negative(row.problems_solved))), hl = 'LeetCodeTitle' },
     })
   end
   return lines
@@ -114,7 +115,7 @@ LeetCodeStatsView.skills_lines = function(tags)
         local tag_name = type(row.tag_name) == 'string' and row.tag_name or ''
         table.insert(lines, {
           { text = ('    %-28s '):format(tag_name), hl = nil },
-          { text = ('%d'):format(tonumber(row.problems_solved) or 0), hl = 'LeetCodeTitle' },
+          { text = ('%d'):format(math.floor(finite_non_negative(row.problems_solved))), hl = 'LeetCodeTitle' },
         })
       end
     end
@@ -211,6 +212,112 @@ LeetCodeStatsView.lines = function(data)
   return lines
 end
 
+--- Build all statistics as Markdown.
+---
+---@param data table Same shape as |LeetCodeStatsView.lines()|.
+---@return string markdown
+LeetCodeStatsView.markdown = function(data)
+  data = type(data) == 'table' and data or {}
+  local session = type(data.session) == 'table' and data.session or {}
+  local solved = type(data.solved) == 'table' and data.solved or nil
+  local languages = type(data.languages) == 'table' and data.languages or nil
+  local skills = type(data.skills) == 'table' and data.skills or nil
+  local streak = type(data.streak) == 'table' and data.streak or nil
+  local err = type(data.err) == 'string' and data.err or nil
+  local auth_err = type(data.auth_err) == 'string' and data.auth_err or nil
+  local auth_error = auth_err ~= nil or is_auth_error(err)
+
+  local lines = { '# Progress', '', config.config.url, '' }
+
+  local signed_in = session.signed_in == true
+  if signed_in and not auth_error then
+    local text = ('**Signed in:** %s'):format(parser.markdown_escape(session.name or 'unknown'))
+    if session.is_premium then text = text .. ' (premium)' end
+    if streak ~= nil then text = text .. (' · streak: %d day(s)'):format(tonumber(streak.streak_count) or 0) end
+    table.insert(lines, text)
+  elseif signed_in and auth_error then
+    table.insert(lines, '> Session expired (check cookies)')
+  elseif err == nil or auth_error then
+    table.insert(lines, '> Not signed in (see `:h leetcode-ui-config` for cookie options)')
+  end
+
+  if solved ~= nil then
+    local counts = type(solved.solved) == 'table' and solved.solved or {}
+    local totals = type(solved.total) == 'table' and solved.total or {}
+    table.insert(lines, '')
+    table.insert(lines, '## Solved')
+    table.insert(lines, '')
+    table.insert(lines, '| Difficulty | Solved | Total | Progress |')
+    table.insert(lines, '| --- | ---: | ---: | ---: |')
+    for _, difficulty in ipairs({ 'Easy', 'Medium', 'Hard' }) do
+      local solved_count = finite_non_negative(counts[difficulty])
+      local total_count = finite_non_negative(totals[difficulty])
+      local percent = total_count > 0 and math.min(solved_count / total_count * 100, 100) or 0
+      table.insert(lines, ('| %s | %d | %d | %.1f%% |'):format(difficulty, solved_count, total_count, percent))
+    end
+  end
+
+  if languages ~= nil then
+    local rows = sorted_rows(languages, 'language_name')
+    if #rows > 0 then
+      table.insert(lines, '')
+      table.insert(lines, '## Languages')
+      table.insert(lines, '')
+      table.insert(lines, '| Language | Solved |')
+      table.insert(lines, '| --- | ---: |')
+      for _, row in ipairs(rows) do
+        table.insert(
+          lines,
+          ('| %s | %d |'):format(
+            parser.markdown_escape(tostring(row.language_name or '')),
+            math.floor(finite_non_negative(row.problems_solved))
+          )
+        )
+      end
+    end
+  end
+
+  if skills ~= nil then
+    local sections = {
+      { 'Advanced', skills.advanced or {} },
+      { 'Intermediate', skills.intermediate or {} },
+      { 'Fundamental', skills.fundamental or {} },
+    }
+    local wrote_heading = false
+    for _, section in ipairs(sections) do
+      local rows = sorted_rows(section[2], 'tag_name')
+      if #rows > 0 then
+        if not wrote_heading then
+          table.insert(lines, '')
+          table.insert(lines, '## Skills')
+          wrote_heading = true
+        end
+        table.insert(lines, '')
+        table.insert(lines, '### ' .. section[1])
+        table.insert(lines, '')
+        table.insert(lines, '| Skill | Solved |')
+        table.insert(lines, '| --- | ---: |')
+        for index, row in ipairs(rows) do
+          if index > 10 then break end
+          table.insert(
+            lines,
+            ('| %s | %d |'):format(
+              parser.markdown_escape(tostring(row.tag_name or '')),
+              math.floor(finite_non_negative(row.problems_solved))
+            )
+          )
+        end
+      end
+    end
+  end
+
+  if err ~= nil and not is_auth_error(err) then
+    table.insert(lines, '')
+    table.insert(lines, '> **Statistics unavailable:** ' .. parser.markdown_escape(err):gsub('\n', '\n> '))
+  end
+  return table.concat(lines, '\n')
+end
+
 -- Public API ========================================================================================================
 
 --- Open the statistics view.
@@ -219,7 +326,11 @@ LeetCodeStatsView.open = function()
   local current_generation = generation
   local url_epoch = config.url_epoch
   ui.claim('stats')
-  ui.render({ { { text = 'Loading statistics…', hl = 'LeetCodeDim' } } }, { pad_top = true, owner = 'stats' })
+  if ui.markdown_enabled() then
+    ui.render_markdown('# Loading statistics…', { pad_top = true, owner = 'stats' })
+  else
+    ui.render({ { { text = 'Loading statistics…', hl = 'LeetCodeDim' } } }, { pad_top = true, owner = 'stats' })
+  end
   log.info('Loading statistics…')
 
   async.run(function()
@@ -276,7 +387,7 @@ LeetCodeStatsView.open = function()
 
     local display_err = #other_messages > 0 and table.concat(other_messages, '; ') or nil
     local display_auth_err = #auth_messages > 0 and table.concat(auth_messages, '; ') or nil
-    local lines = LeetCodeStatsView.lines({
+    local data = {
       solved = solved,
       languages = languages,
       skills = skills,
@@ -284,8 +395,12 @@ LeetCodeStatsView.open = function()
       auth_err = display_auth_err,
       session = session,
       streak = streak,
-    })
-    ui.render(lines, { pad_top = true, owner = 'stats', focus = false })
+    }
+    if ui.markdown_enabled() then
+      ui.render_markdown(LeetCodeStatsView.markdown(data), { pad_top = true, owner = 'stats', focus = false })
+    else
+      ui.render(LeetCodeStatsView.lines(data), { pad_top = true, owner = 'stats', focus = false })
+    end
     ui.set_winbar(' LeetCode Statistics ')
 
     if err ~= nil then
@@ -302,11 +417,15 @@ LeetCodeStatsView.open = function()
       return
     end
     if ui.state.owner ~= 'stats' then return end
-    ui.render({ { { text = 'Failed to load statistics', hl = 'LeetCodeErr' } } }, {
-      pad_top = true,
-      owner = 'stats',
-      focus = false,
-    })
+    if ui.markdown_enabled() then
+      ui.render_markdown('# Failed to load statistics', { pad_top = true, owner = 'stats', focus = false })
+    else
+      ui.render({ { { text = 'Failed to load statistics', hl = 'LeetCodeErr' } } }, {
+        pad_top = true,
+        owner = 'stats',
+        focus = false,
+      })
+    end
     ui.set_winbar(' LeetCode Statistics ')
   end)
 end

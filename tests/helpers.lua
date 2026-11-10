@@ -56,6 +56,7 @@ H.configure = function(opts)
     storage_path = config.config.storage_path,
     cookies = {},
     notifications = false,
+    markdown = false,
   }
   require('leetcode-ui').setup(vim.tbl_extend('force', base, opts or {}))
 end

@@ -44,6 +44,9 @@ No action keymaps are created by the plugin. Every action is available as a
 - Format with the remote formatter when available, otherwise CLI
   formatters or LSP.
 - Show progress statistics and session information.
+- Show inline progress while the problem list loads.
+- Render Description, Info, Statistics, and Help as Markdown when
+  `render-markdown.nvim` is loaded and enabled.
 - Import session cookies from supported browsers (disabled by default).
 
 # Commands ~
@@ -92,6 +95,10 @@ Question-window actions live under `:LeetCode question`:
 - `mini.nvim` - optional; run `require('mini.pick').setup()` for the
   picker backend and `require('mini.clue').setup()` for key hints. Clue
   triggers are enabled inside the central window when it is set up.
+- `render-markdown.nvim` - optional; renders Markdown views in the central
+  window when it is loaded and enabled.
+- `npm`/`npx` - optional; enables `prettier = true` to format JavaScript
+  and TypeScript through `npx prettier`.
 - A language server such as `lua-language-server`, `clangd`, or `ruff` -
   optional; provides diagnostics and completion, plus LSP formatting when
   the server supports it.
@@ -264,6 +271,14 @@ Return ~
 `(table)` lines
 
 ------------------------------------------------------------------------------
+                                              *LeetCodeCommands.help_markdown()*
+                       `LeetCodeCommands.help_markdown`()
+Render command help as Markdown.
+
+Return ~
+`(string)` markdown
+
+------------------------------------------------------------------------------
                                                         *LeetCodeCommands.run()*
                         `LeetCodeCommands.run`({fargs})
 Run a `:LeetCode` subcommand.
@@ -291,14 +306,15 @@ Configuration is validated and applied by |LeetCode.setup()|.
 
 Each call to |LeetCode.setup()| replaces the whole configuration. Unspecified
 options return to their defaults; values from a previous call are not
-merged. Nested tables are replaced whole as well.
+merged. Nested tables are replaced whole, except `icons`, which is merged
+with the defaults so partial icon overrides are supported.
 
 Options:
 
 - `url` (`string`) - LeetCode domain used for API, formatter, and web URLs.
 - `lang` (`string`) - default solution language slug.
-- `languages` (`table|nil`) - allow-list for solution languages and
-  pickers.
+- `languages` (`table|nil`) - allow-list for solution languages and the
+  language picker.
 - `cookies` (`table`) - `LEETCODE_SESSION` and `csrftoken` values.
 - `cookie_file` (`string|nil`) - Netscape cookie jar consumed by curl.
 - `storage_path` (`string|nil`) - cache, draft, and testcase root.
@@ -315,7 +331,14 @@ Options:
   random selection, and completions.
 - `show_hints` (`boolean`) - show hints in the Description tab by default.
 - `notifications` (`boolean`) - show notifications.
-- `icons` (`table`) - status and testcase icon overrides.
+- `markdown` (`boolean`) - render the Description, Info, Statistics, and
+  Help views as Markdown when `render-markdown.nvim` is loaded and enabled.
+  The Code editor and Console remain unchanged.
+- `prettier` (`boolean`) - use `npx prettier` for JavaScript and TypeScript
+  solution formatting when `npx` is on `PATH` and `prettier` is not on
+  `PATH`. This may download Prettier if it is not installed locally.
+- `icons` (`table`) - status and testcase icon overrides. Partial groups are
+  merged with the defaults.
 
 Supported language slugs: `bash`, `c`, `cpp`, `csharp`, `dart`, `elixir`,
 `erlang`, `golang`, `java`, `javascript`, `kotlin`, `php`, `python`,
@@ -342,6 +365,8 @@ Default configuration:
     hide_premium = false,
     show_hints = false,
     notifications = true,
+    markdown = true,
+    prettier = false,
     icons = {
       status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
       case = { passed = '✔', failed = '✘', unknown = '○', err = '✗' },
@@ -550,6 +575,31 @@ Return ~
 `(number)` winid
 
 ------------------------------------------------------------------------------
+                                                 *LeetCodeUI.markdown_enabled()*
+                        `LeetCodeUI.markdown_enabled`()
+Whether Markdown rendering is available.
+
+Return ~
+`(boolean)`
+
+------------------------------------------------------------------------------
+                                                  *LeetCodeUI.render_markdown()*
+                  `LeetCodeUI.render_markdown`({text}, {opts})
+Render Markdown text in the central window.
+
+When `render-markdown.nvim` is loaded, its renderer is applied to the
+markdown buffer.
+
+`pad_top` defaults to `true`. Supplied `folds` are shifted down by one line
+when top padding is enabled.
+
+Parameters ~
+{text} `(string)` Markdown source.
+{opts} `(table|nil)` All |LeetCodeUI.show()| options plus `pad_top`.
+Return ~
+`(number)` winid
+
+------------------------------------------------------------------------------
                                                            *LeetCodeUI.render()*
                       `LeetCodeUI.render`({lines}, {opts})
 Render read-only span lines in the central window.
@@ -645,6 +695,15 @@ Return ~
 `(table)` texts
 
 ------------------------------------------------------------------------------
+                                                  *LeetCodeBuffer.lines_write()*
+                 `LeetCodeBuffer.lines_write`({bufnr}, {lines})
+Write plain text lines into a buffer.
+
+Parameters ~
+{bufnr} `(number)`
+{lines} `(table)`
+
+------------------------------------------------------------------------------
                                                  *LeetCodeBuffer.maybe_delete()*
                      `LeetCodeBuffer.maybe_delete`({bufnr})
 Delete a buffer if it is still valid.
@@ -681,6 +740,26 @@ Parameters ~
 {view} `(table)`
 Return ~
 `(table)` lines
+
+------------------------------------------------------------------------------
+                                   *LeetCodeQuestionView.description_markdown()*
+              `LeetCodeQuestionView.description_markdown`({view})
+Build Description tab Markdown.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(string)` markdown
+
+------------------------------------------------------------------------------
+                                          *LeetCodeQuestionView.info_markdown()*
+                  `LeetCodeQuestionView.info_markdown`({view})
+Build Info tab Markdown.
+
+Parameters ~
+{view} `(table)`
+Return ~
+`(string)` markdown
 
 ------------------------------------------------------------------------------
                                           *LeetCodeQuestionView.render_winbar()*
@@ -1224,6 +1303,16 @@ Return ~
 `(table)` lines
 
 ------------------------------------------------------------------------------
+                                                  *LeetCodeStatsView.markdown()*
+                      `LeetCodeStatsView.markdown`({data})
+Build all statistics as Markdown.
+
+Parameters ~
+{data} `(table)` Same shape as |LeetCodeStatsView.lines()|.
+Return ~
+`(string)` markdown
+
+------------------------------------------------------------------------------
                                                       *LeetCodeStatsView.open()*
                            `LeetCodeStatsView.open`()
 Open the statistics view.
@@ -1703,6 +1792,16 @@ images (as alt text), superscripts/subscripts (via Unicode glyphs), and
 common HTML entities.
 
 ------------------------------------------------------------------------------
+                                              *LeetCodeParser.strip_invisible()*
+                     `LeetCodeParser.strip_invisible`({s})
+Remove invisible layout-control characters from text.
+
+Parameters ~
+{s} `(string)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
                                               *LeetCodeParser.decode_entities()*
                      `LeetCodeParser.decode_entities`({s})
 Decode named, decimal, and hexadecimal HTML entities.
@@ -1721,6 +1820,29 @@ Parameters ~
 {content} `(string|nil)` Question HTML (nil renders a placeholder line).
 Return ~
 `(table)` lines Each line is a list of `{ text, hl }` spans.
+
+------------------------------------------------------------------------------
+                                              *LeetCodeParser.markdown_escape()*
+                    `LeetCodeParser.markdown_escape`({text})
+Escape text for Markdown.
+
+Parameters ~
+{text} `(any)`
+Return ~
+`(string)`
+
+------------------------------------------------------------------------------
+                                                     *LeetCodeParser.markdown()*
+                      `LeetCodeParser.markdown`({content})
+Convert question HTML into Markdown.
+
+Supports the same tags as |LeetCodeParser.render()| where Markdown has an
+equivalent representation.
+
+Parameters ~
+{content} `(string|nil)` Question HTML.
+Return ~
+`(string)` markdown
 
 ------------------------------------------------------------------------------
                                                                  *LeetCodeAsync*

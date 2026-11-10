@@ -1922,4 +1922,86 @@ T['submit']['reports submission errors'] = function()
   eq(view.busy, true)
 end
 
+T['markdown'] = new_set()
+
+T['markdown']['builds description markdown with optional hints'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.detail.content = '<p>Body</p>'
+  view.detail.hints = { '<p>Hint one</p>' }
+  view.show_hints = false
+  local md = question.description_markdown(view)
+  eq(helpers.contains(md, '# 1. Two Sum'), true)
+  eq(helpers.contains(md, 'Body'), true)
+  eq(helpers.contains(md, 'Hints (1) hidden'), true)
+
+  view.show_hints = true
+  md = question.description_markdown(view)
+  eq(helpers.contains(md, '## Hints'), true)
+  eq(helpers.contains(md, '1. Hint one'), true)
+end
+
+T['markdown']['builds info markdown tables'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  local md = question.info_markdown(view)
+  eq(helpers.contains(md, '| Field | Value |'), true)
+  eq(helpers.contains(md, '| Difficulty | Easy |'), true)
+  eq(helpers.contains(md, '## Commands'), true)
+  eq(helpers.contains(md, 'Map these commands if you want key bindings.'), true)
+end
+
+T['markdown']['description includes configured status icons'] = function()
+  local question = helpers.mod('question')
+  local config = helpers.mod('config')
+  local view = make_view()
+  view.detail.status = 'solved'
+  local md = question.description_markdown(view)
+  eq(helpers.contains(md, '**Status:** ' .. config.config.icons.status.solved .. ' solved'), true)
+end
+
+T['markdown']['requests markdown rendering for description and info'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  question.views[view.slug] = view
+  question.active = view
+  view.active = 'description'
+  local rendered = nil
+  local span_rendered = false
+
+  local function render_active()
+    helpers.with_stub('leetcode-ui.ui', 'markdown_enabled', function() return true end, function()
+      helpers.with_stub('leetcode-ui.ui', 'render_markdown', function(text) rendered = text end, function()
+        helpers.with_stub(
+          'leetcode-ui.ui',
+          'render',
+          function() span_rendered = true end,
+          function() question.refresh(view, true) end
+        )
+      end)
+    end)
+  end
+
+  render_active()
+  eq(helpers.contains(rendered, '# 1. Two Sum'), true)
+
+  view.active = 'info'
+  render_active()
+  eq(helpers.contains(rendered, '| Field | Value |'), true)
+  eq(span_rendered, false)
+end
+
+T['markdown']['ignores hints that render to nothing'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.detail.hints = { '<!-- comment -->', '<style>x{}</style>', '<p>real</p>' }
+  view.show_hints = false
+  local md = question.description_markdown(view)
+  eq(helpers.contains(md, 'Hints (1) hidden'), true)
+  view.show_hints = true
+  md = question.description_markdown(view)
+  eq(helpers.contains(md, '1. real'), true)
+  eq(helpers.contains(md, '2. '), false)
+end
+
 return T

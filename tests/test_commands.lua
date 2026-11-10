@@ -676,6 +676,9 @@ T['help']['renders command help in the central window'] = function()
   eq(helpers.contains(text, ':LeetCode question case add <input>'), true)
   eq(helpers.contains(text, ':LeetCode question case <subcommand>'), false)
   eq(helpers.contains(text, 'case add|edit|delete'), false)
+  for _, line in ipairs(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)) do
+    eq(line:match('^%s*:LeetCode%s*$') == nil, true)
+  end
   eq(vim.api.nvim_get_option_value('winbar', { win = ui.state.winid }), ' LeetCode Help ')
 end
 
@@ -786,6 +789,37 @@ T['completion']['completes cached slugs without an open question'] = function()
   eq(complete('', 'LeetCode question run '), {})
   eq(complete('', 'LeetCode question case edit '), {})
   restore()
+end
+
+T['help markdown'] = new_set()
+
+T['help markdown']['includes command references'] = function()
+  local md = helpers.mod('commands').help_markdown()
+  eq(helpers.contains(md, '# LeetCode commands'), true)
+  eq(helpers.contains(md, '- `:LeetCode question run'), true)
+  eq(helpers.contains(md, '- `:LeetCode` - Browse problems'), true)
+end
+
+T['help markdown']['does not escape inline code content'] = function()
+  local md = helpers.mod('commands').help_markdown()
+  eq(helpers.contains(md, 'hints [show|hide]'), true)
+end
+
+T['help markdown']['routes help through the markdown renderer'] = function()
+  local commands = helpers.mod('commands')
+  local rendered, span_rendered = nil, false
+  helpers.with_stub('leetcode-ui.ui', 'markdown_enabled', function() return true end, function()
+    helpers.with_stub('leetcode-ui.ui', 'render_markdown', function(text) rendered = text end, function()
+      helpers.with_stub(
+        'leetcode-ui.ui',
+        'render',
+        function() span_rendered = true end,
+        function() commands.run({ 'help' }) end
+      )
+    end)
+  end)
+  eq(helpers.contains(rendered, '# LeetCode commands'), true)
+  eq(span_rendered, false)
 end
 
 return T

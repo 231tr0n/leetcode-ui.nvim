@@ -73,6 +73,97 @@ T['api_question']['get_list fetches and caches a single page'] = function()
   eq(calls, 1)
 end
 
+T['api_question']['reports problem-list loading progress'] = function()
+  local question = helpers.mod('api.question')
+  local calls = {}
+  helpers.with_field(
+    vim.api,
+    'nvim_echo',
+    function(chunks, _, opts) table.insert(calls, { text = chunks[1][1], opts = opts }) end,
+    function()
+      helpers.with_stub(
+        'leetcode-ui.api',
+        'graphql',
+        function() return { problemsetQuestionList = { total = 1, questions = { { title_slug = 'fresh' } } } }, nil end,
+        function()
+          local list, err = question.get_list({ force = true })
+          eq(err, nil)
+          eq(list.total, 1)
+        end
+      )
+    end
+  )
+
+  local saw_running, saw_partial, saw_success = false, false, false
+  for _, call in ipairs(calls) do
+    local opts = call.opts
+    eq(opts.kind, 'progress')
+    eq(opts.title, 'LeetCode problems')
+    eq(opts.source, 'leetcode-ui')
+    if opts.status == 'running' and opts.percent == 0 then saw_running = true end
+    if opts.status == 'running' and opts.percent == 99 then
+      eq(call.text, 'Loaded 1 of 1 problem')
+      saw_partial = true
+    end
+    if opts.status == 'success' and opts.percent == 100 then
+      eq(call.text, 'Loaded 1 problem')
+      saw_success = true
+    end
+  end
+  eq(saw_running, true)
+  eq(saw_partial, true)
+  eq(saw_success, true)
+end
+
+T['api_question']['reports failed and cancelled problem-list progress'] = function()
+  local question = helpers.mod('api.question')
+  local calls = {}
+  helpers.with_field(
+    vim.api,
+    'nvim_echo',
+    function(chunks, _, opts) table.insert(calls, { text = chunks[1][1], opts = opts }) end,
+    function()
+      helpers.with_stub('leetcode-ui.api', 'graphql', function() return nil, 'offline' end, function()
+        local list, err = question.get_list({ force = true })
+        eq(list, nil)
+        eq(err, 'offline')
+      end)
+    end
+  )
+  local failed = false
+  for _, call in ipairs(calls) do
+    if call.opts.status == 'failed' and call.text == 'Failed to load problem list' then failed = true end
+  end
+  eq(failed, true)
+
+  calls = {}
+  local config = helpers.mod('config')
+  local url = config.config.url
+  MiniTest.finally(function() config.config.url = url end)
+  helpers.with_field(
+    vim.api,
+    'nvim_echo',
+    function(chunks, _, opts) table.insert(calls, { text = chunks[1][1], opts = opts }) end,
+    function()
+      helpers.with_stub('leetcode-ui.api', 'graphql', function()
+        config.config.url = 'leetcode.cn'
+        local rows = {}
+        for index = 1, 100 do
+          rows[index] = { title_slug = 'q' .. index }
+        end
+        return { problemsetQuestionList = { total = 200, questions = rows } }, nil
+      end, function() question.get_list({ force = true }) end)
+    end
+  )
+  local cancelled, partial = false, false
+  for _, call in ipairs(calls) do
+    if call.opts.status == 'failed' and call.text == 'Problem list fetch cancelled' then cancelled = true end
+    if call.opts.percent == 50 and call.text == 'Loaded 100 of 200 problems' then partial = true end
+  end
+  eq(cancelled, true)
+  eq(partial, true)
+end
+
 T['api_question']['get_list paginates until total is reached'] = function()
   local question = helpers.mod('api.question')
   local calls = 0

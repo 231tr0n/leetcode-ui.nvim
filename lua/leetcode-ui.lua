@@ -42,6 +42,9 @@
 --- - Format with the remote formatter when available, otherwise CLI
 ---   formatters or LSP.
 --- - Show progress statistics and session information.
+--- - Show inline progress while the problem list loads.
+--- - Render Description, Info, Statistics, and Help as Markdown when
+---   `render-markdown.nvim` is loaded and enabled.
 --- - Import session cookies from supported browsers (disabled by default).
 ---
 --- # Commands ~
@@ -90,6 +93,10 @@
 --- - `mini.nvim` - optional; run `require('mini.pick').setup()` for the
 ---   picker backend and `require('mini.clue').setup()` for key hints. Clue
 ---   triggers are enabled inside the central window when it is set up.
+--- - `render-markdown.nvim` - optional; renders Markdown views in the central
+---   window when it is loaded and enabled.
+--- - `npm`/`npx` - optional; enables `prettier = true` to format JavaScript
+---   and TypeScript through `npx prettier`.
 --- - A language server such as `lua-language-server`, `clangd`, or `ruff` -
 ---   optional; provides diagnostics and completion, plus LSP formatting when
 ---   the server supports it.

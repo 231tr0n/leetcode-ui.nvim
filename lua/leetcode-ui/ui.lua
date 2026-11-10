@@ -33,6 +33,7 @@ local resize_autocmd = nil
 local layout_autocmd = nil
 local clue_cleanup_autocmd = nil
 local clue_ensured = {}
+local markdown_disabled_buffer = nil
 
 local function ensure_clue_triggers(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then return end
@@ -283,6 +284,7 @@ LeetCodeUI.show = function(bufnr, opts)
   vim.api.nvim_set_option_value('signcolumn', opts.signcolumn or 'no', { win = winid })
   vim.api.nvim_set_option_value('foldenable', opts.foldenable == true, { win = winid })
   local foldmethod = opts.foldmethod
+  if opts.folds ~= nil and #opts.folds > 0 then foldmethod = 'manual' end
   if foldmethod == nil and previous_buf ~= bufnr then
     foldmethod = vim.b[bufnr].leetcode_ui_foldmethod or vim.go.foldmethod
   end
@@ -311,8 +313,119 @@ LeetCodeUI.show = function(bufnr, opts)
     end
   end)
 
+  if vim.api.nvim_get_option_value('filetype', { buf = bufnr }) ~= 'markdown' then
+    vim.api.nvim_set_option_value('conceallevel', 0, { win = winid })
+    vim.api.nvim_set_option_value('concealcursor', '', { win = winid })
+  end
+
   LeetCodeUI.state.cursor_hidden = opts.hide_cursor == true
   update_cursor()
+  return winid
+end
+
+local function finish_render(bufnr, render_opts, previous_buf, previous_view, first_content)
+  local winid = LeetCodeUI.show(bufnr, render_opts)
+  LeetCodeUI.set_winbar('')
+
+  if vim.api.nvim_get_option_value('filetype', { buf = bufnr }) ~= 'markdown' then
+    vim.api.nvim_set_option_value('conceallevel', 0, { win = winid })
+    vim.api.nvim_set_option_value('concealcursor', '', { win = winid })
+  end
+
+  if render_opts.focus == false and previous_view ~= nil and previous_buf == bufnr then
+    pcall(vim.api.nvim_win_call, winid, function() vim.fn.winrestview(previous_view) end)
+  elseif vim.api.nvim_buf_line_count(bufnr) >= first_content then
+    pcall(vim.api.nvim_win_set_cursor, winid, { first_content, 0 })
+  end
+  return winid
+end
+
+local function previous_view()
+  if not LeetCodeUI.is_open() then return nil, nil end
+  local winid = LeetCodeUI.state.winid
+  return vim.api.nvim_win_get_buf(winid), vim.api.nvim_win_call(winid, vim.fn.winsaveview)
+end
+
+--- Whether Markdown rendering is available.
+---
+---@return boolean
+LeetCodeUI.markdown_enabled = function()
+  if config.config.markdown == false then return false end
+  local ok, render_markdown = pcall(require, 'render-markdown')
+  if not ok then return false end
+  if type(render_markdown.get) == 'function' then
+    local got, enabled = pcall(render_markdown.get)
+    if not got or enabled ~= true then return false end
+  end
+  return true
+end
+
+--- Render Markdown text in the central window.
+---
+--- When `render-markdown.nvim` is loaded, its renderer is applied to the
+--- markdown buffer.
+---
+--- `pad_top` defaults to `true`. Supplied `folds` are shifted down by one line
+--- when top padding is enabled.
+---
+---@param text string Markdown source.
+---@param opts table|nil All |LeetCodeUI.show()| options plus `pad_top`.
+---@return number winid
+LeetCodeUI.render_markdown = function(text, opts)
+  opts = opts or {}
+  local lines = vim.split(text, '\n', { plain = true })
+  local pad = opts.pad_top ~= false
+  if pad then table.insert(lines, 1, '') end
+  if pad and opts.folds ~= nil then
+    local folds = {}
+    for _, fold in ipairs(opts.folds) do
+      table.insert(folds, { start_line = fold.start_line + 1, end_line = fold.end_line + 1 })
+    end
+    opts = vim.tbl_extend('force', {}, opts, { folds = folds })
+  end
+
+  local previous_buf, saved_view = previous_view()
+  local render_opts = vim.tbl_extend('force', {
+    cursorline = true,
+    cursorline_hl = 'LeetCodeCursorLine',
+    hide_cursor = true,
+    folds = {},
+    pad_top = pad,
+  }, opts)
+
+  local bufnr = LeetCodeUI.panel()
+  local was_markdown = vim.api.nvim_get_option_value('filetype', { buf = bufnr }) == 'markdown'
+  buffer.lines_write(bufnr, lines)
+  if vim.api.nvim_get_option_value('filetype', { buf = bufnr }) ~= 'markdown' then
+    vim.api.nvim_set_option_value('filetype', 'markdown', { buf = bufnr })
+  end
+  local render_ns = vim.api.nvim_get_namespaces()['render-markdown.nvim']
+  if was_markdown and render_ns ~= nil then pcall(vim.api.nvim_buf_clear_namespace, bufnr, render_ns, 0, -1) end
+  local ok_renderer, renderer = pcall(require, 'render-markdown')
+  if ok_renderer and type(renderer.buf_enable) == 'function' then
+    local needs_enable = markdown_disabled_buffer == bufnr
+    if not needs_enable and type(renderer.get) == 'function' then
+      local got, enabled = pcall(renderer.get, bufnr)
+      needs_enable = got and enabled ~= true
+    end
+    if needs_enable then
+      vim.api.nvim_buf_call(bufnr, function() pcall(renderer.buf_enable) end)
+      markdown_disabled_buffer = nil
+    end
+  end
+  vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr })
+  local first_content = 1
+  local winid = finish_render(bufnr, render_opts, previous_buf, saved_view, first_content)
+
+  local ok, render_markdown = pcall(require, 'render-markdown')
+  if ok and type(render_markdown.render) == 'function' then
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(bufnr) then return end
+      if vim.api.nvim_get_option_value('filetype', { buf = bufnr }) ~= 'markdown' then return end
+      if not LeetCodeUI.is_open() or vim.api.nvim_win_get_buf(LeetCodeUI.state.winid) ~= bufnr then return end
+      pcall(render_markdown.render, { buf = bufnr })
+    end)
+  end
   return winid
 end
 
@@ -336,12 +449,7 @@ LeetCodeUI.render = function(lines, opts)
     opts = vim.tbl_extend('force', {}, opts, { folds = folds })
   end
 
-  local previous_view, previous_buf = nil, nil
-  if LeetCodeUI.is_open() then
-    previous_buf = vim.api.nvim_win_get_buf(LeetCodeUI.state.winid)
-    previous_view = vim.api.nvim_win_call(LeetCodeUI.state.winid, vim.fn.winsaveview)
-  end
-
+  local previous_buf, saved_view = previous_view()
   local render_opts = vim.tbl_extend('force', {
     cursorline = true,
     cursorline_hl = 'LeetCodeCursorLine',
@@ -350,20 +458,23 @@ LeetCodeUI.render = function(lines, opts)
   }, opts)
 
   local bufnr = LeetCodeUI.panel()
-  buffer.spans_write(bufnr, lines)
-  vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr })
-  local winid = LeetCodeUI.show(bufnr, render_opts)
-  LeetCodeUI.set_winbar('')
-
-  if render_opts.focus == false and previous_view ~= nil and previous_buf == bufnr then
-    pcall(vim.api.nvim_win_call, winid, function() vim.fn.winrestview(previous_view) end)
-  else
-    local first_content = render_opts.pad_top == true and 2 or 1
-    if vim.api.nvim_buf_line_count(bufnr) >= first_content then
-      pcall(vim.api.nvim_win_set_cursor, winid, { first_content, 0 })
+  local was_markdown = vim.api.nvim_get_option_value('filetype', { buf = bufnr }) == 'markdown'
+  if was_markdown then
+    local ok, renderer = pcall(require, 'render-markdown')
+    if ok and type(renderer.buf_disable) == 'function' then
+      vim.api.nvim_buf_call(bufnr, function() pcall(renderer.buf_disable) end)
+      markdown_disabled_buffer = bufnr
     end
   end
-  return winid
+  if vim.api.nvim_get_option_value('filetype', { buf = bufnr }) ~= 'txt' then
+    vim.api.nvim_set_option_value('filetype', 'txt', { buf = bufnr })
+  end
+  local render_ns = vim.api.nvim_get_namespaces()['render-markdown.nvim']
+  if render_ns ~= nil then pcall(vim.api.nvim_buf_clear_namespace, bufnr, render_ns, 0, -1) end
+  buffer.spans_write(bufnr, lines)
+  vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr })
+  local first_content = render_opts.pad_top == true and 2 or 1
+  return finish_render(bufnr, render_opts, previous_buf, saved_view, first_content)
 end
 
 --- Set the central window's winbar.

@@ -12,6 +12,27 @@ local T = new_set({
 
 T['window'] = new_set()
 
+local function mock_render_markdown(state)
+  state = state or {}
+  state.enabled = state.enabled ~= false
+  local original = package.loaded['render-markdown']
+  local original_preload = package.preload['render-markdown']
+  package.loaded['render-markdown'] = {
+    get = function(buf)
+      state.get_buf = buf
+      return state.enabled
+    end,
+    render = function(opts) state.rendered = opts.buf end,
+    buf_disable = function() state.enabled = false end,
+    buf_enable = function() state.enabled = true end,
+  }
+  MiniTest.finally(function()
+    package.loaded['render-markdown'] = original
+    package.preload['render-markdown'] = original_preload
+  end)
+  return state
+end
+
 T['window']['ensure opens one reusable window'] = function()
   local ui = helpers.mod('ui')
   eq(ui.is_open(), false)
@@ -159,6 +180,40 @@ T['window']['recenters when showtabline or cmdheight changes'] = function()
   vim.o.cmdheight = 2
   vim.api.nvim_exec_autocmds('OptionSet', { pattern = 'cmdheight' })
   eq(vim.api.nvim_win_get_config(winid).row, 14)
+end
+
+T['window']['markdown_enabled respects config and renderer state'] = function()
+  local ui = helpers.mod('ui')
+  local original = package.loaded['render-markdown']
+  local original_preload = package.preload['render-markdown']
+  MiniTest.finally(function()
+    package.loaded['render-markdown'] = original
+    package.preload['render-markdown'] = original_preload
+  end)
+
+  helpers.configure({ markdown = false })
+  eq(ui.markdown_enabled(), false)
+
+  helpers.configure({ markdown = true })
+  package.loaded['render-markdown'] = nil
+  package.preload['render-markdown'] = function() error('not installed') end
+  eq(ui.markdown_enabled(), false)
+
+  package.preload['render-markdown'] = original_preload
+  package.loaded['render-markdown'] = { get = function() return true end }
+  eq(ui.markdown_enabled(), true)
+
+  package.loaded['render-markdown'] = { get = function() return false end }
+  eq(ui.markdown_enabled(), false)
+
+  package.loaded['render-markdown'] = { get = function() return nil end }
+  eq(ui.markdown_enabled(), false)
+
+  package.loaded['render-markdown'] = {}
+  eq(ui.markdown_enabled(), true)
+
+  package.loaded['render-markdown'] = { get = function() error('boom') end }
+  eq(ui.markdown_enabled(), false)
 end
 
 T['window']['recenters after closing a split with laststatus=1'] = function()
@@ -404,6 +459,130 @@ T['render']['handles an empty guicursor'] = function()
   eq(helpers.contains(vim.o.guicursor, 'n-v-ve-o-i-r-sm:LeetCodeCursor'), true)
   ui.close()
   eq(vim.o.guicursor, '')
+end
+
+T['render']['applies render-markdown to markdown views'] = function()
+  local ui = helpers.mod('ui')
+  local original = package.loaded['render-markdown']
+  local rendered = nil
+  local enabled = true
+  local get_buf = nil
+  package.loaded['render-markdown'] = {
+    get = function(buf)
+      get_buf = buf
+      return enabled
+    end,
+    render = function(opts) rendered = opts.buf end,
+    buf_disable = function() enabled = false end,
+    buf_enable = function() enabled = true end,
+  }
+  MiniTest.finally(function()
+    package.loaded['render-markdown'] = original
+    ui.close()
+  end)
+
+  ui.render_markdown('# Title')
+  eq(helpers.wait_for(function() return rendered ~= nil end), true)
+  eq(rendered, ui.panel())
+  eq(get_buf, ui.panel())
+
+  enabled = false
+  rendered = nil
+  ui.render_markdown('# External re-enable')
+  eq(enabled, true)
+  eq(helpers.wait_for(function() return rendered ~= nil end), true)
+
+  ui.render({ { { text = 'plain' } } })
+  eq(enabled, false)
+  rendered = nil
+  ui.render_markdown('# Title again')
+  eq(enabled, true)
+  eq(helpers.wait_for(function() return rendered ~= nil end), true)
+  eq(rendered, ui.panel())
+end
+
+T['render']['resets conceal options when leaving markdown'] = function()
+  local ui = helpers.mod('ui')
+  mock_render_markdown()
+  local winid = ui.render_markdown('# Title')
+  vim.api.nvim_set_option_value('conceallevel', 3, { win = winid })
+  vim.api.nvim_set_option_value('concealcursor', 'n', { win = winid })
+  ui.render({ { { text = 'plain' } } })
+  eq(vim.api.nvim_get_option_value('conceallevel', { win = winid }), 0)
+  eq(vim.api.nvim_get_option_value('concealcursor', { win = winid }), '')
+end
+
+T['render']['skips a scheduled markdown render after switching views'] = function()
+  local ui = helpers.mod('ui')
+  local state = mock_render_markdown()
+
+  ui.render_markdown('# Title')
+  ui.render({ { { text = 'plain' } } })
+  local first_done = false
+  vim.schedule(function() first_done = true end)
+  eq(vim.wait(1000, function() return first_done end), true)
+  eq(state.rendered, nil)
+
+  local other = helpers.mod('buffer').scratch('leetcode-ui://markdown-other', { ft = 'markdown' })
+  ui.render_markdown('# Title again')
+  ui.show(other, {})
+  local second_done = false
+  vim.schedule(function() second_done = true end)
+  eq(vim.wait(1000, function() return second_done end), true)
+  eq(state.rendered, nil)
+end
+
+T['render']['resets conceal when showing a code buffer'] = function()
+  local ui = helpers.mod('ui')
+  local buffer = helpers.mod('buffer')
+  mock_render_markdown()
+  local winid = ui.render_markdown('# Title')
+  vim.api.nvim_set_option_value('conceallevel', 3, { win = winid })
+  vim.api.nvim_set_option_value('concealcursor', 'n', { win = winid })
+  local code = buffer.scratch('leetcode-ui://conceal-code', { ft = 'lua' })
+  ui.show(code, {})
+  eq(vim.api.nvim_get_option_value('conceallevel', { win = winid }), 0)
+  eq(vim.api.nvim_get_option_value('concealcursor', { win = winid }), '')
+end
+
+T['render']['shifts markdown folds for top padding'] = function()
+  local ui = helpers.mod('ui')
+  mock_render_markdown()
+  local winid = ui.render_markdown('one\ntwo', {
+    folds = { { start_line = 1, end_line = 2 } },
+    foldenable = true,
+    foldmethod = 'manual',
+  })
+  eq(vim.api.nvim_win_call(winid, function() return vim.fn.foldclosed(2) end), 2)
+end
+
+T['render']['skips fold shifting without top padding'] = function()
+  local ui = helpers.mod('ui')
+  mock_render_markdown()
+  local winid = ui.render_markdown('one\ntwo', {
+    pad_top = false,
+    folds = { { start_line = 1, end_line = 2 } },
+    foldenable = true,
+    foldmethod = 'manual',
+  })
+  eq(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)[1], 'one')
+  eq(vim.api.nvim_win_call(winid, function() return vim.fn.foldclosed(1) end), 1)
+end
+
+T['render']['renders markdown and resets the panel filetype'] = function()
+  local ui = helpers.mod('ui')
+  mock_render_markdown()
+  local winid = ui.render_markdown('# Title\n\nbody', { pad_top = true })
+  eq(vim.api.nvim_get_option_value('filetype', { buf = ui.panel() }), 'markdown')
+  eq(vim.api.nvim_win_get_buf(winid), ui.panel())
+  eq(vim.api.nvim_win_get_cursor(winid)[1], 1)
+  local lines = vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)
+  eq(lines[1], '')
+  eq(lines[2], '# Title')
+  eq(lines[4], 'body')
+
+  ui.render({ { { text = 'plain' } } })
+  eq(vim.api.nvim_get_option_value('filetype', { buf = ui.panel() }), 'txt')
 end
 
 T['render']['shows another buffer in the same window'] = function()

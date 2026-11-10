@@ -194,6 +194,19 @@ LeetCodeBuffer.spans_to_texts = function(lines)
   return texts
 end
 
+--- Write plain text lines into a buffer.
+---
+---@param bufnr number
+---@param lines table
+LeetCodeBuffer.lines_write = function(bufnr, lines)
+  if bufnr == nil or not vim.api.nvim_buf_is_valid(bufnr) then return end
+  local was_modifiable = vim.api.nvim_get_option_value('modifiable', { buf = bufnr })
+  if not was_modifiable then vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr }) end
+  vim.api.nvim_buf_clear_namespace(bufnr, LeetCodeBuffer.namespace, 0, -1)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
+  if not was_modifiable then vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr }) end
+end
+
 --- Delete a buffer if it is still valid.
 ---
 ---@param bufnr number|nil

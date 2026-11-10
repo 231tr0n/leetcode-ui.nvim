@@ -12,6 +12,7 @@ local LeetCodeCommands = {}
 
 local config = require('leetcode-ui.config')
 local log = require('leetcode-ui.log')
+local parser = require('leetcode-ui.parser')
 local storage = require('leetcode-ui.storage')
 local ui = require('leetcode-ui.ui')
 
@@ -207,6 +208,13 @@ LeetCodeCommands.top_commands = {
     max = 0,
     summary = 'Show this command summary',
     run = function()
+      ui.claim('help')
+      if ui.markdown_enabled() then
+        ui.render_markdown(LeetCodeCommands.help_markdown(), { pad_top = true, owner = 'help' })
+        ui.set_winbar(' LeetCode Help ')
+        return
+      end
+
       local top_rows = LeetCodeCommands.help_rows('top')
       table.insert(top_rows, 1, { '', 'Browse problems (same as list)' })
       local question_rows = LeetCodeCommands.help_rows('question', { case = true })
@@ -232,7 +240,6 @@ LeetCodeCommands.top_commands = {
       table.insert(lines, { { text = 'Question testcases', hl = 'LeetCodeHeader' } })
       vim.list_extend(lines, LeetCodeCommands.help_lines(case_rows, width))
 
-      ui.claim('help')
       ui.render(lines, { pad_top = true, owner = 'help' })
       ui.set_winbar(' LeetCode Help ')
     end,
@@ -556,15 +563,56 @@ LeetCodeCommands.help_lines = function(rows, width)
 
   local lines = {}
   for _, row in ipairs(rows) do
-    local first = format:format(row[1])
-    for index, part in ipairs(wrap_text(row[2], summary_width)) do
-      table.insert(lines, {
-        index == 1 and { text = first, hl = 'LeetCodeCode' } or { text = string.rep(' ', summary_column) },
-        { text = part, hl = 'LeetCodeDim' },
-      })
+    if row[1] == '' then
+      for index, part in ipairs(wrap_text(row[2], math.max(1, 78 - 4))) do
+        table.insert(lines, {
+          { text = index == 1 and '  • ' or '    ', hl = 'LeetCodeDim' },
+          { text = part, hl = 'LeetCodeDim' },
+        })
+      end
+    else
+      local first = format:format(row[1])
+      for index, part in ipairs(wrap_text(row[2], summary_width)) do
+        table.insert(lines, {
+          index == 1 and { text = first, hl = 'LeetCodeCode' } or { text = string.rep(' ', summary_column) },
+          { text = part, hl = 'LeetCodeDim' },
+        })
+      end
     end
   end
   return lines
+end
+
+--- Render command help as Markdown.
+---
+---@return string markdown
+LeetCodeCommands.help_markdown = function()
+  local top_rows = LeetCodeCommands.help_rows('top')
+  table.insert(top_rows, 1, { '', 'Browse problems (same as list)' })
+  local question_rows = LeetCodeCommands.help_rows('question', { case = true })
+  local case_rows = LeetCodeCommands.help_rows('case')
+
+  local lines = {
+    '# LeetCode commands',
+    '',
+    '> Map these commands in your own configuration.',
+  }
+  local function section(title, rows)
+    table.insert(lines, '')
+    table.insert(lines, '## ' .. title)
+    table.insert(lines, '')
+    for _, row in ipairs(rows) do
+      if row[1] == '' then
+        table.insert(lines, '- `:LeetCode` - ' .. parser.markdown_escape(row[2]))
+      else
+        table.insert(lines, ('- `:LeetCode %s` - %s'):format(row[1], parser.markdown_escape(row[2])))
+      end
+    end
+  end
+  section('Browsing and account', top_rows)
+  section('Question window', question_rows)
+  section('Question testcases', case_rows)
+  return table.concat(lines, '\n')
 end
 
 --- Run a `:LeetCode` subcommand.

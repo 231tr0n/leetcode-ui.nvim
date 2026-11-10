@@ -4,14 +4,15 @@
 ---
 --- Each call to |LeetCode.setup()| replaces the whole configuration. Unspecified
 --- options return to their defaults; values from a previous call are not
---- merged. Nested tables are replaced whole as well.
+--- merged. Nested tables are replaced whole, except `icons`, which is merged
+--- with the defaults so partial icon overrides are supported.
 ---
 --- Options:
 ---
 --- - `url` (`string`) - LeetCode domain used for API, formatter, and web URLs.
 --- - `lang` (`string`) - default solution language slug.
---- - `languages` (`table|nil`) - allow-list for solution languages and
----   pickers.
+--- - `languages` (`table|nil`) - allow-list for solution languages and the
+---   language picker.
 --- - `cookies` (`table`) - `LEETCODE_SESSION` and `csrftoken` values.
 --- - `cookie_file` (`string|nil`) - Netscape cookie jar consumed by curl.
 --- - `storage_path` (`string|nil`) - cache, draft, and testcase root.
@@ -28,7 +29,14 @@
 ---   random selection, and completions.
 --- - `show_hints` (`boolean`) - show hints in the Description tab by default.
 --- - `notifications` (`boolean`) - show notifications.
---- - `icons` (`table`) - status and testcase icon overrides.
+--- - `markdown` (`boolean`) - render the Description, Info, Statistics, and
+---   Help views as Markdown when `render-markdown.nvim` is loaded and enabled.
+---   The Code editor and Console remain unchanged.
+--- - `prettier` (`boolean`) - use `npx prettier` for JavaScript and TypeScript
+---   solution formatting when `npx` is on `PATH` and `prettier` is not on
+---   `PATH`. This may download Prettier if it is not installed locally.
+--- - `icons` (`table`) - status and testcase icon overrides. Partial groups are
+---   merged with the defaults.
 ---
 --- Supported language slugs: `bash`, `c`, `cpp`, `csharp`, `dart`, `elixir`,
 --- `erlang`, `golang`, `java`, `javascript`, `kotlin`, `php`, `python`,
@@ -55,6 +63,8 @@
 ---     hide_premium = false,
 ---     show_hints = false,
 ---     notifications = true,
+---     markdown = true,
+---     prettier = false,
 ---     icons = {
 ---       status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
 ---       case = { passed = '✔', failed = '✘', unknown = '○', err = '✗' },
@@ -210,6 +220,13 @@ local default_config = {
   -- Whether to show notifications.
   notifications = true,
 
+  -- Render Description, Info, Statistics, and Help as Markdown when
+  -- render-markdown.nvim is loaded. The Code editor and Console remain unchanged.
+  markdown = true,
+
+  -- Prefer npx prettier for JS/TS when npx is on PATH and prettier is absent.
+  prettier = false,
+
   icons = {
     status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
     case = { passed = '✔', failed = '✘', unknown = '○', err = '✗' },
@@ -249,6 +266,8 @@ local function validate(config)
     hide_premium = { config.hide_premium, 'boolean' },
     show_hints = { config.show_hints, 'boolean' },
     notifications = { config.notifications, 'boolean' },
+    markdown = { config.markdown, 'boolean' },
+    prettier = { config.prettier, 'boolean' },
     icons = { config.icons, 'table' },
   })
 
@@ -374,6 +393,9 @@ LeetCodeConfig.error = function(msg) error(('(leetcode-ui) %s'):format(msg), 0) 
 local function prepare(opts)
   if opts ~= nil and type(opts) ~= 'table' then LeetCodeConfig.error('`opts` should be a table or nil.') end
   local merged = vim.tbl_extend('force', vim.deepcopy(default_config), opts or {})
+  if opts ~= nil and type(opts.icons) == 'table' then
+    merged.icons = vim.tbl_deep_extend('force', vim.deepcopy(default_config.icons), opts.icons)
+  end
   validate(merged)
   return merged
 end

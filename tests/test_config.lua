@@ -20,6 +20,8 @@ T['defaults']['exposes defaults'] = function()
   eq(config.config.picker, 'auto')
   eq(config.config.browser, 'none')
   eq(config.config.notifications, true)
+  eq(config.config.markdown, true)
+  eq(config.config.prettier, false)
   eq(config.config.show_hints, false)
   eq(type(config.config.icons.status.solved), 'string')
   eq(type(config.config.icons.case.passed), 'string')
@@ -84,16 +86,28 @@ T['setup']['rejects bad types'] = function()
   expect.error(function() require('leetcode-ui.config').setup('not a table') end, 'should be a table or nil')
   expect.error(function() helpers.configure({ cookies = 'jar' }) end, 'expected table')
   expect.error(function() helpers.configure({ notifications = 'yes' }) end, 'expected boolean')
+  expect.error(function() helpers.configure({ markdown = 'yes' }) end, 'expected boolean')
+  expect.error(function() helpers.configure({ prettier = 'yes' }) end, 'expected boolean')
   expect.error(function() helpers.configure({ show_hints = 'yes' }) end, 'expected boolean')
 end
 
-T['setup']['rejects incomplete, unknown, and non-string icons'] = function()
+T['setup']['merges partial icon overrides with defaults'] = function()
+  local config = require('leetcode-ui.config')
+  local default_solved = config.config.icons.status.solved
+  local default_passed = config.config.icons.case.passed
+  helpers.configure({ icons = { status = { solved = '★' }, case = { passed = '✓' } } })
+  eq(config.config.icons.status.solved, '★')
+  eq(config.config.icons.status.attempted, '✘')
+  eq(config.config.icons.case.passed, '✓')
+  eq(config.config.icons.case.failed, '✘')
+  config.setup({})
+  eq(config.config.icons.status.solved, default_solved)
+  eq(config.config.icons.case.passed, default_passed)
+end
+
+T['setup']['rejects unknown and non-string icons'] = function()
   local icons = vim.deepcopy(require('leetcode-ui.config').config.icons)
   icons.status.solved = 1
-  expect.error(function() helpers.configure({ icons = icons }) end, 'should be a string')
-
-  icons = vim.deepcopy(require('leetcode-ui.config').config.icons)
-  icons.status.solved = nil
   expect.error(function() helpers.configure({ icons = icons }) end, 'should be a string')
 
   icons = vim.deepcopy(require('leetcode-ui.config').config.icons)

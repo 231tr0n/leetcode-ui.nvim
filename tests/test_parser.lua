@@ -8,6 +8,8 @@ local T = new_set()
 
 local render = function(html) return helpers.mod('parser').render(html) end
 
+local markdown = function(html) return helpers.mod('parser').markdown(html) end
+
 local text_of = function(lines) return helpers.mod('buffer').spans_to_texts(lines) end
 
 --- Find spans by highlight group across all lines.
@@ -33,6 +35,13 @@ T['entities']['decimal and hex entities'] = function()
   eq(parser.decode_entities('&#8804;'), '≤')
   eq(parser.decode_entities('&#x110000;'), '&#x110000;')
   eq(parser.decode_entities('&#0;'), '�')
+end
+
+T['entities']['invisible layout characters are removed'] = function()
+  local parser = helpers.mod('parser')
+  eq(parser.decode_entities('a&#8203;b&ZeroWidthSpace;c'), 'abc')
+  eq(parser.decode_entities('a\226\128\139b\239\187\191c'), 'abc')
+  eq(text_of(render('<p>a&#8203;b</p>'))[1], 'ab')
 end
 
 T['entities']['unknown entities are kept verbatim'] = function()
@@ -163,6 +172,27 @@ end
 T['blocks']['pre inside containers is separated from adjacent text'] = function()
   eq(text_of(render('<ul><li><strong>Example:</strong><pre>x = 1</pre></li></ul>')), { '• Example: x = 1' })
   eq(text_of(render('<table><tr><td><strong>Input</strong><pre>x = 1</pre></td></tr></table>')), { '| Input x = 1 |' })
+end
+
+T['blocks']['text after a pre keeps list continuation indentation'] = function()
+  eq(text_of(render('<ul><li><pre>x</pre>y</li></ul>')), { '• x', '  y' })
+  eq(text_of(render('<ul><li><pre>x</pre>y</li><li>b</li></ul>')), { '• x', '  y', '• b' })
+end
+
+T['blocks']['list continuations align with ordered and nested markers'] = function()
+  eq(text_of(render('<ol><li><pre>a</pre>b</li></ol>')), { '1. a', '   b' })
+  eq(text_of(render('<ul><li>a<ul><li>b</li></ul>c</li></ul>')), { '• a', '    • b', '  c' })
+end
+
+T['blocks']['hr separates adjacent text in containers'] = function()
+  eq(text_of(render('<p>a<hr>b</p>')), { 'a', '', 'b' })
+  eq(text_of(render('<table><tr><td>a<hr>b</td></tr></table>')), { '| a b |' })
+  eq(text_of(render('<ul><li>a<hr>b</li></ul>')), { '• a b' })
+end
+
+T['blocks']['images keep the following space in containers'] = function()
+  eq(text_of(render('<ul><li><img alt="i"> x</li></ul>')), { '• [image: i] x' })
+  eq(text_of(render('<table><tr><td><img alt="i"> x</td></tr></table>')), { '| [image: i] x |' })
 end
 
 T['blocks']['pre block code highlighting'] = function()
@@ -372,6 +402,11 @@ T['robustness']['unclosed pre blocks do not corrupt following table rows'] = fun
   eq(text_of(lines), { '| a | b |', '| c |' })
 end
 
+T['robustness']['structural closes unwind list and table state'] = function()
+  eq(text_of(render('<table><tr><td><ul><li>x</td></tr></table><p>y</p>')), { '| • x |', '', 'y' })
+  eq(text_of(render('<h2><ul><li>x</h2><p>y</p>')), { '• x', '', 'y' })
+end
+
 T['robustness']['tabs at line boundaries are trimmed'] = function()
   eq(text_of(render('<p>a</p>\t<p>b</p>')), { 'a', '', 'b' })
   eq(text_of(render('<p>a<br>\t b</p>')), { 'a', 'b' })
@@ -420,6 +455,187 @@ T['robustness']['style and script blocks dropped'] = function()
   eq(text_of(render('<STYLE>.x{color:red}</STYLE><p>ok</p>')), { 'ok' })
   eq(text_of(render('<SCRIPT>var a=1;</SCRIPT><p>ok</p>')), { 'ok' })
 end
+
+T['markdown'] = new_set()
+
+T['markdown']['converts blocks and inline styles'] = function()
+  eq(
+    markdown('<h2>Title</h2><p>Use <strong>bold</strong> and <em>italic</em>.</p>'),
+    '## Title\n\nUse **bold** and *italic*.'
+  )
+end
+
+T['markdown']['converts lists, links, images, and code'] = function()
+  local md = markdown(
+    '<ul><li>a</li><li>b</li></ul><p><a href="https://x">link</a> <img alt="pic" src="p.png"/></p><pre>x = 1</pre>'
+  )
+  eq(helpers.contains(md, '- a\n- b'), true)
+  eq(helpers.contains(md, '[link](https://x)'), true)
+  eq(helpers.contains(md, '![pic](p.png)'), true)
+  eq(helpers.contains(md, '```\nx = 1\n```'), true)
+end
+
+T['markdown']['converts tables'] = function()
+  local md = markdown('<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>')
+  eq(helpers.contains(md, '| A | B |'), true)
+  eq(helpers.contains(md, '| --- | --- |'), true)
+  eq(helpers.contains(md, '| 1 | 2 |'), true)
+end
+
+T['markdown']['pre blocks ignore inline markers and preserve line breaks'] = function()
+  eq(markdown('<pre><strong>Input:</strong> x<br>y</pre>'), '```\nInput: x\ny\n```')
+  eq(markdown('<pre><code>int x;</code></pre>'), '```\nint x;\n```')
+end
+
+T['markdown']['br produces hard line breaks'] = function()
+  eq(markdown('<p>a<br>b</p>'), 'a\\\nb')
+  eq(markdown('<p>a<br><br>b</p>'), 'a\\\n\nb')
+end
+
+T['markdown']['nested lists are indented under ordered parents'] = function()
+  eq(markdown('<ol><li>a<ul><li>b</li></ul></li></ol>'), '1. a\n\n    - b')
+end
+
+T['markdown']['escapes block markers and raw angle brackets'] = function()
+  eq(markdown('<p># not heading</p>'), '\\# not heading')
+  eq(markdown('<p>- not list</p>'), '\\- not list')
+  eq(markdown('<p>1. not list</p>'), '1\\. not list')
+  eq(markdown('<p>&lt;b&gt;</p>'), '\\<b\\>')
+end
+
+T['markdown']['escapes link destinations'] = function()
+  eq(markdown('<p><a href="https://x/a b_(c)">link</a></p>'), '[link](https://x/a%20b_%28c%29)')
+end
+
+T['markdown']['pre and lists inside table cells stay inline'] = function()
+  eq(markdown('<table><tr><td><pre>x</pre></td><td>y</td></tr></table>'), '| x | y |\n| --- | --- |')
+  eq(
+    markdown('<table><tr><td><ul><li>a</li><li>b</li></ul></td><td>y</td></tr></table>'),
+    '| - a - b | y |\n| --- | --- |'
+  )
+end
+
+T['markdown']['rejects non-finite ordered-list starts'] = function()
+  eq(markdown('<ol start="1e400"><li>a</li></ol>'), '1. a')
+  eq(markdown('<ol start="2.7"><li>a</li></ol>'), '2. a')
+  eq(markdown('<ol start="1e300"><li>a</li></ol>'), '1. a')
+  eq(markdown('<ol start="-1"><li>a</li></ol>'), '1. a')
+end
+
+T['markdown']['nested styles keep spaces after inner content'] = function()
+  eq(markdown('<p><strong><em>exactly</em> one solution</strong></p>'), '***exactly* one solution**')
+  eq(markdown('<p><strong><code>x</code> y</strong></p>'), '**`x` y**')
+end
+
+T['markdown']['inline code escapes table pipes'] = function()
+  eq(markdown('<table><tr><td><code>a|b</code></td><td>c</td></tr></table>'), '| `a\\|b` | c |\n| --- | --- |')
+end
+
+T['markdown']['handles unclosed and stray pre tags'] = function()
+  eq(markdown('<p>a</p><pre>code'), 'a\n\n```\ncode\n```')
+  eq(markdown('<p>a</p></pre><p>b</p>'), 'a\n\nb')
+end
+
+T['markdown']['leading breaks are ignored'] = function() eq(markdown('<p><br>x</p>'), 'x') end
+
+T['markdown']['container blocks keep list indentation'] = function()
+  eq(markdown('<ul><li>a<ul><li><pre>x</pre></li></ul></li></ul>'), '- a\n\n    -\n      ```\n      x\n      ```')
+  eq(markdown('<ul><li>a<blockquote>b</blockquote>c</li></ul>'), '- a\n\n  > b\n\n  c')
+end
+
+T['markdown']['escapes thematic breaks and preserves leading style spaces'] = function()
+  eq(markdown('<p>---</p>'), '\\---')
+  eq(markdown('<p>x<strong> y</strong>z</p>'), 'x **y**z')
+  eq(markdown('<p><strong> </strong>x</p>'), ' x')
+end
+
+T['markdown']['escapes pipes in link destinations'] = function()
+  eq(markdown('<table><tr><td><a href="https://x/a|b">l</a></td></tr></table>'), '| [l](https://x/a%7Cb) |\n| --- |')
+end
+
+T['markdown']['handles unclosed pre inside tables'] = function()
+  eq(
+    markdown('<table>\n<tr><td><pre>a</td><td>b</td></tr>\n<tr><td>c</td></tr></table>'),
+    '| a | b |\n| --- | --- |\n| c |  |'
+  )
+end
+
+T['markdown']['keeps blockquote paragraphs and nested lists inside the quote'] = function()
+  eq(markdown('<blockquote><p>one</p><p>two</p></blockquote>'), '> one\n>\n> two')
+  eq(markdown('<blockquote><ul><li>a<ul><li>b</li></ul></li></ul></blockquote>'), '> - a\n>\n>     - b')
+end
+
+T['markdown']['separates pre and blockquote content inside cells'] = function()
+  eq(markdown('<table><tr><td>a<pre>x</pre>b</td></tr></table>'), '| a x b |\n| --- |')
+  eq(markdown('<table><tr><td>a<blockquote>b</blockquote>c</td></tr></table>'), '| a b c |\n| --- |')
+end
+
+T['markdown']['escapes literal list markers in list items'] = function()
+  eq(markdown('<ul><li>- x</li><li>1. y</li></ul>'), '- \\- x\n- 1\\. y')
+end
+
+T['markdown']['image resets break state'] = function()
+  eq(markdown('<p>a<br><img alt="x" src="x.png"><br>b</p>'), 'a\\\n![x](x.png)\\\nb')
+end
+
+T['markdown']['escapes literal entity sequences'] = function()
+  eq(markdown('<p>&amp;lt; &amp;copy;</p>'), '\\&lt; \\&copy;')
+end
+
+T['markdown']['selects inline code fences dynamically'] = function()
+  eq(markdown('<p><code> a </code></p>'), '`a`')
+  eq(markdown('<p><code>a`b</code></p>'), '``a`b``')
+  eq(markdown('<p><code>a  b</code></p>'), '`a  b`')
+end
+
+T['markdown']['caps ordered-list markers at nine digits'] = function()
+  eq(markdown('<ol start="999999999"><li>a</li><li>b</li></ol>'), '999999999. a\n999999999. b')
+end
+
+T['markdown']['handles horizontal rules in table cells'] = function()
+  eq(markdown('<table><tr><td>a<hr>b</td></tr></table>'), '| a b |\n| --- |')
+end
+
+T['markdown']['inline code keeps line-start markers literal'] = function()
+  eq(markdown('<p><code>- x</code></p>'), '`- x`')
+  eq(markdown('<p><code>1. x</code></p>'), '`1. x`')
+  eq(markdown('<p><code>---</code></p>'), '`---`')
+end
+
+T['markdown']['image alt decodes entities and normalizes whitespace'] = function()
+  eq(markdown('<p><img alt="a&amp;b" src="x.png"/></p>'), '![a\\&b](x.png)')
+  eq(markdown('<p><img alt="a\nb" src="x.png"/></p>'), '![a b](x.png)')
+end
+
+T['markdown']['table cells preserve inline code whitespace'] = function()
+  eq(markdown('<table><tr><td><code>a  b</code></td></tr></table>'), '| `a  b` |\n| --- |')
+end
+
+T['markdown']['escapes literal exclamation before links'] = function()
+  eq(markdown('<p>!<a href="x">y</a></p>'), '\\![y](x)')
+end
+
+T['markdown']['superscripts decode entities'] = function()
+  eq(markdown('<p>2<sup>n&nbsp;-&nbsp;1</sup></p>'), '2ⁿ ⁻ ¹')
+end
+
+T['markdown']['preserves zero-width joiners and thin spaces'] = function()
+  eq(markdown('<p>a&zwnj;b&zwj;c&thinsp;d</p>'), 'a\226\128\140b\226\128\141c\226\128\137d')
+end
+
+T['markdown']['unwinds structural state when ancestors close'] = function()
+  eq(markdown('<h2><table><tr><td>x</h2><p>y</p>'), '##\n\n| x |\n| --- |\n\ny')
+  eq(markdown('<table><tr><td><blockquote>x</td></tr></table><p>y</p>'), '| x |\n| --- |\n\ny')
+  eq(markdown('<h2><ul><li>x</h2><p>y</p>'), '##\n\n- x\n\ny')
+end
+
+T['markdown']['closes unclosed styles in lists and table rows'] = function()
+  eq(markdown('<ul><strong>a</ul>b'), '**a**\n\nb')
+  eq(markdown('<table><tr><td><strong>a</tr><tr><td>b</td></tr></table>'), '| **a** |\n| --- |\n| b |')
+  eq(markdown('<table><tr><td><a href="x">a</tr><tr><td>b</td></tr></table>'), '| [a](x) |\n| --- |\n| b |')
+end
+
+T['markdown']['removes invisible characters'] = function() eq(markdown('<p>a&#8203;b</p>'), 'ab') end
 
 T['real content'] = new_set()
 

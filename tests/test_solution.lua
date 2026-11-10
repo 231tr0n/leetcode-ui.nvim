@@ -504,6 +504,152 @@ T['format']['falls back to a CLI formatter after a remote failure'] = function()
   eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'formatted')
 end
 
+T['format']['uses npx prettier when enabled'] = function()
+  helpers.configure({ prettier = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'javascript' }), 'x=1')
+  ---@type table|nil
+  local system_opts = nil
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function(name) return name == 'npx' and 1 or 0 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args, opts)
+      command, system_opts = args, opts
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function() solution.format(view) end)
+  end)
+  assert(command ~= nil)
+  eq(command[1], 'npx')
+  eq(command[2], '--yes')
+  eq(command[3], 'prettier')
+  eq(command[4], '--stdin-filepath')
+  eq(command[5], 'x.js')
+  assert(system_opts ~= nil)
+  eq(system_opts.timeout, 120000)
+  eq(system_opts.stdin, 'x=1')
+  eq(vim.api.nvim_buf_get_lines(view.code_bufnr, 0, -1, false)[1], 'formatted')
+end
+
+T['format']['uses the TypeScript prettier filename'] = function()
+  helpers.configure({ prettier = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'typescript' }), 'x=1')
+  ---@type table|nil
+  local system_opts = nil
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function(name) return name == 'npx' and 1 or 0 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args, opts)
+      command, system_opts = args, opts
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function() solution.format(view) end)
+  end)
+  assert(command ~= nil)
+  eq(command[1], 'npx')
+  eq(command[5], 'x.ts')
+  assert(system_opts ~= nil)
+  eq(system_opts.timeout, 120000)
+end
+
+T['format']['does not use npx when prettier is disabled'] = function()
+  helpers.configure({ prettier = false })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'javascript' }), 'x=1')
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function(name) return name == 'npx' and 1 or 0 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args)
+      command = args
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function() solution.format(view) end)
+  end)
+  eq(command, nil)
+end
+
+T['format']['uses the local prettier formatter when prettier is disabled'] = function()
+  helpers.configure({ prettier = false })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'javascript' }), 'x=1')
+  ---@type table|nil
+  local system_opts = nil
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function(name) return name == 'prettier' and 1 or 0 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args, opts)
+      command, system_opts = args, opts
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function() solution.format(view) end)
+  end)
+  assert(command ~= nil)
+  eq(command[1], 'prettier')
+  assert(system_opts ~= nil)
+  eq(system_opts.timeout, 15000)
+end
+
+T['format']['prefers a local prettier over npx'] = function()
+  helpers.configure({ prettier = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'javascript' }), 'x=1')
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function() return 1 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args)
+      command = args
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function() solution.format(view) end)
+  end)
+  assert(command ~= nil)
+  eq(command[1], 'prettier')
+end
+
+T['format']['falls back to the prettier CLI when npx is unavailable'] = function()
+  helpers.configure({ prettier = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'javascript' }), 'x=1')
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function(name) return name == 'prettier' and 1 or 0 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args)
+      command = args
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function() solution.format(view) end)
+  end)
+  assert(command ~= nil)
+  eq(command[1], 'prettier')
+  eq(command[2], '--stdin-filepath')
+  eq(command[3], 'x.js')
+end
+
+T['format']['does not invoke a CLI when prettier and npx are unavailable'] = function()
+  helpers.configure({ prettier = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'javascript' }), 'x=1')
+  local command = nil
+  helpers.with_field(vim.fn, 'executable', function() return 0 end, function()
+    helpers.with_field(vim.lsp, 'get_clients', function() return {} end, function()
+      helpers.with_stub('leetcode-ui.async', 'system', function(args)
+        command = args
+        return { code = 0, stdout = 'formatted\n', stderr = '' }
+      end, function() solution.format(view) end)
+    end)
+  end)
+  eq(command, nil)
+end
+
+T['format']['does not apply prettier to non-JavaScript languages'] = function()
+  helpers.configure({ prettier = true })
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
+  local command, remote_url = nil, nil
+  helpers.with_field(vim.fn, 'executable', function() return 1 end, function()
+    helpers.with_stub('leetcode-ui.async', 'system', function(args)
+      command = args
+      return { code = 0, stdout = 'formatted\n', stderr = '' }
+    end, function()
+      helpers.with_stub('leetcode-ui.net', 'request', function(opts)
+        remote_url = opts.url
+        return { status = 200, body = '{"code":"remote formatted"}' }, nil
+      end, function() solution.format(view) end)
+    end)
+  end)
+  eq(command, nil)
+  eq(helpers.contains(remote_url, 'lsp-py3'), true)
+end
+
 T['format']['falls back to LSP'] = function()
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view({ lang = 'kotlin' }), 'x=1')

@@ -13,6 +13,9 @@ the same window. See `:h leetcode-ui` for the full documentation.
 - Format with the remote formatter when available, otherwise CLI formatters
   or LSP.
 - Show progress statistics and current session information.
+- Show inline progress while the problem list loads.
+- Render Description, Info, Statistics, and Help as Markdown when
+  `render-markdown.nvim` is loaded and enabled.
 - Optional browser cookie import, disabled by default (see the caution below).
 - No plugin-defined keymaps: map only the commands you want.
 
@@ -93,6 +96,8 @@ require('leetcode-ui').setup({
   picker = 'auto', -- 'auto', 'mini', or 'builtin'
   notifications = true,
   show_hints = false,
+  markdown = true, -- Markdown Description/Info/Stats/Help when render-markdown.nvim is loaded and enabled
+  prettier = false, -- npx prettier for JS/TS when npx exists and prettier is not on PATH
   -- cookies = { LEETCODE_SESSION = '...', csrftoken = '...' },
   -- cookie_file = '~/.config/leetcode/cookies.txt',
   -- browser = 'auto', -- opt in to browser cookie import
@@ -150,6 +155,10 @@ Runtime:
 - `mini.nvim` — optional; run `require('mini.pick').setup()` to use it, and
   set `picker = 'mini'` to prefer it explicitly. `mini.clue` triggers are
   enabled inside the central window when it is set up.
+- `render-markdown.nvim` — optional; renders Markdown views in the central
+  window when it is loaded and enabled.
+- `npm`/`npx` — optional; enables `prettier = true` to format JavaScript and
+  TypeScript through `npx prettier`.
 - A language server such as `lua-language-server`, `clangd`, or `ruff` —
   optional; provides diagnostics and completion, plus LSP formatting when the
   server supports it.

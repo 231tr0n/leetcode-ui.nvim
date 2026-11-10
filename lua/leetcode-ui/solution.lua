@@ -37,7 +37,19 @@ LeetCodeSolution.padding_namespace = vim.api.nvim_create_namespace('leetcode-ui-
 
 local function formatter_for(lang_slug)
   local canonical = lang_aliases[lang_slug] or lang_slug
-  return LeetCodeSolution.formatters[canonical] or {}
+  local formatter = LeetCodeSolution.formatters[canonical] or {}
+  if
+    config.config.prettier == true
+    and (canonical == 'javascript' or canonical == 'typescript')
+    and vim.fn.executable('prettier') ~= 1
+    and vim.fn.executable('npx') == 1
+  then
+    local file = canonical == 'javascript' and 'x.js' or 'x.ts'
+    formatter = vim.tbl_extend('force', {}, formatter, {
+      cli = { 'npx', '--yes', 'prettier', '--stdin-filepath', file },
+    })
+  end
+  return formatter
 end
 
 local function snippets(view)
@@ -104,7 +116,8 @@ end
 local function cli_formatted(lang_slug, code)
   local command = formatter_for(lang_slug).cli
   if command == nil or vim.fn.executable(command[1]) ~= 1 then return nil end
-  local out = async.system(command, { text = true, stdin = code, timeout = 15000 })
+  local timeout = command[1] == 'npx' and 120000 or 15000
+  local out = async.system(command, { text = true, stdin = code, timeout = timeout })
   if out.code == 0 and type(out.stdout) == 'string' then
     local formatted = out.stdout:gsub('\r?\n+$', '')
     if formatted ~= '' then return formatted end

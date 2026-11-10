@@ -242,6 +242,102 @@ LeetCodeQuestionView.info_lines = function(view)
   return lines
 end
 
+--- Build Description tab Markdown.
+---
+---@param view table
+---@return string markdown
+LeetCodeQuestionView.description_markdown = function(view)
+  local detail = view.detail or {}
+  local entry = view.entry or {}
+  local marks = {}
+  if detail.difficulty ~= nil and detail.difficulty ~= '' then
+    table.insert(marks, '**Difficulty:** ' .. detail.difficulty)
+  end
+  if detail.is_paid_only then table.insert(marks, '**Premium**') end
+  local status = questions.normalize_status(detail.status) or questions.normalize_status(entry.status)
+  if status ~= nil then
+    local icon = config.config.icons.status[status]
+    table.insert(marks, icon ~= nil and ('**Status:** %s %s'):format(icon, status) or ('**Status:** ' .. status))
+  end
+  local ac_rate = tonumber(entry.ac_rate)
+  if ac_rate ~= nil then table.insert(marks, ('**Acceptance:** %.1f%%'):format(ac_rate)) end
+
+  local lines = {
+    ('# %s. %s'):format(detail_id(detail), detail_title(detail)),
+    table.concat(marks, ' · '),
+    '',
+    parser.markdown(detail.content),
+  }
+
+  local raw_hints = type(detail.hints) == 'table' and detail.hints or {}
+  local hints = {}
+  for _, hint in ipairs(raw_hints) do
+    if type(hint) == 'string' and vim.trim(hint) ~= '' then
+      local rendered = parser.markdown(hint)
+      if #parser.render(hint) > 0 and vim.trim(rendered) ~= '' then table.insert(hints, rendered) end
+    end
+  end
+  if #hints > 0 then
+    table.insert(lines, '')
+    if view.show_hints ~= true then
+      table.insert(lines, ('> Hints (%d) hidden. Use `:LeetCode question hints` to show them.'):format(#hints))
+    else
+      table.insert(lines, '## Hints')
+      for index, hint in ipairs(hints) do
+        local prefix = ('%d. '):format(index)
+        local indent = string.rep(' ', #prefix)
+        table.insert(lines, prefix .. hint:gsub('\n', '\n' .. indent))
+      end
+    end
+  end
+
+  return table.concat(lines, '\n')
+end
+
+--- Build Info tab Markdown.
+---
+---@param view table
+---@return string markdown
+LeetCodeQuestionView.info_markdown = function(view)
+  local detail = view.detail or {}
+  local entry = view.entry or {}
+  local topic_tags = type(entry.topic_tags) == 'table' and entry.topic_tags or {}
+  local tags = {}
+  for _, tag in ipairs(topic_tags) do
+    if type(tag) == 'table' and type(tag.name) == 'string' and tag.name ~= '' then table.insert(tags, tag.name) end
+  end
+  local case_count = view.console ~= nil and #view.console.cases or 0
+  local link = api.problems_url(view.slug)
+
+  local lines = {
+    ('# %s. %s'):format(detail_id(detail), detail_title(detail)),
+    '',
+    '| Field | Value |',
+    '| --- | --- |',
+    ('| Difficulty | %s |'):format(parser.markdown_escape(detail.difficulty or 'Unknown')),
+    ('| Language | %s |'):format(parser.markdown_escape(solution.label(view.lang))),
+    ('| Testcases | %d |'):format(case_count),
+    '| Runner | LeetCode API |',
+    ('| Link | [%s](%s) |'):format(parser.markdown_escape(link), parser.markdown_escape(link)),
+  }
+  if #tags > 0 then table.insert(lines, ('| Tags | %s |'):format(parser.markdown_escape(table.concat(tags, ', ')))) end
+
+  local commands = require('leetcode-ui.commands')
+  local function command_table(title, rows)
+    table.insert(lines, '')
+    table.insert(lines, '## ' .. title)
+    table.insert(lines, '')
+    for _, row in ipairs(rows) do
+      table.insert(lines, ('- `:LeetCode %s` - %s'):format(row[1], parser.markdown_escape(row[2])))
+    end
+  end
+  command_table('Commands', commands.help_rows('question', { case = true }))
+  table.insert(lines, '')
+  table.insert(lines, '> Map these commands if you want key bindings.')
+  command_table('Testcases', commands.help_rows('case'))
+  return table.concat(lines, '\n')
+end
+
 --- Render the question id and clickable tab strip in the winbar.
 ---
 ---@param view table
@@ -314,13 +410,23 @@ LeetCodeQuestionView.refresh = function(view, focus)
       owner = 'question',
     })
   else
-    local lines
+    local lines, markdown
     if view.active == 'description' then
-      lines = LeetCodeQuestionView.description_lines(view)
+      if ui.markdown_enabled() then
+        markdown = LeetCodeQuestionView.description_markdown(view)
+      else
+        lines = LeetCodeQuestionView.description_lines(view)
+      end
     elseif view.active == 'info' then
-      lines = LeetCodeQuestionView.info_lines(view)
+      if ui.markdown_enabled() then
+        markdown = LeetCodeQuestionView.info_markdown(view)
+      else
+        lines = LeetCodeQuestionView.info_lines(view)
+      end
     end
-    if lines ~= nil then
+    if markdown ~= nil then
+      ui.render_markdown(markdown, { pad_top = true, focus = focus == true, owner = 'question' })
+    elseif lines ~= nil then
       ui.render(lines, { number = false, wrap = true, pad_top = true, focus = focus == true, owner = 'question' })
     end
   end
