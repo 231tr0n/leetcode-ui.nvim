@@ -1960,6 +1960,49 @@ T['markdown']['description includes configured status icons'] = function()
   eq(helpers.contains(md, '**Status:** ' .. config.config.icons.status.solved .. ' solved'), true)
 end
 
+T['markdown']['formats description and hint HTML through the formatter'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.detail.content = '<p>raw description</p>'
+  view.detail.hints = { '<p>raw hint</p>' }
+  view.show_hints = true
+  local seen = {}
+  helpers.configure({
+    formatter = function(text, filetype)
+      table.insert(seen, { text = text, filetype = filetype })
+      if filetype == 'html' then return text:gsub('raw', 'formatted') end
+      return nil
+    end,
+  })
+  local md = question.description_markdown(view)
+  eq(helpers.contains(md, 'formatted description'), true)
+  eq(helpers.contains(md, 'formatted hint'), true)
+  eq(seen[1].filetype, 'html')
+  eq(seen[2].filetype, 'html')
+end
+
+T['markdown']['formats span description and hints through the formatter'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.detail.content = '<p>raw description</p>'
+  view.detail.hints = { '<p>raw hint</p>' }
+  view.show_hints = true
+  local seen = 0
+  helpers.configure({
+    formatter = function(text, filetype)
+      if filetype == 'html' then
+        seen = seen + 1
+        return text:gsub('raw', 'formatted')
+      end
+      return nil
+    end,
+  })
+  local text = table.concat(helpers.mod('buffer').spans_to_texts(question.description_lines(view)), '\n')
+  eq(helpers.contains(text, 'formatted description'), true)
+  eq(helpers.contains(text, 'formatted hint'), true)
+  eq(seen, 2)
+end
+
 T['markdown']['requests markdown rendering for description and info'] = function()
   local question = helpers.mod('question')
   local view = make_view()

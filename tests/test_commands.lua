@@ -43,7 +43,7 @@ end
 
 T['dispatch']['reports unknown commands including question actions'] = function()
   helpers.configure({ notifications = true })
-  for _, name in ipairs({ 'run', 'wat' }) do
+  for _, name in ipairs({ 'run', 'wat', 'format' }) do
     local messages = helpers.capture_notify(function() helpers.mod('commands').run({ name }) end)
     eq(#messages, 1)
     eq(helpers.contains(messages[1].message, 'Unknown command'), true)
@@ -268,6 +268,30 @@ T['question_actions']['format guards missing buffers and refreshes after success
     end, function() helpers.mod('commands').run({ 'question', 'format' }) end)
   end)
   eq(formatted, true)
+  eq(refreshed, 1)
+  ui.close()
+  restore()
+end
+
+T['question_actions']['format clears busy state on async failure'] = function()
+  local view = make_view()
+  local restore = stub_current(view)
+  view.busy = false
+  local ui = helpers.mod('ui')
+  ui.ensure()
+  local refreshed = 0
+  helpers.with_stub('leetcode-ui.async', 'run', function(fn, on_error)
+    local ok, err = pcall(fn)
+    if not ok then on_error(err) end
+  end, function()
+    helpers.with_stub('leetcode-ui.solution', 'format', function() error('boom') end, function()
+      helpers.with_stub('leetcode-ui.question', 'refresh', function(target)
+        eq(target, view)
+        refreshed = refreshed + 1
+      end, function() helpers.mod('commands').run({ 'question', 'format' }) end)
+    end)
+  end)
+  eq(view.busy, false)
   eq(refreshed, 1)
   ui.close()
   restore()
@@ -670,6 +694,7 @@ T['help']['renders command help in the central window'] = function()
   eq(helpers.contains(text, ':LeetCode question run'), true)
   eq(helpers.contains(text, ':LeetCode question case add'), true)
   eq(helpers.contains(text, ':LeetCode question hints'), true)
+  eq(helpers.contains(text, ':LeetCode question format'), true)
   eq(helpers.contains(flat, 'Run all testcases or one testcase'), true)
   eq(helpers.contains(text, 'Add a testcase'), true)
   eq(helpers.contains(flat, 'Browse problems (same as list)'), true)
@@ -705,6 +730,7 @@ T['completion']['completes question subcommands'] = function()
   local all = complete('', 'LeetCode question ')
   eq(vim.tbl_contains(all, 'run'), true)
   eq(vim.tbl_contains(all, 'submit'), true)
+  eq(vim.tbl_contains(all, 'format'), true)
   eq(vim.tbl_contains(all, 'case'), true)
   eq(complete('su', 'LeetCode question su'), { 'submit' })
 end

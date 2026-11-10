@@ -39,8 +39,7 @@
 --- - Read parsed descriptions, with hints hidden by default.
 --- - Edit solutions with draft and testcase persistence.
 --- - Run and submit solutions through LeetCode's API.
---- - Format with the remote formatter when available, otherwise CLI
----   formatters or LSP.
+--- - Format code through the LeetCode API or a user-provided formatter.
 --- - Show progress statistics and session information.
 --- - Show inline progress while the problem list loads.
 --- - Render Description, Info, Statistics, and Help as Markdown when
@@ -82,7 +81,7 @@
 ---
 --- # Requirements ~
 ---
---- - Neovim stable (0.12 or newer; `vim.system`, `vim.uv`, and `vim.lsp`).
+--- - Neovim stable (0.12 or newer; `vim.system` and `vim.uv`).
 --- - `curl` - required for all LeetCode API and remote formatting requests.
 --- - `python3` - required only for browser cookie import; SQLite-backed
 ---   browsers also need the `sqlite3` module.
@@ -94,16 +93,72 @@
 ---   picker backend and `require('mini.clue').setup()` for key hints. Clue
 ---   triggers are enabled inside the central window when it is set up.
 --- - `render-markdown.nvim` - optional; renders Markdown views in the central
----   window when it is loaded and enabled.
---- - `npm`/`npx` - optional; enables `prettier = true` to format JavaScript
----   and TypeScript through `npx prettier`.
+---   window when it is loaded and enabled. It requires the `markdown` and
+---   `markdown_inline` treesitter parsers.
 --- - A language server such as `lua-language-server`, `clangd`, or `ruff` -
----   optional; provides diagnostics and completion, plus LSP formatting when
----   the server supports it.
---- - Optional CLI formatters: `prettier`, `black`, `clang-format`, `gofmt`,
----   `rustfmt`, or `google-java-format`.
+---   optional; provides diagnostics and completion.
 ---
 --- No LuaRocks or external Lua packages are required.
+---
+--- # Formatting ~
+---
+--- All formatting paths use the optional `formatter` function. It receives
+--- `(text, filetype)` and returns formatted text or nil. `filetype` is
+--- `'markdown'`, `'html'`, or a solution filetype.
+---
+--- Returning nil keeps the original text for read-only content and uses the
+--- LeetCode API for code. Remote formatting supports `c`, `cpp`, `golang`,
+--- `java`, `python3`, and `swift`; other languages require a formatter.
+---
+--- Use Prettier for read-only content and leave code to the LeetCode API:
+---
+--- >lua
+---   require('leetcode-ui').setup({
+---     formatter = function(text, filetype)
+---       if filetype == 'markdown' or filetype == 'html' then
+---         local file = filetype == 'html' and 'x.html' or 'x.md'
+---         local out = vim.fn.system({ 'prettier', '--stdin-filepath', file }, text)
+---         if vim.v.shell_error == 0 then return out end
+---       end
+---       return nil
+---     end,
+---   })
+--- <
+---
+--- Use language-specific commands for code:
+---
+--- >lua
+---   require('leetcode-ui').setup({
+---     formatter = function(text, filetype)
+---       local command
+---       if filetype == 'python' then
+---         command = { 'ruff', 'format', '-' }
+---       elseif filetype == 'javascript' or filetype == 'typescript' then
+---         local ext = filetype == 'typescript' and 'ts' or 'js'
+---         command = { 'prettier', '--stdin-filepath', 'x.' .. ext }
+---       end
+---       if command == nil then return nil end
+---       local out = vim.fn.system(command, text)
+---       if vim.v.shell_error == 0 then return out end
+---       return nil
+---     end,
+---   })
+--- <
+---
+--- Use a custom Markdown formatter while keeping the defaults elsewhere:
+---
+--- >lua
+---   require('leetcode-ui').setup({
+---     formatter = function(text, filetype)
+---       if filetype == 'markdown' then return my_markdown_formatter(text) end
+---       return nil
+---     end,
+---   })
+--- <
+---
+--- The only formatting command is `:LeetCode question format`; it formats the
+--- code editor. Read-only Markdown/HTML is formatted automatically through
+--- `formatter`.
 ---
 --- # Browser cookie caution ~
 ---
@@ -193,6 +248,9 @@ LeetCode.setup = function(opts)
 
   if credentials_changed then LeetCode.config.auth_epoch = LeetCode.config.auth_epoch + 1 end
   LeetCode.config.setup(nil, prepared)
+
+  local ui_module = package.loaded['leetcode-ui.ui']
+  if ui_module ~= nil and ui_module.is_open() then pcall(ui_module.resize) end
 
   -- Only changes that alter the auth identity (first setup, credentials, or
   -- URL) invalidate sessions and cookies.

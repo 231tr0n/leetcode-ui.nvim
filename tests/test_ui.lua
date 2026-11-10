@@ -44,6 +44,67 @@ T['window']['ensure opens one reusable window'] = function()
   eq(vim.api.nvim_win_get_config(first).title, nil)
 end
 
+T['window']['applies window.config and resizes on setup'] = function()
+  local ui = helpers.mod('ui')
+  local buffer = helpers.mod('buffer')
+  helpers.configure({ window = { config = { width = 30, height = 8, border = 'rounded' } } })
+  local winid = ui.ensure()
+  local first = vim.api.nvim_win_get_config(winid)
+  eq(first.width, 30)
+  eq(first.height, 8)
+  eq(type(first.border), 'table')
+  eq(first.border[1], '╭')
+  local expected = buffer.float_config({})
+  eq(first.row, expected.row)
+  eq(first.col, expected.col)
+
+  helpers.configure({ window = { config = { width = 40, height = 10 } } })
+  local resized = vim.api.nvim_win_get_config(winid)
+  eq(resized.width, 40)
+  eq(resized.height, 10)
+  expected = buffer.float_config({})
+  eq(resized.row, expected.row)
+  eq(resized.col, expected.col)
+end
+
+T['window']['resizes with creation-only window config keys'] = function()
+  local ui = helpers.mod('ui')
+  local buffer = helpers.mod('buffer')
+  helpers.configure({ window = { config = { width = 30, height = 8, noautocmd = true } } })
+  local winid = ui.ensure()
+  local cmdheight = vim.o.cmdheight
+  MiniTest.finally(function() vim.o.cmdheight = cmdheight end)
+  vim.o.cmdheight = 3
+  ui.resize()
+  local config = vim.api.nvim_win_get_config(winid)
+  local expected = buffer.float_config({})
+  eq(config.row, expected.row)
+  eq(config.col, expected.col)
+end
+
+T['window']['does not reposition non-editor relative windows on resize'] = function()
+  local ui = helpers.mod('ui')
+  helpers.configure({ window = { config = { relative = 'cursor', width = 30, height = 8 } } })
+  local winid = ui.ensure()
+  local before = vim.api.nvim_win_get_config(winid)
+  ui.resize()
+  local after = vim.api.nvim_win_get_config(winid)
+  eq(after.row, before.row)
+  eq(after.col, before.col)
+  eq(after.width, before.width)
+  eq(after.height, before.height)
+end
+
+T['window']['opens with a custom winborder'] = function()
+  if vim.fn.exists('+winborder') == 0 then return end
+  local original = vim.o.winborder
+  MiniTest.finally(function() vim.o.winborder = original end)
+  vim.o.winborder = '+,-,+,|,+,-,+,|'
+  local ui = helpers.mod('ui')
+  local winid = ui.ensure()
+  eq(vim.api.nvim_win_is_valid(winid), true)
+end
+
 T['window']['enables mini.clue triggers once for unlisted buffers'] = function()
   local ui = helpers.mod('ui')
   local buffer = helpers.mod('buffer')
@@ -583,6 +644,24 @@ T['render']['renders markdown and resets the panel filetype'] = function()
 
   ui.render({ { { text = 'plain' } } })
   eq(vim.api.nvim_get_option_value('filetype', { buf = ui.panel() }), 'txt')
+end
+
+T['render']['formats markdown through the configured formatter'] = function()
+  local ui = helpers.mod('ui')
+  mock_render_markdown()
+  local seen = nil
+  helpers.configure({
+    formatter = function(text, filetype)
+      seen = { text = text, filetype = filetype }
+      if filetype == 'markdown' then return '# formatted' end
+      return nil
+    end,
+  })
+  ui.render_markdown('# raw', { pad_top = false })
+  assert(seen ~= nil)
+  eq(seen.filetype, 'markdown')
+  eq(seen.text, '# raw')
+  eq(vim.api.nvim_buf_get_lines(ui.panel(), 0, -1, false)[1], '# formatted')
 end
 
 T['render']['shows another buffer in the same window'] = function()

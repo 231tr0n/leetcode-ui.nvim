@@ -110,6 +110,138 @@ T['windows']['float_config clamps geometry to the editor'] = function()
   eq(config.col, 2)
 end
 
+T['windows']['float_config uses a mini.pick-like centered default'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  vim.o.showtabline = 2
+  vim.o.laststatus = 2
+  vim.o.cmdheight = 1
+
+  local config = buffer.float_config({})
+  eq(config.width, 61)
+  eq(config.height, 22)
+  eq(config.row, 8)
+  eq(config.col, 19)
+  eq(config.relative, 'editor')
+  eq(config.anchor, 'NW')
+end
+
+T['windows']['float_config merges window.config overrides'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  vim.o.showtabline = 2
+  vim.o.laststatus = 2
+  vim.o.cmdheight = 1
+  helpers.configure({ window = { config = { width = 20, height = 10, border = 'rounded' } } })
+
+  local config = buffer.float_config({})
+  eq(config.width, 20)
+  eq(config.height, 10)
+  eq(config.row, 14)
+  eq(config.col, 40)
+  eq(config.border, 'rounded')
+end
+
+T['windows']['float_config accepts a callable window.config'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  vim.o.showtabline = 2
+  vim.o.laststatus = 2
+  vim.o.cmdheight = 1
+  helpers.configure({
+    window = {
+      config = function() return { width = 20, height = 10, row = 3, col = 4, style = 'minimal' } end,
+    },
+  })
+
+  local config = buffer.float_config({})
+  eq(config.width, 20)
+  eq(config.height, 10)
+  eq(config.row, 3)
+  eq(config.col, 4)
+end
+
+T['windows']['float_config honors anchor when centering'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  vim.o.showtabline = 2
+  vim.o.laststatus = 2
+  vim.o.cmdheight = 1
+  helpers.configure({ window = { config = { width = 20, height = 10, anchor = 'SW' } } })
+  local sw = buffer.float_config({})
+  eq(sw.row, 24)
+  eq(sw.col, 40)
+
+  helpers.configure({ window = { config = { width = 20, height = 10, anchor = 'NE' } } })
+  local ne = buffer.float_config({})
+  eq(ne.row, 14)
+  eq(ne.col, 60)
+
+  helpers.configure({ window = { config = { width = 20, height = 10, anchor = 'se' } } })
+  local se = buffer.float_config({})
+  eq(se.row, 24)
+  eq(se.col, 60)
+end
+
+T['windows']['float_config ignores invalid callable configs'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  vim.o.showtabline = 2
+  vim.o.laststatus = 2
+  vim.o.cmdheight = 1
+  helpers.configure({ window = { config = function() error('boom') end } })
+  eq(buffer.float_config({}).width, 61)
+  helpers.configure({ window = { config = function() return 'bad' end } })
+  eq(buffer.float_config({}).width, 61)
+end
+
+T['windows']['window.config overrides legacy geometry'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  helpers.configure({
+    float_width = 10,
+    float_height = 5,
+    float_border = 'none',
+    window = { config = { width = 20, height = 8, border = 'rounded' } },
+  })
+  local config = buffer.float_config({})
+  eq(config.width, 20)
+  eq(config.height, 8)
+  eq(config.border, 'rounded')
+end
+
+T['windows']['float_config clamps oversized window.config'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  helpers.configure({ window = { config = { width = 10000, height = 10000 } } })
+  local config = buffer.float_config({})
+  eq(config.width, vim.o.columns - 4)
+end
+
+T['windows']['float_config honors winborder and custom border lists'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.preserve_layout()
+  if vim.fn.exists('+winborder') == 0 then return end
+  local original = vim.o.winborder
+  MiniTest.finally(function() vim.o.winborder = original end)
+  vim.o.winborder = '+,-,+,|,+,-,+,|'
+  eq(buffer.float_config({}).border, nil)
+  vim.o.winborder = ''
+  eq(buffer.float_config({ border = '+,-,+,|,+,-,+,|' }).border, { '+', '-', '+', '|', '+', '-', '+', '|' })
+end
+
+T['windows']['window.config normalizes comma borders'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.configure({ window = { config = { border = '+,-,+,|,+,-,+,|' } } })
+  eq(buffer.float_config({}).border, { '+', '-', '+', '|', '+', '-', '+', '|' })
+end
+
+T['windows']['float_config drops title_pos without a title'] = function()
+  local buffer = helpers.mod('buffer')
+  helpers.configure({ window = { config = { title_pos = 'left' } } })
+  eq(buffer.float_config({}).title_pos, nil)
+end
+
 T['windows']['float_config reserves a statusline for multiple real windows'] = function()
   local buffer = helpers.mod('buffer')
   helpers.preserve_layout()

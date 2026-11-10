@@ -10,8 +10,7 @@ the same window. See `:h leetcode-ui` for the full documentation.
 - Read parsed descriptions, with hints hidden by default to avoid spoilers.
 - Edit solutions locally; run and submit through the LeetCode API.
 - Persist code drafts and custom testcases per question.
-- Format with the remote formatter when available, otherwise CLI formatters
-  or LSP.
+- Format code through the LeetCode API or a user-provided formatter.
 - Show progress statistics and current session information.
 - Show inline progress while the problem list loads.
 - Render Description, Info, Statistics, and Help as Markdown when
@@ -28,15 +27,18 @@ vim.pack.add({
   { src = "https://github.com/231tr0n/leetcode-ui.nvim" },
   -- Optional, for the mini.pick picker backend:
   -- { src = "https://github.com/echasnovski/mini.nvim" },
+  -- Optional, for Markdown rendering:
+  -- { src = "https://github.com/MeanderingProgrammer/render-markdown.nvim" },
 })
 -- require('mini.pick').setup() -- optional; enables the mini.pick backend
+-- require('render-markdown').setup({}) -- optional; renders Markdown views
 require("leetcode-ui").setup({})
 ```
 
 ### Other plugin managers
 
-Works with any plugin manager that can clone Git repositories. `mini.pick` is
-optional.
+Works with any plugin manager that can clone Git repositories. `mini.pick` and
+`render-markdown.nvim` are optional.
 
 ## Usage
 
@@ -88,6 +90,93 @@ Question-window actions live under `:LeetCode question`:
 :LeetCode question close
 ```
 
+## Formatting
+
+Formatting is exposed through one optional function:
+
+```lua
+require('leetcode-ui').setup({
+  formatter = function(text, filetype)
+    -- Return formatted text, or nil to leave the built-in behavior.
+  end,
+})
+```
+
+The same function handles every formatting path. It receives `text` and
+`filetype`:
+
+- `markdown` — generated Markdown for Description, Info, Statistics, and Help.
+- `html` — raw Description and hint HTML before conversion.
+- A solution filetype such as `python`, `go`, or `javascript` — code editor.
+
+Return a formatted string, or `nil`:
+
+- Markdown/HTML keep their original text.
+- Code falls back to the LeetCode API. Built-in remote formatting supports
+  C, C++, Go, Java, Python 3, and Swift (`c`, `cpp`, `golang`, `java`,
+  `python3`, `swift`). Other languages require a user-provided formatter.
+
+The plugin does not run local CLI formatters or Neovim LSP clients. Code uses
+LeetCode's remote formatter for the languages it supports; other languages
+require a user-provided formatter. There is no `prettier` option.
+
+The only formatting command is:
+
+```vim
+:LeetCode question format
+```
+
+It formats the current code editor. Read-only Markdown/HTML is formatted
+automatically whenever it is rendered.
+
+### Formatter examples
+
+Use Prettier for Markdown and HTML, and leave code to the LeetCode API:
+
+```lua
+require('leetcode-ui').setup({
+  formatter = function(text, filetype)
+    if filetype == 'markdown' or filetype == 'html' then
+      local file = filetype == 'html' and 'x.html' or 'x.md'
+      local out = vim.fn.system({ 'prettier', '--stdin-filepath', file }, text)
+      if vim.v.shell_error == 0 then return out end
+    end
+    return nil
+  end,
+})
+```
+
+Use a language-specific command for code:
+
+```lua
+require('leetcode-ui').setup({
+  formatter = function(text, filetype)
+    local command
+    if filetype == 'python' then
+      command = { 'ruff', 'format', '-' }
+    elseif filetype == 'javascript' or filetype == 'typescript' then
+      local ext = filetype == 'typescript' and 'ts' or 'js'
+      command = { 'prettier', '--stdin-filepath', 'x.' .. ext }
+    end
+    if command == nil then return nil end -- use the LeetCode API
+    local out = vim.fn.system(command, text)
+    if vim.v.shell_error == 0 then return out end
+    return nil
+  end,
+})
+```
+
+Use a custom Markdown formatter while leaving other filetypes to the defaults:
+
+```lua
+require('leetcode-ui').setup({
+  formatter = function(text, filetype)
+    if filetype == 'markdown' then return my_markdown_formatter(text) end
+    return nil
+  end,
+})
+```
+
 ## Configuration
 
 ```lua
@@ -97,7 +186,12 @@ require('leetcode-ui').setup({
   notifications = true,
   show_hints = false,
   markdown = true, -- Markdown Description/Info/Stats/Help when render-markdown.nvim is loaded and enabled
-  prettier = false, -- npx prettier for JS/TS when npx exists and prettier is not on PATH
+  cooldown = 1440, -- problem-list cache lifetime in minutes (one day)
+  -- window = {
+  --   config = { width = 100, height = 30, border = 'rounded' },
+  --   -- or: config = function() return { width = 100, height = 30 } end
+  -- },
+  -- formatter = function(text, filetype) return nil end,
   -- cookies = { LEETCODE_SESSION = '...', csrftoken = '...' },
   -- cookie_file = '~/.config/leetcode/cookies.txt',
   -- browser = 'auto', -- opt in to browser cookie import
@@ -143,7 +237,7 @@ make docs                       # regenerate help text and tags
 
 Runtime:
 
-- Neovim stable (0.12 or newer; `vim.system`, `vim.uv`, `vim.lsp`).
+- Neovim stable (0.12 or newer; `vim.system`, `vim.uv`).
 - `curl` — required for all LeetCode API and remote formatting requests.
 - `python3` — required only when browser cookie import is enabled
   (`browser = 'auto'` or a specific browser); SQLite-backed browsers also need
@@ -156,14 +250,10 @@ Runtime:
   set `picker = 'mini'` to prefer it explicitly. `mini.clue` triggers are
   enabled inside the central window when it is set up.
 - `render-markdown.nvim` — optional; renders Markdown views in the central
-  window when it is loaded and enabled.
-- `npm`/`npx` — optional; enables `prettier = true` to format JavaScript and
-  TypeScript through `npx prettier`.
+  window when it is loaded and enabled. It requires the `markdown` and
+  `markdown_inline` treesitter parsers.
 - A language server such as `lua-language-server`, `clangd`, or `ruff` —
-  optional; provides diagnostics and completion, plus LSP formatting when the
-  server supports it.
-- Optional CLI formatters: `prettier`, `black`, `clang-format`, `gofmt`,
-  `rustfmt`, or `google-java-format`.
+  optional; provides diagnostics and completion.
 
 No LuaRocks or external Lua packages are required.
 

@@ -7,8 +7,8 @@
 
 local LeetCodeSolution = {}
 
-local async = require('leetcode-ui.async')
 local auth = require('leetcode-ui.auth')
+local format = require('leetcode-ui.format')
 local buffer = require('leetcode-ui.buffer')
 local config = require('leetcode-ui.config')
 local log = require('leetcode-ui.log')
@@ -17,40 +17,20 @@ local storage = require('leetcode-ui.storage')
 
 -- Helper data =======================================================================================================
 
-LeetCodeSolution.formatters = {
-  c = { remote = { 'c' }, cli = { 'clang-format' } },
-  cpp = { remote = { 'cpp' }, cli = { 'clang-format' } },
-  golang = { remote = { 'go' }, cli = { 'gofmt' } },
-  java = { remote = { 'java' }, cli = { 'google-java-format', '-' } },
-  javascript = { cli = { 'prettier', '--stdin-filepath', 'x.js' } },
-  python3 = { remote = { 'py3' }, cli = { 'black', '-' } },
-  rust = { cli = { 'rustfmt', '--emit', 'stdout' } },
-  swift = { remote = { 'swift' } },
-  typescript = { cli = { 'prettier', '--stdin-filepath', 'x.ts' } },
+-- LeetCode's formatter endpoints are lsp-<name>.<domain>/format. The names
+-- below are the ones LeetCode currently exposes: c, cpp, go, java, py3, swift.
+LeetCodeSolution.remote_formatters = {
+  c = 'c',
+  cpp = 'cpp',
+  golang = 'go',
+  java = 'java',
+  python3 = 'py3',
+  swift = 'swift',
 }
-
-local lang_aliases = { python = 'python3', go = 'golang' }
 
 LeetCodeSolution.padding_namespace = vim.api.nvim_create_namespace('leetcode-ui-code-padding')
 
 -- Helper functionality =============================================================================================
-
-local function formatter_for(lang_slug)
-  local canonical = lang_aliases[lang_slug] or lang_slug
-  local formatter = LeetCodeSolution.formatters[canonical] or {}
-  if
-    config.config.prettier == true
-    and (canonical == 'javascript' or canonical == 'typescript')
-    and vim.fn.executable('prettier') ~= 1
-    and vim.fn.executable('npx') == 1
-  then
-    local file = canonical == 'javascript' and 'x.js' or 'x.ts'
-    formatter = vim.tbl_extend('force', {}, formatter, {
-      cli = { 'npx', '--yes', 'prettier', '--stdin-filepath', file },
-    })
-  end
-  return formatter
-end
 
 local function snippets(view)
   local value = view.detail.snippets
@@ -71,65 +51,52 @@ end
 
 local has_code_buffer = LeetCodeSolution.has_code_buffer
 
-local function remote_formatted(lang_slug, code)
-  local formatter = formatter_for(lang_slug)
-  local remote = formatter.remote
-  -- Languages without an explicit formatter try LeetCode's `lsp-<slug>`
-  -- endpoint before falling back to LSP.
-  if remote == nil and formatter.cli == nil then remote = { lang_slug } end
-
-  local domain = config.config.url:gsub('^www%.', ''):lower()
-  for _, name in ipairs(remote or {}) do
-    local response, err = net.request({
-      url = ('https://lsp-%s.%s/format'):format(name, domain),
-      method = 'POST',
-      headers = auth.headers(),
-      body = vim.json.encode({ code = code, tabSize = 4, insertSpaces = true }),
-      cookie_file = auth.cookie_file(),
-      timeout = 15,
-      retries = 0,
-    })
-    local usable = err == nil
-      and response ~= nil
-      and response.status == 200
-      and type(response.body) == 'string'
-      and not response.body:match('^%s*<')
-
-    if usable and response ~= nil then
-      local body = response.body --[[@as string]]
-      local ok, decoded = pcall(vim.json.decode, body)
-      local formatted = nil
-      if not ok then
-        formatted = body ~= '' and body or nil
-      elseif type(decoded) == 'table' then
-        formatted = decoded.code or decoded.formattedCode or decoded.formatted_code or decoded.data
-      end
-      if type(formatted) == 'string' and formatted ~= '' then
-        formatted = formatted:gsub('\r?\n+$', '')
-        if formatted ~= '' then return formatted end
-      end
-    end
+local function response_content_type(response)
+  for key, value in pairs(response.headers or {}) do
+    if type(key) == 'string' and key:lower() == 'content-type' and type(value) == 'string' then return value end
   end
-  return nil
+  return ''
 end
 
-local function cli_formatted(lang_slug, code)
-  local command = formatter_for(lang_slug).cli
-  if command == nil or vim.fn.executable(command[1]) ~= 1 then return nil end
-  local timeout = command[1] == 'npx' and 120000 or 15000
-  local out = async.system(command, { text = true, stdin = code, timeout = timeout })
-  if out.code == 0 and type(out.stdout) == 'string' then
-    local formatted = out.stdout:gsub('\r?\n+$', '')
-    if formatted ~= '' then return formatted end
-  end
-  return nil
-end
+local function remote_formatted(lang_slug, code, bufnr)
+  local canonical = config.canonical_lang(lang_slug)
+  local name = LeetCodeSolution.remote_formatters[canonical]
+  if name == nil then return nil, 'unsupported' end
 
-local function lsp_formatted(bufnr)
-  ---@diagnostic disable-next-line: redundant-parameter
-  local clients = vim.lsp.get_clients({ bufnr = bufnr, method = 'textDocument/formatting' })
-  if #clients == 0 then return false end
-  return pcall(vim.lsp.buf.format, { bufnr = bufnr, async = false })
+  local shiftwidth = 0
+  if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
+    shiftwidth = vim.api.nvim_buf_call(bufnr, vim.fn.shiftwidth)
+  end
+  if shiftwidth <= 0 then shiftwidth = 4 end
+  local expandtab = true
+  if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
+    expandtab = vim.api.nvim_get_option_value('expandtab', { buf = bufnr })
+  end
+  local domain = config.config.url:lower():gsub('^www%.', '')
+  local response, err = net.request({
+    url = ('https://lsp-%s.%s/format'):format(name, domain),
+    method = 'POST',
+    headers = auth.headers(),
+    body = vim.json.encode({ code = code, tabSize = shiftwidth, insertSpaces = expandtab }),
+    cookie_file = auth.cookie_file(),
+    timeout = 15,
+    retries = 0,
+  })
+  if err ~= nil or response == nil or response.status ~= 200 or type(response.body) ~= 'string' then
+    return nil, 'failed'
+  end
+  if response.body:match('^%s*<') then return nil, 'failed' end
+
+  local ok, decoded = pcall(vim.json.decode, response.body)
+  local formatted = nil
+  if ok and type(decoded) == 'table' then
+    formatted = decoded.code or decoded.formattedCode or decoded.formatted_code or decoded.data
+  end
+  local content_type = response_content_type(response):lower()
+  if type(formatted) ~= 'string' and content_type:find('text/plain', 1, true) ~= nil then formatted = response.body end
+  if type(formatted) ~= 'string' then return nil, 'failed' end
+  local normalized = format.normalize(formatted)
+  return normalized, normalized ~= nil and 'ok' or 'failed'
 end
 
 --- Filetype used for a language slug.
@@ -172,15 +139,17 @@ local function sync_topfill(view)
   local winid = vim.fn.bufwinid(view.code_bufnr)
   if winid == -1 then return end
 
+  local changed = false
   vim.api.nvim_win_call(winid, function()
     local state = vim.fn.winsaveview()
     local target = vim.fn.line('w0') == 1 and 1 or 0
     if state.topfill ~= target then
+      changed = true
       state.topfill = target
       vim.fn.winrestview(state)
     end
   end)
-  add_padding(view)
+  if changed then add_padding(view) end
 end
 
 -- Add non-editable visual padding above the first code line.
@@ -210,8 +179,7 @@ LeetCodeSolution.languages = function(view)
     if slug == view.lang then return -1 end
     if preferred == nil then return 0 end
     for index, enabled in ipairs(preferred) do
-      local info = config.get_lang(enabled)
-      local canonical = info ~= nil and (info.alt or info.slug) or enabled
+      local canonical = config.canonical_lang(enabled)
       if canonical == slug then return index end
     end
     return math.huge
@@ -350,8 +318,7 @@ LeetCodeSolution.set_code = function(view, content)
   add_padding(view)
 end
 
---- Format the current code using LeetCode's formatter, a CLI formatter, or
---- LSP.
+--- Format the current code with the user formatter, then the LeetCode API.
 ---
 ---@param view table
 LeetCodeSolution.format = function(view)
@@ -363,8 +330,22 @@ LeetCodeSolution.format = function(view)
   local bufnr = view.code_bufnr
   local tick = vim.api.nvim_buf_get_changedtick(bufnr)
   local code = LeetCodeSolution.code(view)
-  local formatted = remote_formatted(view.lang, code) or cli_formatted(view.lang, code)
+  if not code:match('%S') then
+    view.busy = false
+    log.info('Nothing to format')
+    return
+  end
   local function still_usable() return has_code_buffer(view) and view.code_bufnr == bufnr end
+  local filetype = LeetCodeSolution.filetype(view.lang)
+  local formatted = format.format(code, filetype)
+  if not still_usable() then
+    view.busy = false
+    return
+  end
+  local reason = nil
+  if formatted == nil then
+    formatted, reason = remote_formatted(view.lang, code, bufnr)
+  end
 
   if not still_usable() then
     view.busy = false
@@ -377,6 +358,7 @@ LeetCodeSolution.format = function(view)
   end
 
   local message, level = 'No formatter is available for this language', vim.log.levels.WARN
+  if reason == 'failed' then message = 'Formatting failed; the LeetCode API did not return formatted code' end
   local changed = false
   if formatted ~= nil then
     if formatted ~= code then
@@ -384,18 +366,6 @@ LeetCodeSolution.format = function(view)
       changed = true
     end
     message, level = 'Code formatted', vim.log.levels.INFO
-  elseif lsp_formatted(bufnr) then
-    if not still_usable() then
-      view.busy = false
-      return
-    end
-    if vim.api.nvim_buf_get_changedtick(bufnr) == tick then
-      message, level = 'Code is already formatted', vim.log.levels.INFO
-    else
-      LeetCodeSolution.set_code(view, LeetCodeSolution.code(view))
-      changed = true
-      message, level = 'Code formatted with LSP', vim.log.levels.INFO
-    end
   end
 
   local saved = true
@@ -429,8 +399,7 @@ end
 ---@return boolean switched
 LeetCodeSolution.switch_language = function(view, lang_slug)
   if view == nil or view.busy or not has_code_buffer(view) then return false end
-  local info = config.get_lang(lang_slug)
-  local target = info ~= nil and (info.alt or info.slug) or lang_slug
+  local target = config.canonical_lang(lang_slug)
   if target == view.lang then return false end
   if type(snippets(view)[target]) ~= 'table' then
     log.warn(('`%s` is not available for this question'):format(lang_slug))

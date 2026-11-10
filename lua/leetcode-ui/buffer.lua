@@ -90,17 +90,53 @@ LeetCodeBuffer.scratch = function(name, opts)
   return bufnr
 end
 
+-- Resolve `window.config` into a table. `window.config` may be a table or a
+-- function returning a table, mirroring `mini.pick`. Invalid values are ignored.
+local function normalize_border(value)
+  if type(value) == 'string' and value:find(',', 1, true) then
+    local parts = vim.split(value, ',', { plain = true })
+    if #parts == 8 then return parts end
+  end
+  return value
+end
+
+local function window_override()
+  local window = config.config.window or {}
+  local value = window.config
+  if type(value) == 'function' then
+    local ok, result = pcall(value)
+    if not ok or type(result) ~= 'table' then return {} end
+    value = result
+  end
+  if type(value) ~= 'table' then return {} end
+  return vim.deepcopy(value)
+end
+
 --- Build a centered, editor-bounded floating-window configuration.
 ---
 --- The window is centered in the editor text area: tabline, statusline, and
 --- command-line rows are excluded. Width and height are clamped to the
---- available text area (the outer border is not counted). Pass `tabpage` to
---- compute statusline rows for a specific tabpage.
+--- available text area (the outer border is not counted). When `float_width`
+--- or `float_height` is unset, the default is 61.8% of the available area,
+--- like `mini.pick`.
+---
+--- `window.config` is merged over the centered default. It may be a table or a
+--- function returning a table and accepts a subset of |nvim_open_win()| keys:
+--- `width`, `height`, `row`, `col`, `relative`, `anchor`, `border`, `style`,
+--- `zindex`, `title`, `title_pos`, `focusable`, `noautocmd`, `win`, and
+--- `bufpos`.
 ---
 ---@param opts table|nil Geometry, border, title, and `tabpage` overrides.
 ---@return table config
 LeetCodeBuffer.float_config = function(opts)
   opts = opts or {}
+  local user = window_override()
+  local user_width = tonumber(user.width)
+  local user_height = tonumber(user.height)
+  local user_row = tonumber(user.row)
+  local user_col = tonumber(user.col)
+  user.width, user.height, user.row, user.col = nil, nil, nil, nil
+
   -- Only center inside the editor text area. The tabline, statusline, and
   -- command line are part of the `editor` grid, so counting them would push
   -- the float down over the statusline.
@@ -108,26 +144,61 @@ LeetCodeBuffer.float_config = function(opts)
   local bottom = (vim.o.cmdheight or 0) + statusline_rows(opts.tabpage)
   local available = math.max(1, vim.o.lines - top - bottom)
 
-  local width = math.floor(opts.width or config.config.float_width)
-  local height = math.floor(opts.height or config.config.float_height)
+  local width = user_width or tonumber(opts.width) or tonumber(config.config.float_width)
+  local height = user_height or tonumber(opts.height) or tonumber(config.config.float_height)
+  if width == nil then width = math.floor(0.618 * vim.o.columns) end
+  if height == nil then height = math.floor(0.618 * available) end
+  width = math.floor(width)
+  height = math.floor(height)
   width = math.max(1, math.min(width, vim.o.columns - 4))
   height = math.max(1, math.min(height, available - 4))
 
+  local border = user.border
+  if border == nil then border = opts.border end
+  if border == nil then border = config.config.float_border end
+  if border == nil then
+    local winborder = vim.fn.exists('+winborder') == 1 and vim.o.winborder or ''
+    if winborder ~= '' then
+      border = nil
+    else
+      border = 'single'
+    end
+  end
+  border = normalize_border(border)
+
+  local relative = user.relative or 'editor'
+  local anchor = type(user.anchor) == 'string' and user.anchor:upper() or 'NW'
+  local row = user_row
+  local col = user_col
+  if row == nil and relative == 'editor' then
+    row = top + math.max(0, math.floor((available - height) / 2))
+    if anchor:sub(1, 1) == 'S' then row = row + height end
+  end
+  if col == nil and relative == 'editor' then
+    col = math.max(0, math.floor((vim.o.columns - width) / 2))
+    if anchor:sub(2, 2) == 'E' then col = col + width end
+  end
+  if row == nil and user.bufpos == nil then row = 0 end
+  if col == nil and user.bufpos == nil then col = 0 end
+
   local win_opts = {
-    relative = 'editor',
-    row = top + math.max(0, math.floor((available - height) / 2)),
-    col = math.max(0, math.floor((vim.o.columns - width) / 2)),
+    relative = relative,
+    anchor = anchor,
     width = width,
     height = height,
     style = 'minimal',
     focusable = true,
+    border = border,
   }
+  if row ~= nil then win_opts.row = row end
+  if col ~= nil then win_opts.col = col end
+  if opts.title ~= nil then win_opts.title = opts.title end
 
-  local border = opts.border
-  if border == nil then border = config.config.float_border end
-  if border ~= nil then win_opts.border = border end
-  if opts.title ~= nil then
-    win_opts.title = opts.title
+  win_opts = vim.tbl_deep_extend('force', win_opts, user)
+  win_opts.border = normalize_border(win_opts.border)
+  if win_opts.title == nil then
+    win_opts.title_pos = nil
+  elseif win_opts.title_pos == nil then
     win_opts.title_pos = 'center'
   end
   return win_opts

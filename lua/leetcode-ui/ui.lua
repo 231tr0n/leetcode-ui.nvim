@@ -11,6 +11,8 @@ local LeetCodeUI = {}
 
 local buffer = require('leetcode-ui.buffer')
 local config = require('leetcode-ui.config')
+local format = require('leetcode-ui.format')
+local log = require('leetcode-ui.log')
 
 -- Helper data =======================================================================================================
 
@@ -34,6 +36,7 @@ local layout_autocmd = nil
 local clue_cleanup_autocmd = nil
 local clue_ensured = {}
 local markdown_disabled_buffer = nil
+local ui_augroup = vim.api.nvim_create_augroup('LeetCodeUi', { clear = true })
 
 local function ensure_clue_triggers(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then return end
@@ -53,6 +56,7 @@ local function ensure_clue_triggers(bufnr)
   clue_ensured[bufnr] = config_id
   if clue_cleanup_autocmd == nil then
     clue_cleanup_autocmd = vim.api.nvim_create_autocmd({ 'BufUnload', 'RecordingLeave' }, {
+      group = ui_augroup,
       callback = function(args)
         if args.event == 'RecordingLeave' then
           clue_ensured = {}
@@ -110,7 +114,10 @@ end
 
 local function ensure_cursor_autocmd()
   if cursor_autocmd ~= nil then return end
-  cursor_autocmd = vim.api.nvim_create_autocmd({ 'WinEnter', 'BufEnter' }, { callback = update_cursor })
+  cursor_autocmd = vim.api.nvim_create_autocmd(
+    { 'WinEnter', 'BufEnter' },
+    { group = ui_augroup, callback = update_cursor }
+  )
 end
 
 local function apply_folds(winid, folds)
@@ -124,24 +131,22 @@ end
 
 local function resize_window()
   if not LeetCodeUI.is_open() then return end
-  local float = buffer.float_config({
-    width = config.config.float_width,
-    height = config.config.float_height,
-    border = config.config.float_border,
-    tabpage = vim.api.nvim_win_get_tabpage(LeetCodeUI.state.winid),
-  })
-  pcall(vim.api.nvim_win_set_config, LeetCodeUI.state.winid, {
-    relative = 'editor',
-    row = float.row,
-    col = float.col,
-    width = float.width,
-    height = float.height,
-  })
+  local float = buffer.float_config({ tabpage = vim.api.nvim_win_get_tabpage(LeetCodeUI.state.winid) })
+  local resize
+  if float.relative == 'editor' then
+    resize = float
+    resize.noautocmd, resize.external, resize.split, resize.vertical = nil, nil, nil, nil
+  else
+    resize = { width = float.width, height = float.height }
+  end
+  local ok, err = pcall(vim.api.nvim_win_set_config, LeetCodeUI.state.winid, resize)
+  if not ok then log.warn('Failed to resize the central window: ' .. tostring(err)) end
 end
 
 local function ensure_layout_autocmds()
   if layout_autocmd ~= nil then return end
   layout_autocmd = vim.api.nvim_create_autocmd({ 'OptionSet', 'TabNew', 'TabClosed', 'WinNew', 'WinClosed' }, {
+    group = ui_augroup,
     callback = function(args)
       if
         args.event == 'OptionSet'
@@ -162,13 +167,18 @@ local function ensure_layout_autocmds()
 end
 
 local function winhighlight(cursorline_hl, normal_hl)
+  local normal = normal_hl or 'LeetCodeNormalFloat'
   local groups = {
-    'Normal:' .. (normal_hl or 'LeetCodeNormalFloat'),
+    'Normal:' .. normal,
+    'NormalNC:' .. normal,
     'FloatBorder:LeetCodeFloatBorder',
     'WinBar:LeetCodeWinBar',
     'WinBarNC:LeetCodeWinBarNC',
   }
-  if cursorline_hl ~= nil then table.insert(groups, 'CursorLine:' .. cursorline_hl) end
+  if cursorline_hl ~= nil then
+    table.insert(groups, 'CursorLine:' .. cursorline_hl)
+    table.insert(groups, 'CursorLineNC:' .. cursorline_hl)
+  end
   return table.concat(groups, ',')
 end
 
@@ -217,15 +227,11 @@ end
 LeetCodeUI.ensure = function(focus)
   if LeetCodeUI.is_open() then return LeetCodeUI.state.winid end
 
-  local winid = buffer.open_float(LeetCodeUI.panel(), {
-    width = config.config.float_width,
-    height = config.config.float_height,
-    border = config.config.float_border,
-    focus = focus ~= false,
-  })
+  local winid = buffer.open_float(LeetCodeUI.panel(), { focus = focus ~= false })
 
   LeetCodeUI.state.winid = winid
   LeetCodeUI.state.close_autocmd = vim.api.nvim_create_autocmd('WinClosed', {
+    group = ui_augroup,
     pattern = tostring(winid),
     once = true,
     callback = function()
@@ -247,12 +253,15 @@ LeetCodeUI.ensure = function(focus)
   })
   ensure_cursor_autocmd()
   if resize_autocmd == nil then
-    resize_autocmd = vim.api.nvim_create_autocmd('VimResized', { callback = resize_window })
+    resize_autocmd = vim.api.nvim_create_autocmd('VimResized', { group = ui_augroup, callback = resize_window })
   end
   ensure_layout_autocmds()
   ensure_clue_triggers(LeetCodeUI.panel())
   return winid
 end
+
+--- Reapply the configured window geometry.
+LeetCodeUI.resize = resize_window
 
 --- Show a buffer in the central window.
 ---
@@ -327,11 +336,6 @@ local function finish_render(bufnr, render_opts, previous_buf, previous_view, fi
   local winid = LeetCodeUI.show(bufnr, render_opts)
   LeetCodeUI.set_winbar('')
 
-  if vim.api.nvim_get_option_value('filetype', { buf = bufnr }) ~= 'markdown' then
-    vim.api.nvim_set_option_value('conceallevel', 0, { win = winid })
-    vim.api.nvim_set_option_value('concealcursor', '', { win = winid })
-  end
-
   if render_opts.focus == false and previous_view ~= nil and previous_buf == bufnr then
     pcall(vim.api.nvim_win_call, winid, function() vim.fn.winrestview(previous_view) end)
   elseif vim.api.nvim_buf_line_count(bufnr) >= first_content then
@@ -365,6 +369,9 @@ end
 --- When `render-markdown.nvim` is loaded, its renderer is applied to the
 --- markdown buffer.
 ---
+--- The configured `formatter` is applied to `text` with filetype `markdown`;
+--- a nil result keeps `text` unchanged.
+---
 --- `pad_top` defaults to `true`. Supplied `folds` are shifted down by one line
 --- when top padding is enabled.
 ---
@@ -373,6 +380,7 @@ end
 ---@return number winid
 LeetCodeUI.render_markdown = function(text, opts)
   opts = opts or {}
+  text = format.format(text, 'markdown') or text
   local lines = vim.split(text, '\n', { plain = true })
   local pad = opts.pad_top ~= false
   if pad then table.insert(lines, 1, '') end

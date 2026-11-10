@@ -19,12 +19,21 @@
 --- - `browser` (`string`) - cookie import source: `none` (default), `auto`,
 ---   `firefox`, `epiphany`, `safari`, `chrome`, `brave`, `edge`, or `chromium`.
 --- - `browser_paths` (`table`) - per-browser database path overrides.
---- - `float_width`, `float_height` (`number`) - preferred central window
----   content size, clamped to the usable editor area. Borders are extra.
+--- - `float_width`, `float_height` (`number|nil`) - preferred central window
+---   content size, clamped to the usable editor area. When unset, the window
+---   uses 61.8% of the available text area, like `mini.pick`. Borders are extra.
 --- - `float_border` (`string|nil`) - central window border.
+--- - `window` (`table`) - window overrides. `window.config` may be a table or a
+---   function returning a table, merged over the centered default window
+---   configuration. It accepts a subset of |nvim_open_win()| keys:
+---   `width`, `height`, `row`, `col`, `relative`, `anchor`, `border`, `style`,
+---   `zindex`, `title`, `title_pos`, `focusable`, `noautocmd`, `win`, and
+---   `bufpos`.
 --- - `picker` (`string`) - `auto` (use `mini.pick` when `MiniPick` is set up),
 ---   `mini` (prefer it explicitly), or `builtin` (use |vim.ui.select()|).
---- - `cooldown` (`number`) - problem-list cache lifetime in minutes.
+--- - `cooldown` (`number`) - problem-list cache lifetime in minutes. Defaults
+---   to 1440 (one day), which keeps the list fresh enough for newly added
+---   problems without refetching on every picker open.
 --- - `hide_premium` (`boolean`) - hide premium-only problems from pickers,
 ---   random selection, and completions.
 --- - `show_hints` (`boolean`) - show hints in the Description tab by default.
@@ -32,9 +41,12 @@
 --- - `markdown` (`boolean`) - render the Description, Info, Statistics, and
 ---   Help views as Markdown when `render-markdown.nvim` is loaded and enabled.
 ---   The Code editor and Console remain unchanged.
---- - `prettier` (`boolean`) - use `npx prettier` for JavaScript and TypeScript
----   solution formatting when `npx` is on `PATH` and `prettier` is not on
----   `PATH`. This may download Prettier if it is not installed locally.
+--- - `formatter` (`function|nil`) - generic formatter used for every
+---   formatting path. Receives `(text, filetype)` and returns formatted text
+---   or nil. Returning nil keeps the original text for read-only content and
+---   uses the LeetCode API for code. Remote formatting supports `c`, `cpp`,
+---   `golang`, `java`, `python3`, and `swift`; other languages require a
+---   formatter.
 --- - `icons` (`table`) - status and testcase icon overrides. Partial groups are
 ---   merged with the defaults.
 ---
@@ -55,16 +67,17 @@
 ---     storage_path = nil,
 ---     browser = 'none',
 ---     browser_paths = {},
----     float_width = 120,
----     float_height = 40,
+---     float_width = nil,
+---     float_height = nil,
 ---     float_border = nil,
+---     window = { config = nil },
 ---     picker = 'auto',
----     cooldown = 60,
+---     cooldown = 1440,
 ---     hide_premium = false,
 ---     show_hints = false,
 ---     notifications = true,
 ---     markdown = true,
----     prettier = false,
+---     formatter = nil,
 ---     icons = {
 ---       status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
 ---       case = { passed = '✔', failed = '✘', unknown = '○', err = '✗' },
@@ -199,16 +212,22 @@ local default_config = {
   -- Per-browser database path overrides, e.g. { firefox = '~/profile/cookies.sqlite' }.
   browser_paths = {},
 
-  -- Central UI window geometry.
-  float_width = 120,
-  float_height = 40,
+  -- Central UI window geometry. When unset, the window uses 61.8% of the
+  -- available text area, like mini.pick.
+  float_width = nil,
+  float_height = nil,
   float_border = nil,
+
+  -- Window overrides merged over the centered default. `config` may be a
+  -- table or a function returning one, mirroring mini.pick.
+  window = { config = nil },
 
   -- Picker backend: 'auto', 'mini', or 'builtin'.
   picker = 'auto',
 
-  -- Problem-list cache lifetime in minutes.
-  cooldown = 60,
+  -- Problem-list cache lifetime in minutes. One day keeps the list fresh
+  -- enough for newly added problems without refetching on every open.
+  cooldown = 1440,
 
   -- Whether to hide premium-only problems from pickers, random selection, and
   -- completions.
@@ -224,8 +243,8 @@ local default_config = {
   -- render-markdown.nvim is loaded. The Code editor and Console remain unchanged.
   markdown = true,
 
-  -- Prefer npx prettier for JS/TS when npx is on PATH and prettier is absent.
-  prettier = false,
+  -- Optional formatter: function(text, filetype) -> string|nil.
+  formatter = nil,
 
   icons = {
     status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
@@ -248,6 +267,17 @@ local highlight_autocmd = nil
 
 -- Helper functionality =============================================================================================
 
+local valid_border_names = {
+  [''] = true,
+  none = true,
+  single = true,
+  double = true,
+  rounded = true,
+  solid = true,
+  shadow = true,
+  bold = true,
+}
+
 local function validate(config)
   vim.validate({
     url = { config.url, 'string' },
@@ -258,23 +288,113 @@ local function validate(config)
     storage_path = { config.storage_path, 'string', true },
     browser = { config.browser, 'string' },
     browser_paths = { config.browser_paths, 'table' },
-    float_width = { config.float_width, 'number' },
-    float_height = { config.float_height, 'number' },
+    float_width = { config.float_width, 'number', true },
+    float_height = { config.float_height, 'number', true },
     float_border = { config.float_border, 'string', true },
+    window = { config.window, 'table' },
     picker = { config.picker, 'string' },
     cooldown = { config.cooldown, 'number' },
     hide_premium = { config.hide_premium, 'boolean' },
     show_hints = { config.show_hints, 'boolean' },
     notifications = { config.notifications, 'boolean' },
     markdown = { config.markdown, 'boolean' },
-    prettier = { config.prettier, 'boolean' },
+    formatter = { config.formatter, 'function', true },
     icons = { config.icons, 'table' },
   })
 
-  local optional_keys = { languages = true, cookie_file = true, storage_path = true, float_border = true }
+  local optional_keys = {
+    languages = true,
+    cookie_file = true,
+    storage_path = true,
+    float_width = true,
+    float_height = true,
+    float_border = true,
+    formatter = true,
+  }
   for key in pairs(config) do
     if default_config[key] == nil and not optional_keys[key] then
       LeetCodeConfig.error(('Unknown option `%s`.'):format(tostring(key)))
+    end
+  end
+
+  for key in pairs(config.window) do
+    if key ~= 'config' then LeetCodeConfig.error(('Unknown `window` option `%s`.'):format(tostring(key))) end
+  end
+  local window_config = config.window.config
+  if window_config ~= nil and type(window_config) ~= 'table' and type(window_config) ~= 'function' then
+    LeetCodeConfig.error('`window.config` should be a table, function, or nil.')
+  end
+  if type(window_config) == 'table' then
+    local allowed = {
+      width = 'number',
+      height = 'number',
+      row = 'number',
+      col = 'number',
+      zindex = 'number',
+      win = 'number',
+      relative = 'string',
+      anchor = 'string',
+      border = 'border',
+      style = 'string',
+      title = 'string',
+      title_pos = 'string',
+      focusable = 'boolean',
+      noautocmd = 'boolean',
+      bufpos = 'table',
+    }
+    local enums = {
+      relative = { editor = true, win = true, cursor = true, mouse = true },
+      anchor = { NW = true, NE = true, SW = true, SE = true },
+      style = { [''] = true, minimal = true },
+      title_pos = { left = true, center = true, right = true },
+    }
+    for key, value in pairs(window_config) do
+      local expected = allowed[key]
+      if expected == nil then LeetCodeConfig.error(('Unknown `window.config` option `%s`.'):format(tostring(key))) end
+      if expected == 'border' then
+        local valid = type(value) == 'string'
+          or (
+            type(value) == 'table'
+            and #value == 8
+            and vim.iter(value):all(function(part) return type(part) == 'string' end)
+          )
+        if valid and type(value) == 'string' then
+          if value:find(',', 1, true) then
+            valid = #vim.split(value, ',', { plain = true }) == 8
+          else
+            valid = valid_border_names[value] == true
+          end
+        end
+        if not valid then
+          LeetCodeConfig.error('`window.config.border` should be a string or an 8-item string list.')
+        end
+      elseif type(value) ~= expected then
+        LeetCodeConfig.error(('`window.config.%s` should be a %s.'):format(key, expected))
+      elseif enums[key] ~= nil then
+        local check = key == 'anchor' and value:upper() or value
+        if enums[key][check] == nil then
+          LeetCodeConfig.error(('Invalid `window.config.%s` value `%s`.'):format(key, tostring(value)))
+        end
+      end
+    end
+    for _, key in ipairs({ 'width', 'height' }) do
+      local value = window_config[key]
+      if value ~= nil and (value < 1 or value % 1 ~= 0) then
+        LeetCodeConfig.error(('`window.config.%s` should be a positive integer.'):format(key))
+      end
+    end
+    if window_config.zindex ~= nil and (window_config.zindex < 1 or window_config.zindex % 1 ~= 0) then
+      LeetCodeConfig.error('`window.config.zindex` should be a positive integer.')
+    end
+  end
+
+  if type(config.float_border) == 'string' then
+    if config.float_border:find(',', 1, true) then
+      if #vim.split(config.float_border, ',', { plain = true }) ~= 8 then
+        LeetCodeConfig.error('`float_border` comma lists should have exactly 8 parts.')
+      end
+    elseif valid_border_names[config.float_border] ~= true then
+      LeetCodeConfig.error(('Unknown `float_border` value `%s`.'):format(config.float_border))
     end
   end
 
@@ -345,7 +465,9 @@ local function validate(config)
 
   for _, name in ipairs({ 'float_width', 'float_height' }) do
     local value = config[name]
-    if value < 1 or value % 1 ~= 0 then LeetCodeConfig.error(('`%s` should be a positive integer.'):format(name)) end
+    if value ~= nil and (value < 1 or value % 1 ~= 0) then
+      LeetCodeConfig.error(('`%s` should be a positive integer.'):format(name))
+    end
   end
   if config.cooldown < 0 or config.cooldown == math.huge or config.cooldown ~= config.cooldown then
     LeetCodeConfig.error('`cooldown` should be a finite, non-negative number.')
@@ -417,7 +539,7 @@ LeetCodeConfig.setup = function(opts, prepared)
 
   if highlight_autocmd == nil then
     highlight_autocmd = vim.api.nvim_create_autocmd('ColorScheme', {
-      group = vim.api.nvim_create_augroup('LeetCodeUiHighlights', {}),
+      group = vim.api.nvim_create_augroup('LeetCodeUiHighlights', { clear = true }),
       callback = function() LeetCodeConfig.create_hl() end,
     })
   end
@@ -431,6 +553,15 @@ end
 ---@return table|nil
 LeetCodeConfig.get_lang = function(slug) return LeetCodeConfig.langs[slug] end
 
+--- Canonical language slug (for example `python` -> `python3`).
+---
+---@param slug string
+---@return string
+LeetCodeConfig.canonical_lang = function(slug)
+  local info = LeetCodeConfig.langs[slug]
+  return info ~= nil and (info.alt or info.slug) or slug
+end
+
 --- Whether `slug` is in the configured language allow-list.
 ---
 ---@param slug string
@@ -438,7 +569,7 @@ LeetCodeConfig.get_lang = function(slug) return LeetCodeConfig.langs[slug] end
 LeetCodeConfig.lang_enabled = function(slug)
   local info = LeetCodeConfig.langs[slug]
   if info == nil then return false end
-  local canonical = info.alt or info.slug
+  local canonical = LeetCodeConfig.canonical_lang(slug)
 
   local languages = LeetCodeConfig.config.languages
   if languages == nil then return true end

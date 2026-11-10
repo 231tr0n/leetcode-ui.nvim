@@ -21,8 +21,11 @@ T['defaults']['exposes defaults'] = function()
   eq(config.config.browser, 'none')
   eq(config.config.notifications, true)
   eq(config.config.markdown, true)
-  eq(config.config.prettier, false)
   eq(config.config.show_hints, false)
+  eq(config.config.formatter, nil)
+  eq(type(config.config.window), 'table')
+  eq(config.config.float_width, nil)
+  eq(config.config.float_height, nil)
   eq(type(config.config.icons.status.solved), 'string')
   eq(type(config.config.icons.case.passed), 'string')
   eq(config.difficulty_highlights.Hard, 'LeetCodeHard')
@@ -55,7 +58,7 @@ T['setup']['applies overrides and keeps defaults'] = function()
   eq(config.config.show_hints, true)
   eq(config.config.cookies.LEETCODE_SESSION, 'abc')
   eq(config.config.picker, 'auto')
-  eq(config.config.cooldown, 60)
+  eq(config.config.cooldown, 1440)
   eq(config.config.hide_premium, false)
 end
 
@@ -87,7 +90,6 @@ T['setup']['rejects bad types'] = function()
   expect.error(function() helpers.configure({ cookies = 'jar' }) end, 'expected table')
   expect.error(function() helpers.configure({ notifications = 'yes' }) end, 'expected boolean')
   expect.error(function() helpers.configure({ markdown = 'yes' }) end, 'expected boolean')
-  expect.error(function() helpers.configure({ prettier = 'yes' }) end, 'expected boolean')
   expect.error(function() helpers.configure({ show_hints = 'yes' }) end, 'expected boolean')
 end
 
@@ -139,6 +141,7 @@ T['setup']['rejects invalid domains, cookies, and browser paths'] = function()
     'Unknown browser in'
   )
   expect.error(function() helpers.configure({ langg = 'python3' }) end, 'Unknown option')
+  expect.error(function() helpers.configure({ prettier = true }) end, 'Unknown option')
 end
 
 T['setup']['rejects malformed language lists'] = function()
@@ -153,6 +156,40 @@ T['setup']['rejects invalid window geometry'] = function()
     expect.error(function() helpers.configure({ float_width = value }) end, 'positive integer')
     expect.error(function() helpers.configure({ float_height = value }) end, 'positive integer')
   end
+end
+
+T['setup']['validates formatter'] = function()
+  expect.error(function() helpers.configure({ formatter = 'x' }) end, 'expected function')
+  helpers.configure({ formatter = function(text) return text end })
+  eq(type(require('leetcode-ui.config').config.formatter), 'function')
+end
+
+T['setup']['validates window overrides'] = function()
+  expect.error(function() helpers.configure({ window = { bad = true } }) end, 'Unknown `window`')
+  expect.error(function() helpers.configure({ window = { config = 'x' } }) end, 'table, function, or nil')
+  expect.error(function() helpers.configure({ window = { config = { widht = 40 } } }) end, 'Unknown `window.config`')
+  expect.error(function() helpers.configure({ window = { config = { width = 'x' } } }) end, 'should be a number')
+  expect.error(function() helpers.configure({ window = { config = { anchor = 1 } } }) end, 'should be a string')
+  expect.error(
+    function() helpers.configure({ window = { config = { anchor = 'XX' } } }) end,
+    'Invalid `window.config.anchor`'
+  )
+  expect.error(
+    function() helpers.configure({ window = { config = { relative = 'bogus' } } }) end,
+    'Invalid `window.config.relative`'
+  )
+  expect.error(
+    function() helpers.configure({ window = { config = { style = 'bogus' } } }) end,
+    'Invalid `window.config.style`'
+  )
+  expect.error(function() helpers.configure({ window = { config = { width = 0 } } }) end, 'positive integer')
+  expect.error(function() helpers.configure({ window = { config = { zindex = 0 } } }) end, 'positive integer')
+  expect.error(function() helpers.configure({ window = { config = { border = 'a,b' } } }) end, '8-item')
+  expect.error(function() helpers.configure({ window = { config = { border = 'bogus' } } }) end, '8-item')
+  expect.error(function() helpers.configure({ float_border = 'a,b' }) end, 'exactly 8 parts')
+  expect.error(function() helpers.configure({ float_border = 'bogus' }) end, 'Unknown `float_border`')
+  helpers.configure({ window = { config = { width = 20 } } })
+  eq(require('leetcode-ui.config').config.window.config.width, 20)
 end
 
 T['setup']['validates cache cooldown'] = function()

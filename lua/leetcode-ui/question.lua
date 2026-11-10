@@ -18,6 +18,7 @@ local buffer = require('leetcode-ui.buffer')
 local config = require('leetcode-ui.config')
 local Console = require('leetcode-ui.console')
 local log = require('leetcode-ui.log')
+local format = require('leetcode-ui.format')
 local parser = require('leetcode-ui.parser')
 local runner = require('leetcode-ui.api.runner')
 local solution = require('leetcode-ui.solution')
@@ -89,15 +90,28 @@ end
 
 local function question_payload(view) return { id = view.detail.id, title_slug = view.slug, lang_slug = view.lang } end
 
-local function rendered_hints(view)
+local function format_html(text) return format.format(text, 'html') or text end
+
+local function raw_hints(view)
   local value = (view.detail or {}).hints
   if type(value) ~= 'table' then return {} end
   local hints = {}
   for _, hint in ipairs(value) do
-    if type(hint) == 'string' and vim.trim(hint) ~= '' then
-      local hint_lines = parser.render(hint)
-      if #hint_lines > 0 then table.insert(hints, hint_lines) end
-    end
+    if type(hint) == 'string' and vim.trim(hint) ~= '' then table.insert(hints, hint) end
+  end
+  return hints
+end
+
+local function hint_visible(formatted, markdown)
+  if markdown then return vim.trim(parser.markdown(formatted)) ~= '' end
+  return #parser.render(formatted) > 0
+end
+
+local function visible_hint_html(view, markdown)
+  local hints = {}
+  for _, hint in ipairs(raw_hints(view)) do
+    local formatted = format_html(hint)
+    if hint_visible(formatted, markdown) then table.insert(hints, formatted) end
   end
   return hints
 end
@@ -124,9 +138,10 @@ LeetCodeQuestionView.description_lines = function(view)
     { { text = ('%s. %s'):format(detail_id(detail), detail_title(detail)), hl = 'LeetCodeTitle' } },
   }
 
-  local marks = {
-    { text = detail.difficulty or '', hl = difficulty_highlight(detail.difficulty) },
-  }
+  local marks = {}
+  if detail.difficulty ~= nil and detail.difficulty ~= '' then
+    table.insert(marks, { text = detail.difficulty, hl = difficulty_highlight(detail.difficulty) })
+  end
   if detail.is_paid_only then table.insert(marks, { text = 'Premium', hl = 'LeetCodeWarn' }) end
   local status = questions.normalize_status(detail.status) or questions.normalize_status(entry.status)
   if status == 'solved' then
@@ -147,15 +162,23 @@ LeetCodeQuestionView.description_lines = function(view)
   table.insert(lines, metadata)
   table.insert(lines, {})
 
-  vim.list_extend(lines, parser.render(detail.content))
+  vim.list_extend(lines, parser.render(format_html(detail.content)))
 
-  local hints = rendered_hints(view)
-  if #hints > 0 then
+  local show_hints = view.show_hints == true
+  local hint_htmls = visible_hint_html(view, false)
+  local hints = {}
+  if show_hints then
+    for _, formatted in ipairs(hint_htmls) do
+      table.insert(hints, parser.render(formatted))
+    end
+  end
+  local count = #hint_htmls
+  if count > 0 then
     table.insert(lines, {})
-    if view.show_hints ~= true then
+    if not show_hints then
       table.insert(lines, {
         {
-          text = ('Hints (%d) hidden. Use :LeetCode question hints to show them.'):format(#hints),
+          text = ('Hints (%d) hidden. Use :LeetCode question hints to show them.'):format(count),
           hl = 'LeetCodeDim',
         },
       })
@@ -258,6 +281,8 @@ LeetCodeQuestionView.description_markdown = function(view)
   if status ~= nil then
     local icon = config.config.icons.status[status]
     table.insert(marks, icon ~= nil and ('**Status:** %s %s'):format(icon, status) or ('**Status:** ' .. status))
+  else
+    table.insert(marks, config.config.icons.status.todo)
   end
   local ac_rate = tonumber(entry.ac_rate)
   if ac_rate ~= nil then table.insert(marks, ('**Acceptance:** %.1f%%'):format(ac_rate)) end
@@ -266,21 +291,22 @@ LeetCodeQuestionView.description_markdown = function(view)
     ('# %s. %s'):format(detail_id(detail), detail_title(detail)),
     table.concat(marks, ' · '),
     '',
-    parser.markdown(detail.content),
+    parser.markdown(format_html(detail.content)),
   }
 
-  local raw_hints = type(detail.hints) == 'table' and detail.hints or {}
+  local show_hints = view.show_hints == true
+  local hint_htmls = visible_hint_html(view, true)
   local hints = {}
-  for _, hint in ipairs(raw_hints) do
-    if type(hint) == 'string' and vim.trim(hint) ~= '' then
-      local rendered = parser.markdown(hint)
-      if #parser.render(hint) > 0 and vim.trim(rendered) ~= '' then table.insert(hints, rendered) end
+  if show_hints then
+    for _, formatted in ipairs(hint_htmls) do
+      table.insert(hints, parser.markdown(formatted))
     end
   end
-  if #hints > 0 then
+  local count = #hint_htmls
+  if count > 0 then
     table.insert(lines, '')
-    if view.show_hints ~= true then
-      table.insert(lines, ('> Hints (%d) hidden. Use `:LeetCode question hints` to show them.'):format(#hints))
+    if not show_hints then
+      table.insert(lines, ('> Hints (%d) hidden. Use `:LeetCode question hints` to show them.'):format(count))
     else
       table.insert(lines, '## Hints')
       for index, hint in ipairs(hints) do
@@ -609,8 +635,8 @@ LeetCodeQuestionView.set_hints = function(view, show)
   view = view or LeetCodeQuestionView.current()
   if view == nil then return end
 
-  local hints = rendered_hints(view)
-  if #hints == 0 then
+  local count = #visible_hint_html(view, ui.markdown_enabled())
+  if count == 0 then
     log.info('This question has no hints')
     return
   end
@@ -636,7 +662,7 @@ LeetCodeQuestionView.set_hints = function(view, show)
   end
 
   if view.show_hints then
-    log.info(('Showing %d hint(s)'):format(#hints))
+    log.info(('Showing %d hint(s)'):format(count))
   else
     log.info('Hints hidden')
   end

@@ -41,8 +41,7 @@ No action keymaps are created by the plugin. Every action is available as a
 - Read parsed descriptions, with hints hidden by default.
 - Edit solutions with draft and testcase persistence.
 - Run and submit solutions through LeetCode's API.
-- Format with the remote formatter when available, otherwise CLI
-  formatters or LSP.
+- Format code through the LeetCode API or a user-provided formatter.
 - Show progress statistics and session information.
 - Show inline progress while the problem list loads.
 - Render Description, Info, Statistics, and Help as Markdown when
@@ -84,7 +83,7 @@ Question-window actions live under `:LeetCode question`:
 
 # Requirements ~
 
-- Neovim stable (0.12 or newer; `vim.system`, `vim.uv`, and `vim.lsp`).
+- Neovim stable (0.12 or newer; `vim.system` and `vim.uv`).
 - `curl` - required for all LeetCode API and remote formatting requests.
 - `python3` - required only for browser cookie import; SQLite-backed
   browsers also need the `sqlite3` module.
@@ -96,16 +95,72 @@ Question-window actions live under `:LeetCode question`:
   picker backend and `require('mini.clue').setup()` for key hints. Clue
   triggers are enabled inside the central window when it is set up.
 - `render-markdown.nvim` - optional; renders Markdown views in the central
-  window when it is loaded and enabled.
-- `npm`/`npx` - optional; enables `prettier = true` to format JavaScript
-  and TypeScript through `npx prettier`.
+  window when it is loaded and enabled. It requires the `markdown` and
+  `markdown_inline` treesitter parsers.
 - A language server such as `lua-language-server`, `clangd`, or `ruff` -
-  optional; provides diagnostics and completion, plus LSP formatting when
-  the server supports it.
-- Optional CLI formatters: `prettier`, `black`, `clang-format`, `gofmt`,
-  `rustfmt`, or `google-java-format`.
+  optional; provides diagnostics and completion.
 
 No LuaRocks or external Lua packages are required.
+
+# Formatting ~
+
+All formatting paths use the optional `formatter` function. It receives
+`(text, filetype)` and returns formatted text or nil. `filetype` is
+`'markdown'`, `'html'`, or a solution filetype.
+
+Returning nil keeps the original text for read-only content and uses the
+LeetCode API for code. Remote formatting supports `c`, `cpp`, `golang`,
+`java`, `python3`, and `swift`; other languages require a formatter.
+
+Use Prettier for read-only content and leave code to the LeetCode API:
+
+>lua
+  require('leetcode-ui').setup({
+    formatter = function(text, filetype)
+      if filetype == 'markdown' or filetype == 'html' then
+        local file = filetype == 'html' and 'x.html' or 'x.md'
+        local out = vim.fn.system({ 'prettier', '--stdin-filepath', file }, text)
+        if vim.v.shell_error == 0 then return out end
+      end
+      return nil
+    end,
+  })
+<
+
+Use language-specific commands for code:
+
+>lua
+  require('leetcode-ui').setup({
+    formatter = function(text, filetype)
+      local command
+      if filetype == 'python' then
+        command = { 'ruff', 'format', '-' }
+      elseif filetype == 'javascript' or filetype == 'typescript' then
+        local ext = filetype == 'typescript' and 'ts' or 'js'
+        command = { 'prettier', '--stdin-filepath', 'x.' .. ext }
+      end
+      if command == nil then return nil end
+      local out = vim.fn.system(command, text)
+      if vim.v.shell_error == 0 then return out end
+      return nil
+    end,
+  })
+<
+
+Use a custom Markdown formatter while keeping the defaults elsewhere:
+
+>lua
+  require('leetcode-ui').setup({
+    formatter = function(text, filetype)
+      if filetype == 'markdown' then return my_markdown_formatter(text) end
+      return nil
+    end,
+  })
+<
+
+The only formatting command is `:LeetCode question format`; it formats the
+code editor. Read-only Markdown/HTML is formatted automatically through
+`formatter`.
 
 # Browser cookie caution ~
 
@@ -137,6 +192,7 @@ Table of contents:
   Networking ................................................... |LeetCodeNet|
   Storage .................................................. |LeetCodeStorage|
   HTML parser ............................................... |LeetCodeParser|
+  Formatting ................................................ |LeetCodeFormat|
   Async driver ............................................... |LeetCodeAsync|
   API plumbing ................................................. |LeetCodeApi|
   GraphQL queries .......................................... |LeetCodeQueries|
@@ -321,12 +377,21 @@ Options:
 - `browser` (`string`) - cookie import source: `none` (default), `auto`,
   `firefox`, `epiphany`, `safari`, `chrome`, `brave`, `edge`, or `chromium`.
 - `browser_paths` (`table`) - per-browser database path overrides.
-- `float_width`, `float_height` (`number`) - preferred central window
-  content size, clamped to the usable editor area. Borders are extra.
+- `float_width`, `float_height` (`number|nil`) - preferred central window
+  content size, clamped to the usable editor area. When unset, the window
+  uses 61.8% of the available text area, like `mini.pick`. Borders are extra.
 - `float_border` (`string|nil`) - central window border.
+- `window` (`table`) - window overrides. `window.config` may be a table or a
+  function returning a table, merged over the centered default window
+  configuration. It accepts a subset of |nvim_open_win()| keys:
+  `width`, `height`, `row`, `col`, `relative`, `anchor`, `border`, `style`,
+  `zindex`, `title`, `title_pos`, `focusable`, `noautocmd`, `win`, and
+  `bufpos`.
 - `picker` (`string`) - `auto` (use `mini.pick` when `MiniPick` is set up),
   `mini` (prefer it explicitly), or `builtin` (use |vim.ui.select()|).
-- `cooldown` (`number`) - problem-list cache lifetime in minutes.
+- `cooldown` (`number`) - problem-list cache lifetime in minutes. Defaults
+  to 1440 (one day), which keeps the list fresh enough for newly added
+  problems without refetching on every picker open.
 - `hide_premium` (`boolean`) - hide premium-only problems from pickers,
   random selection, and completions.
 - `show_hints` (`boolean`) - show hints in the Description tab by default.
@@ -334,9 +399,12 @@ Options:
 - `markdown` (`boolean`) - render the Description, Info, Statistics, and
   Help views as Markdown when `render-markdown.nvim` is loaded and enabled.
   The Code editor and Console remain unchanged.
-- `prettier` (`boolean`) - use `npx prettier` for JavaScript and TypeScript
-  solution formatting when `npx` is on `PATH` and `prettier` is not on
-  `PATH`. This may download Prettier if it is not installed locally.
+- `formatter` (`function|nil`) - generic formatter used for every
+  formatting path. Receives `(text, filetype)` and returns formatted text
+  or nil. Returning nil keeps the original text for read-only content and
+  uses the LeetCode API for code. Remote formatting supports `c`, `cpp`,
+  `golang`, `java`, `python3`, and `swift`; other languages require a
+  formatter.
 - `icons` (`table`) - status and testcase icon overrides. Partial groups are
   merged with the defaults.
 
@@ -357,16 +425,17 @@ Default configuration:
     storage_path = nil,
     browser = 'none',
     browser_paths = {},
-    float_width = 120,
-    float_height = 40,
+    float_width = nil,
+    float_height = nil,
     float_border = nil,
+    window = { config = nil },
     picker = 'auto',
-    cooldown = 60,
+    cooldown = 1440,
     hide_premium = false,
     show_hints = false,
     notifications = true,
     markdown = true,
-    prettier = false,
+    formatter = nil,
     icons = {
       status = { solved = '✔', attempted = '✘', todo = '○', active = '◈' },
       case = { passed = '✔', failed = '✘', unknown = '○', err = '✗' },
@@ -454,6 +523,16 @@ Parameters ~
 {slug} `(string)`
 Return ~
 `(table|nil)`
+
+------------------------------------------------------------------------------
+                                               *LeetCodeConfig.canonical_lang()*
+                    `LeetCodeConfig.canonical_lang`({slug})
+Canonical language slug (for example `python` -> `python3`).
+
+Parameters ~
+{slug} `(string)`
+Return ~
+`(string)`
 
 ------------------------------------------------------------------------------
                                                  *LeetCodeConfig.lang_enabled()*
@@ -561,6 +640,11 @@ Return ~
 `(number)` winid
 
 ------------------------------------------------------------------------------
+                                                             *LeetCodeUI.resize*
+                              `LeetCodeUI.resize`
+Reapply the configured window geometry.
+
+------------------------------------------------------------------------------
                                                              *LeetCodeUI.show()*
                        `LeetCodeUI.show`({bufnr}, {opts})
 Show a buffer in the central window.
@@ -589,6 +673,9 @@ Render Markdown text in the central window.
 
 When `render-markdown.nvim` is loaded, its renderer is applied to the
 markdown buffer.
+
+The configured `formatter` is applied to `text` with filetype `markdown`;
+a nil result keeps `text` unchanged.
 
 `pad_top` defaults to `true`. Supplied `folds` are shifted down by one line
 when top padding is enabled.
@@ -652,8 +739,15 @@ Build a centered, editor-bounded floating-window configuration.
 
 The window is centered in the editor text area: tabline, statusline, and
 command-line rows are excluded. Width and height are clamped to the
-available text area (the outer border is not counted). Pass `tabpage` to
-compute statusline rows for a specific tabpage.
+available text area (the outer border is not counted). When `float_width`
+or `float_height` is unset, the default is 61.8% of the available area,
+like `mini.pick`.
+
+`window.config` is merged over the centered default. It may be a table or a
+function returning a table and accepts a subset of |nvim_open_win()| keys:
+`width`, `height`, `row`, `col`, `relative`, `anchor`, `border`, `style`,
+`zindex`, `title`, `title_pos`, `focusable`, `noautocmd`, `win`, and
+`bufpos`.
 
 Parameters ~
 {opts} `(table|nil)` Geometry, border, title, and `tabpage` overrides.
@@ -1138,8 +1232,7 @@ Parameters ~
 ------------------------------------------------------------------------------
                                                      *LeetCodeSolution.format()*
                        `LeetCodeSolution.format`({view})
-Format the current code using LeetCode's formatter, a CLI formatter, or
-LSP.
+Format the current code with the user formatter, then the LeetCode API.
 
 Parameters ~
 {view} `(table)`
@@ -1843,6 +1936,30 @@ Parameters ~
 {content} `(string|nil)` Question HTML.
 Return ~
 `(string)` markdown
+
+------------------------------------------------------------------------------
+                                                                *LeetCodeFormat*
+*leetcode-ui-format* Generic formatting entry point
+
+Every formatting path calls `LeetCodeFormat.format(text, filetype)`. The
+function is supplied by the user through `formatter` in |LeetCode.setup()|
+and returns formatted text or nil.
+
+Callers fall back to their built-in behavior when the formatter returns nil:
+the LeetCode API for code, or the original text for read-only content.
+
+------------------------------------------------------------------------------
+                                                       *LeetCodeFormat.format()*
+                  `LeetCodeFormat.format`({text}, {filetype})
+Format text using the configured formatter.
+
+The formatter receives `(text, filetype)` and returns formatted text or nil.
+
+Parameters ~
+{text} `(string)`
+{filetype} `(string)`
+Return ~
+`(string|nil)`
 
 ------------------------------------------------------------------------------
                                                                  *LeetCodeAsync*

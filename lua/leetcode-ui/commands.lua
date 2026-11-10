@@ -361,8 +361,7 @@ LeetCodeCommands.question_commands = {
         return
       end
 
-      local info = config.get_lang(slug)
-      local target = info ~= nil and (info.alt or info.slug) or slug
+      local target = config.canonical_lang(slug)
       local available = require('leetcode-ui.solution').languages(view)
       if not vim.tbl_contains(available, target) then
         log.error(('`%s` is not available for this question'):format(slug))
