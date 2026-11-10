@@ -102,17 +102,21 @@ local function raw_hints(view)
   return hints
 end
 
-local function hint_visible(formatted, markdown)
-  if markdown then return vim.trim(parser.markdown(formatted)) ~= '' end
-  return #parser.render(formatted) > 0
+local function hint_visible(formatted)
+  return #parser.render(formatted) > 0 and vim.trim(parser.markdown(formatted)) ~= ''
 end
 
-local function visible_hint_html(view, markdown)
+local function visible_hint_html(view)
+  local cache = view._hint_cache
+  if cache ~= nil and cache.detail == view.detail and cache.formatter == config.config.formatter then
+    return cache.hints
+  end
   local hints = {}
   for _, hint in ipairs(raw_hints(view)) do
     local formatted = format_html(hint)
-    if hint_visible(formatted, markdown) then table.insert(hints, formatted) end
+    if hint_visible(formatted) then table.insert(hints, formatted) end
   end
+  view._hint_cache = { detail = view.detail, formatter = config.config.formatter, hints = hints }
   return hints
 end
 
@@ -165,7 +169,7 @@ LeetCodeQuestionView.description_lines = function(view)
   vim.list_extend(lines, parser.render(format_html(detail.content)))
 
   local show_hints = view.show_hints == true
-  local hint_htmls = visible_hint_html(view, false)
+  local hint_htmls = visible_hint_html(view)
   local hints = {}
   if show_hints then
     for _, formatted in ipairs(hint_htmls) do
@@ -295,7 +299,7 @@ LeetCodeQuestionView.description_markdown = function(view)
   }
 
   local show_hints = view.show_hints == true
-  local hint_htmls = visible_hint_html(view, true)
+  local hint_htmls = visible_hint_html(view)
   local hints = {}
   if show_hints then
     for _, formatted in ipairs(hint_htmls) do
@@ -635,7 +639,7 @@ LeetCodeQuestionView.set_hints = function(view, show)
   view = view or LeetCodeQuestionView.current()
   if view == nil then return end
 
-  local count = #visible_hint_html(view, ui.markdown_enabled())
+  local count = #visible_hint_html(view)
   if count == 0 then
     log.info('This question has no hints')
     return

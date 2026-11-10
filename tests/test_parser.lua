@@ -41,6 +41,13 @@ T['entities']['arrow and math entities'] = function()
   eq(parser.decode_entities('&Delta;&delta;&Omega;&omega;'), 'ΔδΩω')
 end
 
+T['entities']['script entities decode once and preserve literal markup'] = function()
+  local parser = helpers.mod('parser')
+  eq(text_of(parser.render('<p>H<sub>2</sub>O</p>'))[1], 'H₂O')
+  eq(text_of(parser.render('<p><sup>&amp;lt;</sup></p>'))[1], '&lt;')
+  eq(text_of(parser.render('<p>x<sup>&lt;b&gt;</sup>y</p>'))[1], 'x<b>y')
+end
+
 T['entities']['decimal and hex entities'] = function()
   local parser = helpers.mod('parser')
   eq(parser.decode_entities('&#65;&#x42;&#67;'), 'ABC')
@@ -497,6 +504,11 @@ end
 T['markdown']['pre blocks ignore inline markers and preserve line breaks'] = function()
   eq(markdown('<pre><strong>Input:</strong> x<br>y</pre>'), '```\nInput: x\ny\n```')
   eq(markdown('<pre><code>int x;</code></pre>'), '```\nint x;\n```')
+end
+
+T['blocks']['entity whitespace participates in break handling'] = function()
+  eq(text_of(render('<p>a<br>&nbsp;<br>b</p>')), { 'a', '', 'b' })
+  eq(text_of(render('<p>a<br> <br>b</p>')), { 'a', '', 'b' })
 end
 
 T['markdown']['br produces hard line breaks'] = function()

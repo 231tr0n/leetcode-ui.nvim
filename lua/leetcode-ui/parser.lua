@@ -203,7 +203,7 @@ local entities = {
   ['iquest'] = '¿',
   ['iuml'] = 'ï',
   ['kappa'] = 'κ',
-  ['lang'] = '〈',
+  ['lang'] = '⟨',
   ['laquo'] = '«',
   ['lceil'] = '⌈',
   ['lfloor'] = '⌊',
@@ -237,7 +237,7 @@ local entities = {
   ['piv'] = 'ϖ',
   ['pound'] = '£',
   ['psi'] = 'ψ',
-  ['rang'] = '〉',
+  ['rang'] = '⟩',
   ['raquo'] = '»',
   ['rceil'] = '⌉',
   ['real'] = 'ℜ',
@@ -484,6 +484,21 @@ local sup_chars = {
 }
 
 local sub_chars = {
+  ['0'] = '₀',
+  ['1'] = '₁',
+  ['2'] = '₂',
+  ['3'] = '₃',
+  ['4'] = '₄',
+  ['5'] = '₅',
+  ['6'] = '₆',
+  ['7'] = '₇',
+  ['8'] = '₈',
+  ['9'] = '₉',
+  ['+'] = '₊',
+  ['-'] = '₋',
+  ['='] = '₌',
+  ['('] = '₍',
+  [')'] = '₎',
   n = 'ₙ',
   i = 'ᵢ',
   x = 'ₓ',
@@ -558,13 +573,18 @@ local function preprocess(html)
   html = html:gsub('<%s*[sS][cC][rR][iI][pP][tT][^>]->.-</%s*[sS][cC][rR][iI][pP][tT]%s->', '')
 
   -- Unicode-ify simple superscripts/subscripts before anything else.
+  local function encode_entity_script(text, glyphs)
+    local decoded = LeetCodeParser.decode_entities(text)
+    decoded = decoded:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;')
+    return encode_script(decoded, glyphs)
+  end
   html = html:gsub(
     '<[sS][uU][pP]>%s*([^<]-)%s*</[sS][uU][pP]>',
-    function(text) return encode_script(LeetCodeParser.decode_entities(text), sup_chars) end
+    function(text) return encode_entity_script(text, sup_chars) end
   )
   html = html:gsub(
     '<[sS][uU][bB]>%s*([^<]-)%s*</[sS][uU][bB]>',
-    function(text) return encode_script(LeetCodeParser.decode_entities(text), sub_chars) end
+    function(text) return encode_entity_script(text, sub_chars) end
   )
 
   return html
@@ -796,7 +816,7 @@ LeetCodeParser.render = function(content)
     local tag = token.tag
 
     if tag == nil then
-      if token.text:gsub('%s', '') ~= '' then last_was_br = false end
+      if LeetCodeParser.decode_entities(token.text):gsub('%s', '') ~= '' then last_was_br = false end
       local text = token.text:gsub('\r\n', '\n'):gsub('\r', '\n')
       if strip_pre_newline then
         strip_pre_newline = false

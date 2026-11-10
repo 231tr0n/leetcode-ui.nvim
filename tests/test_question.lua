@@ -2003,6 +2003,22 @@ T['markdown']['formats span description and hints through the formatter'] = func
   eq(seen, 2)
 end
 
+T['markdown']['hint count follows the formatter output'] = function()
+  local question = helpers.mod('question')
+  local view = make_view()
+  view.detail.hints = { '<p>real</p>' }
+  view.show_hints = false
+  helpers.configure({
+    formatter = function(_, filetype)
+      if filetype == 'html' then return '<!-- hidden -->' end
+      return nil
+    end,
+  })
+  eq(helpers.contains(question.description_markdown(view), 'Hints'), false)
+  view.show_hints = true
+  eq(helpers.contains(question.description_markdown(view), 'Hints'), false)
+end
+
 T['markdown']['requests markdown rendering for description and info'] = function()
   local question = helpers.mod('question')
   local view = make_view()
