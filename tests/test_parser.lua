@@ -29,6 +29,18 @@ T['entities']['named entities'] = function()
   eq(helpers.mod('parser').decode_entities('&lt;p&gt; &amp; &quot;x&quot; &nbsp;'), '<p> & "x"  ')
 end
 
+T['entities']['arrow and math entities'] = function()
+  local parser = helpers.mod('parser')
+  eq(parser.decode_entities('0 &rarr; 1 &rarr; 2 &rarr; 4'), '0 → 1 → 2 → 4')
+  eq(parser.decode_entities('&larr; &harr; &rArr;'), '← ↔ ⇒')
+  eq(parser.decode_entities('&sum; &infin; &pi;'), '∑ ∞ π')
+  eq(parser.decode_entities('&alpha; &frac12; &copy;'), 'α ½ ©')
+  eq(parser.decode_entities('&check; &cross; &star; &frac13; &mapsto; &bullet;'), '✓ ✗ ☆ ⅓ ↦ •')
+  eq(parser.decode_entities('&Eacute;&eacute;&Auml;&auml;'), 'ÉéÄä')
+  eq(parser.decode_entities('&euro;&pound;&yen;&cent;'), '€£¥¢')
+  eq(parser.decode_entities('&Delta;&delta;&Omega;&omega;'), 'ΔδΩω')
+end
+
 T['entities']['decimal and hex entities'] = function()
   local parser = helpers.mod('parser')
   eq(parser.decode_entities('&#65;&#x42;&#67;'), 'ABC')
