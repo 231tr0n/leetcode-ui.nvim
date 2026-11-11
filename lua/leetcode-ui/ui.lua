@@ -382,6 +382,9 @@ LeetCodeUI.render_markdown = function(text, opts)
   opts = opts or {}
   text = format.format(text, 'markdown') or text
   local lines = vim.split(text, '\n', { plain = true })
+  -- Give render-markdown a line after the final block so table/list bottom
+  -- borders are not clipped at the bottom of the buffer.
+  if lines[#lines] ~= '' then table.insert(lines, '') end
   local pad = opts.pad_top ~= false
   if pad then table.insert(lines, 1, '') end
   if pad and opts.folds ~= nil then

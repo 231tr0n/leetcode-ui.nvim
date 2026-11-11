@@ -641,6 +641,7 @@ T['render']['renders markdown and resets the panel filetype'] = function()
   eq(lines[1], '')
   eq(lines[2], '# Title')
   eq(lines[4], 'body')
+  eq(lines[5], '')
 
   ui.render({ { { text = 'plain' } } })
   eq(vim.api.nvim_get_option_value('filetype', { buf = ui.panel() }), 'txt')
