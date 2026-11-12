@@ -549,6 +549,17 @@ end
 T['markdown']['nested styles keep spaces after inner content'] = function()
   eq(markdown('<p><strong><em>exactly</em> one solution</strong></p>'), '***exactly* one solution**')
   eq(markdown('<p><strong><code>x</code> y</strong></p>'), '**`x` y**')
+  eq(
+    markdown('<p><em>either <strong>increasing</strong> or <strong>decreasing</strong></em>.</p>'),
+    '*either **increasing** or **decreasing***.'
+  )
+  eq(markdown('<p>x<strong>a<br>b</strong></p>'), 'x**a\\\nb**')
+  eq(markdown('<p><strong>a<br>b</strong></p>'), '**a\\\nb**')
+  eq(markdown('<p><strong></strong>x</p>'), 'x')
+  eq(markdown('<p><em></em>x</p>'), 'x')
+  eq(markdown('<p><strong><em></em></strong>x</p>'), 'x')
+  eq(markdown('<p><em>*</em></p>'), '*\\**')
+  eq(markdown('<p><em>**</em></p>'), '*\\*\\**')
 end
 
 T['markdown']['inline code escapes table pipes'] = function()

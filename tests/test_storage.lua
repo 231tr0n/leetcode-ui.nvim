@@ -397,7 +397,10 @@ T['paths']['root_path expands user-home shorthand'] = function()
   local home = vim.fn.expand('~')
   eq(storage.root_path('~/leetcode'), home .. '/leetcode')
   local user = vim.env.USER
-  if user ~= nil and user ~= '' then eq(storage.root_path('~' .. user .. '/leetcode'), home .. '/leetcode') end
+  if user ~= nil and user ~= '' then
+    local expanded = vim.fn.expand('~' .. user)
+    if expanded ~= '~' .. user then eq(storage.root_path('~' .. user .. '/leetcode'), expanded .. '/leetcode') end
+  end
 end
 
 T['paths']['root follows storage_path changes'] = function()

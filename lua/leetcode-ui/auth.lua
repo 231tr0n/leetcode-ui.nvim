@@ -146,13 +146,18 @@ end
 
 --- Build request headers, including session data when available.
 ---
----@param opts table|nil Extra raw header strings.
+---@param opts table|nil Extra raw header strings. A `Referer:` entry replaces the default referer.
 ---@return table headers
 LeetCodeAuth.headers = function(opts)
   local domain = config.config.url
+  local extra = opts or {}
+  local referer = nil
+  for _, header in ipairs(extra) do
+    if header:match('^Referer:') then referer = header end
+  end
   local headers = {
     ('User-Agent: %s'):format('Mozilla/5.0 (X11; Linux x86_64) leetcode-ui.nvim'),
-    ('Referer: https://%s'):format(domain),
+    referer or ('Referer: https://%s'):format(domain),
     ('Origin: https://%s'):format(domain),
     'Accept: application/json',
     'Content-Type: application/json',
@@ -178,8 +183,8 @@ LeetCodeAuth.headers = function(opts)
     end
   end
 
-  for _, header in ipairs(opts or {}) do
-    table.insert(headers, header)
+  for _, header in ipairs(extra) do
+    if not header:match('^Referer:') then table.insert(headers, header) end
   end
   return headers
 end

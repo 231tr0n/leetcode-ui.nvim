@@ -34,9 +34,11 @@ end
 T['cookie_file']['expands user-home shorthand'] = function()
   local user = vim.env.USER
   if user == nil or user == '' then return end
+  local expanded = vim.fn.expand('~' .. user)
+  if expanded == '~' .. user then return end
   helpers.configure({ cookie_file = '~' .. user .. '/cookies.txt', browser = 'none' })
   local auth = helpers.mod('auth')
-  eq(auth.cookie_file(), vim.fn.expand('~') .. '/cookies.txt')
+  eq(auth.cookie_file(), expanded .. '/cookies.txt')
 end
 
 T['cookies'] = new_set()
@@ -251,6 +253,21 @@ T['headers']['adds cookie and csrf headers'] = function()
   eq(helpers.contains(cookie, 'csrftoken=c'), true)
   eq(has_header(headers, 'X-CSRFToken:'), 'X-CSRFToken: c')
   eq(headers[#headers], 'X-Test: yes')
+end
+
+T['headers']['defaults the referer'] = function()
+  local headers = helpers.mod('auth').headers()
+  eq(has_header(headers, 'Referer:'), 'Referer: https://leetcode.com')
+end
+
+T['headers']['overrides the referer'] = function()
+  local headers = helpers.mod('auth').headers({ 'Referer: https://leetcode.com/problems/two-sum/' })
+  eq(has_header(headers, 'Referer:'), 'Referer: https://leetcode.com/problems/two-sum/')
+  local count = 0
+  for _, header in ipairs(headers) do
+    if header:match('^Referer:') then count = count + 1 end
+  end
+  eq(count, 1)
 end
 
 T['headers']['adds only csrf header for a cookie jar'] = function()

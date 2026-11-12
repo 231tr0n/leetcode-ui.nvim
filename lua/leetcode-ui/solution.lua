@@ -32,6 +32,14 @@ LeetCodeSolution.padding_namespace = vim.api.nvim_create_namespace('leetcode-ui-
 
 -- Helper functionality =============================================================================================
 
+local indent_options = { 'shiftwidth', 'tabstop', 'softtabstop', 'expandtab' }
+
+local function inherit_indent_options(bufnr)
+  for _, name in ipairs(indent_options) do
+    vim.api.nvim_set_option_value(name, vim.go[name], { buf = bufnr })
+  end
+end
+
 local function snippets(view)
   local value = view.detail.snippets
   return type(value) == 'table' and value or {}
@@ -64,20 +72,30 @@ local function remote_formatted(lang_slug, code, bufnr)
   if name == nil then return nil, 'unsupported' end
 
   local shiftwidth = 0
-  if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
-    shiftwidth = vim.api.nvim_buf_call(bufnr, vim.fn.shiftwidth)
-  end
-  if shiftwidth <= 0 then shiftwidth = 4 end
+  local tabstop = 0
+  local softtabstop = 0
   local expandtab = true
   if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
+    shiftwidth = vim.api.nvim_buf_call(bufnr, vim.fn.shiftwidth)
+    tabstop = vim.api.nvim_get_option_value('tabstop', { buf = bufnr })
+    softtabstop = vim.api.nvim_get_option_value('softtabstop', { buf = bufnr })
     expandtab = vim.api.nvim_get_option_value('expandtab', { buf = bufnr })
+  end
+  if shiftwidth <= 0 then shiftwidth = 4 end
+  if tabstop <= 0 then tabstop = shiftwidth end
+  local tab_size = shiftwidth
+  if softtabstop > 0 then
+    expandtab = true
+    tab_size = softtabstop
+  elseif not expandtab then
+    tab_size = tabstop
   end
   local domain = config.config.url:lower():gsub('^www%.', '')
   local response, err = net.request({
     url = ('https://lsp-%s.%s/format'):format(name, domain),
     method = 'POST',
     headers = auth.headers(),
-    body = vim.json.encode({ code = code, tabSize = shiftwidth, insertSpaces = expandtab }),
+    body = vim.json.encode({ code = code, tabSize = tab_size, insertSpaces = expandtab }),
     cookie_file = auth.cookie_file(),
     timeout = 15,
     retries = 0,
@@ -209,6 +227,7 @@ LeetCodeSolution.prepare = function(view)
     ft = LeetCodeSolution.filetype(view.lang),
     listed = true,
   })
+  inherit_indent_options(view.code_bufnr)
   LeetCodeSolution.set_code(view, content)
   clear_undo(view.code_bufnr)
 end
@@ -419,6 +438,7 @@ LeetCodeSolution.switch_language = function(view, lang_slug)
   clear_undo(view.code_bufnr)
   view.lang = target
   vim.api.nvim_set_option_value('filetype', LeetCodeSolution.filetype(target), { buf = view.code_bufnr })
+  inherit_indent_options(view.code_bufnr)
   local target_info = config.get_lang(target)
   log.info(('Switched to %s'):format(target_info ~= nil and target_info.lang or target))
   return true

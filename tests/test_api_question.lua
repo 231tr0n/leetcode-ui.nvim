@@ -327,6 +327,33 @@ T['api_question']['get_list refreshes expired contents when the total is unchang
   end)
 end
 
+T['api_question']['get_list honors the configured cooldown'] = function()
+  local question = helpers.mod('api.question')
+  local storage = helpers.mod('storage')
+  local config = helpers.mod('config')
+  helpers.configure({ cooldown = 0.5 })
+  local function run(age, expected_calls)
+    storage.write_cache({
+      domain = 'leetcode.com',
+      problems = { { title_slug = 'cached' } },
+      total = 1,
+      cache_time = os.time() - age,
+      user = 'anonymous',
+    })
+    local calls = 0
+    helpers.with_stub('leetcode-ui.api', 'graphql', function()
+      calls = calls + 1
+      return { problemsetQuestionList = { total = 1, questions = { { title_slug = 'fresh' } } } }, nil
+    end, function() question.get_list() end)
+    eq(calls, expected_calls)
+  end
+  run(10, 0)
+  run(50, 1)
+  helpers.configure({ cooldown = 0 })
+  run(0, 1)
+  eq(config.config.cooldown, 0)
+end
+
 T['api_question']['get_list updates cached problems when the total changes'] = function()
   local question = helpers.mod('api.question')
   local storage = helpers.mod('storage')

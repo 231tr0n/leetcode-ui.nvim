@@ -84,6 +84,33 @@ T['prepare']['loads the starter snippet'] = function()
   eq(vim.api.nvim_get_option_value('modified', { buf = view.code_bufnr }), false)
 end
 
+T['prepare']['inherits global indentation options'] = function()
+  local solution = helpers.mod('solution')
+  local view = helpers.fake_view({ lang = 'java' })
+  local saved = {}
+  for _, name in ipairs({ 'shiftwidth', 'tabstop', 'softtabstop', 'expandtab' }) do
+    saved[name] = vim.go[name]
+  end
+  MiniTest.finally(function()
+    for name, value in pairs(saved) do
+      vim.go[name] = value
+    end
+  end)
+  vim.go.shiftwidth = 2
+  vim.go.tabstop = 2
+  vim.go.softtabstop = 0
+  vim.go.expandtab = true
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  for _, name in ipairs({ 'shiftwidth', 'tabstop', 'softtabstop' }) do
+    vim.api.nvim_set_option_value(name, 8, { buf = bufnr })
+  end
+  vim.api.nvim_set_option_value('expandtab', false, { buf = bufnr })
+  helpers.with_stub('leetcode-ui.buffer', 'scratch', function() return bufnr end, function() solution.prepare(view) end)
+  for _, name in ipairs({ 'shiftwidth', 'tabstop', 'softtabstop', 'expandtab' }) do
+    eq(vim.api.nvim_get_option_value(name, { buf = view.code_bufnr }), vim.go[name])
+  end
+end
+
 T['prepare']['prefers an existing draft'] = function()
   local storage = helpers.mod('storage')
   storage.write_draft('two-sum', 'python3', 'draft code')
@@ -612,6 +639,7 @@ T['format']['sends buffer indentation options to the API'] = function()
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
   vim.api.nvim_set_option_value('shiftwidth', 2, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('tabstop', 4, { buf = view.code_bufnr })
   vim.api.nvim_set_option_value('expandtab', false, { buf = view.code_bufnr })
   local body = nil
   helpers.with_stub('leetcode-ui.net', 'request', function(opts)
@@ -619,8 +647,25 @@ T['format']['sends buffer indentation options to the API'] = function()
     return { status = 200, body = vim.json.encode({ code = 'formatted' }) }, nil
   end, function() solution.format(view) end)
   assert(body ~= nil)
-  eq(body.tabSize, 2)
+  eq(body.tabSize, 4)
   eq(body.insertSpaces, false)
+end
+
+T['format']['uses softtabstop when configured'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
+  vim.api.nvim_set_option_value('shiftwidth', 2, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('tabstop', 8, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('softtabstop', 3, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('expandtab', false, { buf = view.code_bufnr })
+  local body = nil
+  helpers.with_stub('leetcode-ui.net', 'request', function(opts)
+    body = vim.json.decode(opts.body)
+    return { status = 200, body = vim.json.encode({ code = 'formatted' }) }, nil
+  end, function() solution.format(view) end)
+  assert(body ~= nil)
+  eq(body.tabSize, 3)
+  eq(body.insertSpaces, true)
 end
 
 T['format']['does nothing for empty code'] = function()
@@ -832,6 +877,32 @@ T['switch_language']['normalizes language aliases'] = function()
   eq(solution.switch_language(view, 'python'), true)
   eq(view.lang, 'python3')
   eq(vim.api.nvim_get_option_value('filetype', { buf = view.code_bufnr }), 'python')
+end
+
+T['switch_language']['reapplies global indentation options'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view(), 'python code')
+  local saved = {}
+  for _, name in ipairs({ 'shiftwidth', 'tabstop', 'softtabstop', 'expandtab' }) do
+    saved[name] = vim.go[name]
+  end
+  MiniTest.finally(function()
+    for name, value in pairs(saved) do
+      vim.go[name] = value
+    end
+  end)
+  vim.go.shiftwidth = 2
+  vim.go.tabstop = 2
+  vim.go.softtabstop = 0
+  vim.go.expandtab = true
+  for _, name in ipairs({ 'shiftwidth', 'tabstop', 'softtabstop' }) do
+    vim.api.nvim_set_option_value(name, 8, { buf = view.code_bufnr })
+  end
+  vim.api.nvim_set_option_value('expandtab', false, { buf = view.code_bufnr })
+  solution.switch_language(view, 'golang')
+  for _, name in ipairs({ 'shiftwidth', 'tabstop', 'softtabstop', 'expandtab' }) do
+    eq(vim.api.nvim_get_option_value(name, { buf = view.code_bufnr }), vim.go[name])
+  end
 end
 
 T['switch_language']['does not switch when the current draft cannot be saved'] = function()

@@ -692,7 +692,9 @@ end
 T['paths']['cookie_db expands user-home overrides'] = function()
   local user = vim.env.USER
   if user == nil or user == '' then return end
-  local expected = vim.fn.expand('~') .. '/profile/Cookies'
+  local expanded = vim.fn.expand('~' .. user)
+  if expanded == '~' .. user then return end
+  local expected = expanded .. '/profile/Cookies'
   helpers.configure({ browser = 'firefox', browser_paths = { firefox = '~' .. user .. '/profile/Cookies' } })
   local browser = helpers.mod('browser')
   helpers.with_field(vim.uv, 'fs_stat', function(path)

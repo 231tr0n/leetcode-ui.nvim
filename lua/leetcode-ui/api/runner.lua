@@ -1,6 +1,6 @@
 --- *leetcode-ui-api-runner* Test-run and submit flows
 ---
---- Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/v2/check/`
+--- Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/check/`
 --- until a final status arrives. Terminal judging states (`FAILURE`,
 --- `REVOKED`) and `ai_state = FAILURE` are returned as errors; `SUCCESS`
 --- without a status code is also an error. Normalize the result for
@@ -49,8 +49,8 @@ local function field(value, fallback)
   return value
 end
 
-local function start_request(path, body, id_field, failure)
-  local res, err = api.rest('POST', path, body, nil, { retries = 0 })
+local function start_request(path, body, id_field, failure, headers)
+  local res, err = api.rest('POST', path, body, headers, { retries = 0 })
   if err ~= nil or res == nil then return nil, err or 'Empty response' end
   if type(res.error) == 'string' and res.error ~= '' then return nil, res.error end
   if not is_valid_id(res[id_field]) then return nil, failure end
@@ -134,11 +134,14 @@ LeetCodeRunnerApi.interpret = function(question, code, data_input, cancelled)
     question_id = question.id,
     typed_code = code,
     data_input = data_input,
+    judge_type = 'large',
+    test_mode = false,
   })
 
-  local id, err = start_request(path, body, 'interpret_id', 'Failed to start test run')
+  local headers = { ('Referer: %s'):format(api.problems_url(question.title_slug)) }
+  local id, err = start_request(path, body, 'interpret_id', 'Failed to start test run', headers)
   if id == nil then return nil, err end
-  return LeetCodeRunnerApi.poll(id, false, cancelled)
+  return LeetCodeRunnerApi.poll(id, false, cancelled, headers)
 end
 
 --- Submit a solution.
@@ -154,11 +157,14 @@ LeetCodeRunnerApi.submit = function(question, code, cancelled)
     lang = question.lang_slug or question.lang,
     question_id = question.id,
     typed_code = code,
+    judge_type = 'large',
+    test_mode = false,
   })
 
-  local id, err = start_request(path, body, 'submission_id', 'Failed to submit solution')
+  local headers = { ('Referer: %s'):format(api.problems_url(question.title_slug)) }
+  local id, err = start_request(path, body, 'submission_id', 'Failed to submit solution', headers)
   if id == nil then return nil, err end
-  return LeetCodeRunnerApi.poll(id, true, cancelled)
+  return LeetCodeRunnerApi.poll(id, true, cancelled, headers)
 end
 
 --- Poll the check endpoint until judging finishes.
@@ -166,10 +172,11 @@ end
 ---@param id string|number interpret_id or submission_id.
 ---@param is_submit boolean
 ---@param cancelled? fun(): boolean Poll cancellation predicate.
+---@param headers? table Raw headers forwarded to the check request.
 ---@return table|nil Normalized result
 ---@return string|nil err
-LeetCodeRunnerApi.poll = function(id, is_submit, cancelled)
-  local path = ('/submissions/detail/%s/v2/check/'):format(id)
+LeetCodeRunnerApi.poll = function(id, is_submit, cancelled, headers)
+  local path = ('/submissions/detail/%s/check/'):format(id)
   local interval = is_submit and 900 or 450
   local deadline = vim.uv.now() + 300000
 
@@ -177,7 +184,7 @@ LeetCodeRunnerApi.poll = function(id, is_submit, cancelled)
     if vim.uv.now() >= deadline then return nil, 'Judging timed out' end
     if cancelled ~= nil and cancelled() then return nil, 'Cancelled' end
 
-    local res, err = api.rest('GET', path)
+    local res, err = api.rest('GET', path, nil, headers)
     if err ~= nil then return nil, err end
     if res == nil then return nil, 'Empty response' end
 

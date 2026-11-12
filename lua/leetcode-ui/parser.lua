@@ -1271,8 +1271,10 @@ LeetCodeParser.markdown = function(content)
       text = text:sub(1, #text - #trailing)
       set_current_text(text)
     end
-    if text:sub(-#style.marker) == style.marker then
-      set_current_text(text:sub(1, #text - #style.marker))
+    local opened_here = style.start ~= nil and text:sub(style.start - #style.marker, style.start - 1) == style.marker
+    local style_content = opened_here and text:sub(style.start) or nil
+    if style_content ~= nil and style_content:gsub('[%*_]', '') == '' then
+      if text:sub(-#style.marker) == style.marker then set_current_text(text:sub(1, #text - #style.marker)) end
     else
       append(style.marker)
     end
@@ -1540,12 +1542,12 @@ LeetCodeParser.markdown = function(content)
       pop_style({ 'code' })
     elseif tag == 'strong' or tag == 'b' then
       append('**')
-      push_style({ tag = 'strong', marker = '**' })
+      push_style({ tag = 'strong', marker = '**', start = #current_text() + 1 })
     elseif tag == '/strong' or tag == '/b' then
       pop_style({ 'strong' })
     elseif tag == 'em' or tag == 'i' then
       append('*')
-      push_style({ tag = 'em', marker = '*' })
+      push_style({ tag = 'em', marker = '*', start = #current_text() + 1 })
     elseif tag == '/em' or tag == '/i' then
       pop_style({ 'em' })
     elseif tag == 'a' then
@@ -1586,7 +1588,7 @@ LeetCodeParser.markdown = function(content)
         begin_block('heading')
         ensure_space()
         append('**')
-        push_style({ tag = 'heading', marker = '**' })
+        push_style({ tag = 'heading', marker = '**', start = #current_text() + 1 })
       else
         flush()
         ensure_blank()

@@ -1491,7 +1491,7 @@ Return ~
 Build request headers, including session data when available.
 
 Parameters ~
-{opts} `(table|nil)` Extra raw header strings.
+{opts} `(table|nil)` Extra raw header strings. A `Referer:` entry replaces the default referer.
 Return ~
 `(table)` headers
 
@@ -2202,7 +2202,7 @@ Return ~
                                                              *LeetCodeRunnerApi*
 *leetcode-ui-api-runner* Test-run and submit flows
 
-Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/v2/check/`
+Flow: POST code to LeetCode, then poll `/submissions/detail/{id}/check/`
 until a final status arrives. Terminal judging states (`FAILURE`,
 `REVOKED`) and `ai_state = FAILURE` are returned as errors; `SUCCESS`
 without a status code is also an error. Normalize the result for
@@ -2255,13 +2255,14 @@ Return ~
 
 ------------------------------------------------------------------------------
                                                       *LeetCodeRunnerApi.poll()*
-            `LeetCodeRunnerApi.poll`({id}, {is_submit}, {cancelled})
+      `LeetCodeRunnerApi.poll`({id}, {is_submit}, {cancelled}, {headers})
 Poll the check endpoint until judging finishes.
 
 Parameters ~
 {id} `(string|number)` interpret_id or submission_id.
 {is_submit} `(boolean)`
 {cancelled} `(optional)` `(fun(): boolean)` Poll cancellation predicate.
+{headers} `(optional)` `(table)` Raw headers forwarded to the check request.
 Return ~
 `(table|nil)` Normalized result
 Return ~

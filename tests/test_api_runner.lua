@@ -142,13 +142,14 @@ T['api_runner']['interpret starts a run and polls'] = function()
   local runner = helpers.mod('api.runner')
   local calls = 0
   local request, poll_request
-  helpers.with_stub('leetcode-ui.api', 'rest', function(method, path, body, _headers, opts)
+  helpers.with_stub('leetcode-ui.api', 'rest', function(method, path, body, headers, opts)
     calls = calls + 1
     if calls == 1 then
-      request = { method = method, path = path, body = vim.json.decode(body), retries = opts.retries }
+      request =
+        { method = method, path = path, body = vim.json.decode(body), retries = opts.retries, headers = headers }
       return { interpret_id = 'abc' }, nil
     end
-    poll_request = { method = method, path = path }
+    poll_request = { method = method, path = path, headers = headers }
     return { status_code = 10, elapsed_time = 3, memory = 1, total_correct = 1, total_testcases = 1 }, nil
   end, function()
     local result, err = runner.interpret({ id = '1', title_slug = 'two-sum', lang_slug = 'python3' }, 'code', 'input')
@@ -162,10 +163,13 @@ T['api_runner']['interpret starts a run and polls'] = function()
   eq(request.body.lang, 'python3')
   eq(request.body.typed_code, 'code')
   eq(request.body.data_input, 'input')
+  eq(request.body.judge_type, 'large')
+  eq(request.body.test_mode, false)
   eq(request.retries, 0)
   assert(poll_request ~= nil)
   eq(poll_request.method, 'GET')
-  eq(poll_request.path, '/submissions/detail/abc/v2/check/')
+  eq(poll_request.path, '/submissions/detail/abc/check/')
+  eq(poll_request.headers[1], 'Referer: https://leetcode.com/problems/two-sum/')
 end
 
 T['api_runner']['interpret reports start failures'] = function()
@@ -193,13 +197,14 @@ T['api_runner']['submit starts a submission and polls'] = function()
   local runner = helpers.mod('api.runner')
   local calls = 0
   local request, poll_request
-  helpers.with_stub('leetcode-ui.api', 'rest', function(method, path, body, _headers, opts)
+  helpers.with_stub('leetcode-ui.api', 'rest', function(method, path, body, headers, opts)
     calls = calls + 1
     if calls == 1 then
-      request = { method = method, path = path, body = vim.json.decode(body), retries = opts.retries }
+      request =
+        { method = method, path = path, body = vim.json.decode(body), retries = opts.retries, headers = headers }
       return { submission_id = 'xyz' }, nil
     end
-    poll_request = { method = method, path = path }
+    poll_request = { method = method, path = path, headers = headers }
     return { status_code = 10, elapsed_time = 1, memory = 2 }, nil
   end, function()
     local result, err = runner.submit({ id = '1', title_slug = 'two-sum', lang_slug = 'python3' }, 'code')
@@ -213,10 +218,14 @@ T['api_runner']['submit starts a submission and polls'] = function()
   eq(request.body.question_id, '1')
   eq(request.body.lang, 'python3')
   eq(request.body.typed_code, 'code')
+  eq(request.body.judge_type, 'large')
+  eq(request.body.test_mode, false)
   eq(request.retries, 0)
   assert(poll_request ~= nil)
   eq(poll_request.method, 'GET')
-  eq(poll_request.path, '/submissions/detail/xyz/v2/check/')
+  eq(poll_request.path, '/submissions/detail/xyz/check/')
+  eq(request.headers[1], 'Referer: https://leetcode.com/problems/two-sum/')
+  eq(poll_request.headers[1], 'Referer: https://leetcode.com/problems/two-sum/')
 end
 
 T['api_runner']['submit reports start failures'] = function()
@@ -317,7 +326,7 @@ T['api_runner']['poll waits for pending judging to finish'] = function()
       eq(result.status, 'Accepted')
       eq(attempts, 2)
       eq(method, 'GET')
-      eq(path, '/submissions/detail/abc/v2/check/')
+      eq(path, '/submissions/detail/abc/check/')
     end)
   end)
 end
