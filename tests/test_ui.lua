@@ -481,6 +481,51 @@ T['render']['read-only views hide the cursor and highlight the active line'] = f
   eq(vim.o.guicursor, test_guicursor)
 end
 
+T['render']['code views clear a stuck hidden cursor'] = function()
+  local ui = helpers.mod('ui')
+  local original = vim.o.guicursor
+  MiniTest.finally(function()
+    vim.o.guicursor = original
+    ui.close()
+  end)
+  vim.o.guicursor = 'n-v-c:block,n-v-ve-o-i-r-sm:LeetCodeCursor'
+  local code = helpers.mod('buffer').scratch('leetcode-ui://stuck-cursor', { ft = 'python' })
+  ui.show(code, { cursorline = true, hide_cursor = false })
+  eq(vim.o.guicursor, 'n-v-c:block')
+  eq(ui.state.cursor_hidden, false)
+end
+
+T['render']['clears a hidden cursor from saved state'] = function()
+  local ui = helpers.mod('ui')
+  local original = vim.o.guicursor
+  MiniTest.finally(function()
+    vim.o.guicursor = original
+    ui.close()
+  end)
+  local winid = ui.ensure()
+  vim.o.guicursor = 'n-v-c:block,n-v-ve-o-i-r-sm:LeetCodeCursor'
+  ui.show(ui.panel(), { hide_cursor = true })
+  eq(helpers.contains(vim.o.guicursor, 'LeetCodeCursor'), true)
+  ui.show(ui.panel(), { hide_cursor = false })
+  eq(vim.o.guicursor, 'n-v-c:block')
+  eq(vim.api.nvim_get_current_win(), winid)
+end
+
+T['render']['code views clear cursor after a read-only view'] = function()
+  local ui = helpers.mod('ui')
+  local original = vim.o.guicursor
+  MiniTest.finally(function()
+    vim.o.guicursor = original
+    ui.close()
+  end)
+  vim.o.guicursor = 'n-v-c:block,n-v-ve-o-i-r-sm:LeetCodeCursor'
+  ui.render({ { { text = 'read only' } } })
+  local code = helpers.mod('buffer').scratch('leetcode-ui://after-readonly', { ft = 'python' })
+  ui.show(code, { hide_cursor = false })
+  eq(vim.o.guicursor, 'n-v-c:block')
+  eq(ui.state.cursor_hidden, false)
+end
+
 T['render']['restores the cursor when leaving the central window'] = function()
   local ui = helpers.mod('ui')
   local original_guicursor = vim.o.guicursor

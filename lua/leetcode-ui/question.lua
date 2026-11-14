@@ -421,6 +421,7 @@ LeetCodeQuestionView.refresh = function(view, focus)
         foldcolumn = 1,
         statuscolumn = '%s%C%l ',
         focus = focus == true,
+        hide_cursor = false,
         owner = 'question',
       })
     end

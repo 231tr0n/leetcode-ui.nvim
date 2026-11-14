@@ -640,6 +640,7 @@ T['format']['sends buffer indentation options to the API'] = function()
   local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
   vim.api.nvim_set_option_value('shiftwidth', 2, { buf = view.code_bufnr })
   vim.api.nvim_set_option_value('tabstop', 4, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('softtabstop', 0, { buf = view.code_bufnr })
   vim.api.nvim_set_option_value('expandtab', false, { buf = view.code_bufnr })
   local body = nil
   helpers.with_stub('leetcode-ui.net', 'request', function(opts)
@@ -651,7 +652,41 @@ T['format']['sends buffer indentation options to the API'] = function()
   eq(body.insertSpaces, false)
 end
 
+T['format']['uses shiftwidth when expanding tabs'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
+  vim.api.nvim_set_option_value('shiftwidth', 2, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('tabstop', 8, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('softtabstop', 0, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('expandtab', true, { buf = view.code_bufnr })
+  local body = nil
+  helpers.with_stub('leetcode-ui.net', 'request', function(opts)
+    body = vim.json.decode(opts.body)
+    return { status = 200, body = vim.json.encode({ code = 'formatted' }) }, nil
+  end, function() solution.format(view) end)
+  assert(body ~= nil)
+  eq(body.tabSize, 2)
+  eq(body.insertSpaces, true)
+end
+
 T['format']['uses softtabstop when configured'] = function()
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
+  vim.api.nvim_set_option_value('shiftwidth', 2, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('tabstop', 8, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('softtabstop', 3, { buf = view.code_bufnr })
+  vim.api.nvim_set_option_value('expandtab', true, { buf = view.code_bufnr })
+  local body = nil
+  helpers.with_stub('leetcode-ui.net', 'request', function(opts)
+    body = vim.json.decode(opts.body)
+    return { status = 200, body = vim.json.encode({ code = 'formatted' }) }, nil
+  end, function() solution.format(view) end)
+  assert(body ~= nil)
+  eq(body.tabSize, 3)
+  eq(body.insertSpaces, true)
+end
+
+T['format']['uses tabstop for smart tabs'] = function()
   local solution = helpers.mod('solution')
   local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x=1')
   vim.api.nvim_set_option_value('shiftwidth', 2, { buf = view.code_bufnr })
@@ -664,8 +699,8 @@ T['format']['uses softtabstop when configured'] = function()
     return { status = 200, body = vim.json.encode({ code = 'formatted' }) }, nil
   end, function() solution.format(view) end)
   assert(body ~= nil)
-  eq(body.tabSize, 3)
-  eq(body.insertSpaces, true)
+  eq(body.tabSize, 8)
+  eq(body.insertSpaces, false)
 end
 
 T['format']['does nothing for empty code'] = function()

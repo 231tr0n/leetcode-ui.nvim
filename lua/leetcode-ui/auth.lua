@@ -153,7 +153,7 @@ LeetCodeAuth.headers = function(opts)
   local extra = opts or {}
   local referer = nil
   for _, header in ipairs(extra) do
-    if header:match('^Referer:') then referer = header end
+    if header:lower():match('^referer:') then referer = header end
   end
   local headers = {
     ('User-Agent: %s'):format('Mozilla/5.0 (X11; Linux x86_64) leetcode-ui.nvim'),
@@ -184,7 +184,7 @@ LeetCodeAuth.headers = function(opts)
   end
 
   for _, header in ipairs(extra) do
-    if not header:match('^Referer:') then table.insert(headers, header) end
+    if not header:lower():match('^referer:') then table.insert(headers, header) end
   end
   return headers
 end

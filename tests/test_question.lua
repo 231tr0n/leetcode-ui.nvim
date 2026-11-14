@@ -1922,6 +1922,26 @@ T['submit']['reports submission errors'] = function()
   eq(view.busy, true)
 end
 
+T['module']['code tab keeps the cursor visible'] = function()
+  local question = helpers.mod('question')
+  local ui = helpers.mod('ui')
+  local view = make_view()
+  question.views[view.slug] = view
+  question.active = view
+  view.active = 'code'
+  ui.ensure()
+  local opts = nil
+  helpers.with_stub(
+    'leetcode-ui.ui',
+    'show',
+    function(_, value) opts = value end,
+    function() question.refresh(view, true) end
+  )
+  assert(opts ~= nil)
+  eq(opts.hide_cursor, false)
+  ui.close()
+end
+
 T['markdown'] = new_set()
 
 T['markdown']['builds description markdown with optional hints'] = function()

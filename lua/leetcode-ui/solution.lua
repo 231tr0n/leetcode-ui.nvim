@@ -34,6 +34,7 @@ LeetCodeSolution.padding_namespace = vim.api.nvim_create_namespace('leetcode-ui-
 
 local indent_options = { 'shiftwidth', 'tabstop', 'softtabstop', 'expandtab' }
 
+-- Use the user's global editor settings instead of filetype defaults.
 local function inherit_indent_options(bufnr)
   for _, name in ipairs(indent_options) do
     vim.api.nvim_set_option_value(name, vim.go[name], { buf = bufnr })
@@ -82,12 +83,10 @@ local function remote_formatted(lang_slug, code, bufnr)
     expandtab = vim.api.nvim_get_option_value('expandtab', { buf = bufnr })
   end
   if shiftwidth <= 0 then shiftwidth = 4 end
-  if tabstop <= 0 then tabstop = shiftwidth end
-  local tab_size = shiftwidth
-  if softtabstop > 0 then
-    expandtab = true
-    tab_size = softtabstop
-  elseif not expandtab then
+  local tab_size
+  if expandtab then
+    tab_size = softtabstop > 0 and softtabstop or shiftwidth
+  else
     tab_size = tabstop
   end
   local domain = config.config.url:lower():gsub('^www%.', '')

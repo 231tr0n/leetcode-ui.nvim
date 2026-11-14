@@ -169,6 +169,7 @@ T['api_runner']['interpret starts a run and polls'] = function()
   assert(poll_request ~= nil)
   eq(poll_request.method, 'GET')
   eq(poll_request.path, '/submissions/detail/abc/check/')
+  eq(request.headers[1], 'Referer: https://leetcode.com/problems/two-sum/')
   eq(poll_request.headers[1], 'Referer: https://leetcode.com/problems/two-sum/')
 end
 

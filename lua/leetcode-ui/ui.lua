@@ -81,16 +81,21 @@ local function fold_signature(folds)
   return table.concat(parts, ',')
 end
 
+local function without_hidden_cursor(value)
+  value = value:gsub(',?n%-v%-ve%-o%-i%-r%-sm:LeetCodeCursor', '')
+  return (value:gsub('^,', ''):gsub(',$', ''))
+end
+
 local function restore_cursor()
-  if not cursor_is_hidden then return end
-  if saved_guicursor ~= nil then vim.o.guicursor = saved_guicursor end
+  local base = saved_guicursor or vim.o.guicursor
+  vim.o.guicursor = without_hidden_cursor(base)
   saved_guicursor = nil
   cursor_is_hidden = false
 end
 
 local function hide_cursor()
   if cursor_is_hidden then return end
-  saved_guicursor = vim.o.guicursor
+  saved_guicursor = without_hidden_cursor(vim.o.guicursor)
   local hidden = 'n-v-ve-o-i-r-sm:LeetCodeCursor'
   -- Leave command-line modes untouched so the visible cmdline cursor is kept.
   if saved_guicursor == '' then

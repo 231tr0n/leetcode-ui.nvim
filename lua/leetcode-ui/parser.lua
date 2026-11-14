@@ -1608,8 +1608,10 @@ LeetCodeParser.markdown = function(content)
       if in_table or #lists > 0 then
         ensure_space()
       elseif last_was_br then
-        table.insert(lines, blank_line())
-        last_was_br = false
+        if #styles == 0 then
+          table.insert(lines, blank_line())
+          last_was_br = false
+        end
       elseif current:gsub('%s', '') ~= '' then
         current = current:gsub('%s+$', '') .. '\\'
         flush()

@@ -258,14 +258,19 @@ end
 T['headers']['defaults the referer'] = function()
   local headers = helpers.mod('auth').headers()
   eq(has_header(headers, 'Referer:'), 'Referer: https://leetcode.com')
+  helpers.configure({ url = 'leetcode.cn' })
+  headers = helpers.mod('auth').headers()
+  eq(has_header(headers, 'Referer:'), 'Referer: https://leetcode.cn')
 end
 
 T['headers']['overrides the referer'] = function()
   local headers = helpers.mod('auth').headers({ 'Referer: https://leetcode.com/problems/two-sum/' })
   eq(has_header(headers, 'Referer:'), 'Referer: https://leetcode.com/problems/two-sum/')
+  headers = helpers.mod('auth').headers({ 'referer: https://leetcode.com/problems/two-sum/' })
+  eq(has_header(headers, 'referer:'), 'referer: https://leetcode.com/problems/two-sum/')
   local count = 0
   for _, header in ipairs(headers) do
-    if header:match('^Referer:') then count = count + 1 end
+    if header:lower():match('^referer:') then count = count + 1 end
   end
   eq(count, 1)
 end
