@@ -8,9 +8,9 @@
 --- |LeetCodeAuth.verify()| lazily runs the `userStatus` GraphQL query and
 --- caches successful results as `{ checked, signed_in, name, is_premium,
 --- user_id }` until reset, the first setup, or a credential/URL change.
---- Signed-out checks are not cached. With incomplete or missing credentials, or
---- after a rejected session, browser caches and failed-source tracking are
---- cleared so a fresh browser sign-in is found on the next check.
+--- Signed-out checks are not cached. Missing credentials clear the browser cache
+--- and retry sources immediately. A source that rejected credentials is skipped
+--- in `auto` browser mode until the cookie cache TTL expires.
 ---@tag LeetCodeAuth
 ---@toc_entry Authentication
 
@@ -199,7 +199,7 @@ LeetCodeAuth.handle_status = function(res)
   -- expired or rejected credentials.
   if res.status == 401 or res.status == 403 then
     LeetCodeAuth.reset()
-    require('leetcode-ui.browser').reset()
+    require('leetcode-ui.browser').reset_cookies()
     return nil, 'Authentication failed or session expired (check cookies)'
   end
   return res, nil
@@ -215,9 +215,7 @@ LeetCodeAuth.verify = function()
   if LeetCodeAuth.session ~= nil and LeetCodeAuth.session.checked then
     local generation = verify_generation
     local key = LeetCodeAuth.cache_key()
-    if generation == verify_generation and LeetCodeAuth.session.checked and session_key == key then
-      return LeetCodeAuth.session, nil
-    end
+    if generation == verify_generation and session_key == key then return LeetCodeAuth.session, nil end
     LeetCodeAuth.reset()
   end
   local generation = verify_generation
@@ -225,10 +223,15 @@ LeetCodeAuth.verify = function()
 
   if not LeetCodeAuth.has_session() then
     if generation ~= verify_generation then return nil, 'Authentication state changed' end
-    -- Re-read browsers on the next check, including sources that previously
-    -- rejected credentials, so a fresh sign-in is picked up.
-    require('leetcode-ui.browser').reset()
-    return { checked = true, signed_in = false, name = nil, is_premium = false }, nil
+    -- Re-read browser sources immediately so a fresh sign-in is picked up
+    -- without restarting Neovim.
+    local browser = require('leetcode-ui.browser')
+    browser.reset()
+    if not LeetCodeAuth.has_session() then
+      return { checked = true, signed_in = false, name = nil, is_premium = false }, nil
+    end
+    request_key = LeetCodeAuth.cache_key()
+    if generation ~= verify_generation then return nil, 'Authentication state changed' end
   end
 
   local body = vim.json.encode({ query = queries.auth, variables = vim.empty_dict() })

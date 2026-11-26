@@ -463,7 +463,7 @@ end
 ---@return table|nil cookies
 ---@return string|nil err
 LeetCodeBrowser.read_cookies = function(browser)
-  local domain = config.config.url:gsub('^www%.', ''):lower()
+  local domain = config.config.url:lower():gsub('^www%.', '')
   if browser == 'safari' then
     local db = LeetCodeBrowser.cookie_db(browser)
     if db == nil then return nil, 'No Safari cookie file found' end

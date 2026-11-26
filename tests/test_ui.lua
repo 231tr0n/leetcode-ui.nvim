@@ -526,6 +526,21 @@ T['render']['code views clear cursor after a read-only view'] = function()
   eq(ui.state.cursor_hidden, false)
 end
 
+T['render']['preserves external guicursor changes while hidden'] = function()
+  local ui = helpers.mod('ui')
+  local original = vim.o.guicursor
+  MiniTest.finally(function()
+    vim.o.guicursor = original
+    ui.close()
+  end)
+  vim.o.guicursor = 'a:block'
+  ui.render({ { { text = 'read only' } } })
+  vim.o.guicursor = 'i:ver25,n:block'
+  local code = helpers.mod('buffer').scratch('leetcode-ui://external-cursor', { ft = 'python' })
+  ui.show(code, { hide_cursor = false })
+  eq(vim.o.guicursor, 'i:ver25,n:block')
+end
+
 T['render']['restores the cursor when leaving the central window'] = function()
   local ui = helpers.mod('ui')
   local original_guicursor = vim.o.guicursor

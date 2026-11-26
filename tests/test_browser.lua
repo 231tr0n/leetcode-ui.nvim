@@ -154,6 +154,28 @@ T['selection']['auto skips the source that failed authentication'] = function()
   end)
 end
 
+T['selection']['reset clears failed sources'] = function()
+  helpers.configure({ browser = 'auto' })
+  local browser = helpers.mod('browser')
+  helpers.with_stub('leetcode-ui.browser', 'cookie_db', function(name)
+    if name == 'firefox' or name == 'chrome' then return '/tmp/' .. name end
+    return nil
+  end, function()
+    helpers.with_stub(
+      'leetcode-ui.browser',
+      'read_cookies',
+      function(name) return { LEETCODE_SESSION = name, csrftoken = 'csrf' }, nil end,
+      function()
+        eq(browser.get_cookies().LEETCODE_SESSION, 'firefox')
+        browser.reset_cookies()
+        eq(browser.get_cookies().LEETCODE_SESSION, 'chrome')
+        browser.reset()
+        eq(browser.get_cookies().LEETCODE_SESSION, 'firefox')
+      end
+    )
+  end)
+end
+
 T['selection']['retries a failed source after the TTL'] = function()
   helpers.configure({ browser = 'auto' })
   local browser = helpers.mod('browser')
@@ -259,6 +281,18 @@ T['firefox']['honours the configured domain'] = function()
   cookies = browser.get_cookies()
   eq(cookies.LEETCODE_SESSION, nil)
   eq(cookies.csrftoken, nil)
+end
+
+T['firefox']['normalizes uppercase WWW domains'] = function()
+  local profile = helpers.tmpdir() .. '/abc123.default'
+  vim.fn.mkdir(profile, 'p')
+  helpers.make_firefox_db(profile, { LEETCODE_SESSION = 'fx123', csrftoken = 'cfx' })
+
+  helpers.configure({ url = 'WWW.leetcode.com', browser = 'firefox', browser_paths = { firefox = profile } })
+  local browser = helpers.mod('browser')
+  browser.reset()
+  local cookies = browser.get_cookies()
+  eq(cookies.LEETCODE_SESSION, 'fx123')
 end
 
 T['firefox']['ignores expired cookies'] = function()

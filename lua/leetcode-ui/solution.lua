@@ -17,8 +17,8 @@ local storage = require('leetcode-ui.storage')
 
 -- Helper data =======================================================================================================
 
--- LeetCode's formatter endpoints are lsp-<name>.<domain>/format. The names
--- below are the ones LeetCode currently exposes: c, cpp, go, java, py3, swift.
+-- Map canonical solution slugs to the remote formatter host prefix. The
+-- supported prefixes are c, cpp, go, java, py3, and swift.
 LeetCodeSolution.remote_formatters = {
   c = 'c',
   cpp = 'cpp',
@@ -99,6 +99,11 @@ local function remote_formatted(lang_slug, code, bufnr)
     timeout = 15,
     retries = 0,
   })
+  if response ~= nil then
+    local handled, auth_err = auth.handle_status(response)
+    if auth_err ~= nil then return nil, 'auth' end
+    response = handled
+  end
   if err ~= nil or response == nil or response.status ~= 200 or type(response.body) ~= 'string' then
     return nil, 'failed'
   end
@@ -376,7 +381,11 @@ LeetCodeSolution.format = function(view)
   end
 
   local message, level = 'No formatter is available for this language', vim.log.levels.WARN
-  if reason == 'failed' then message = 'Formatting failed; the LeetCode API did not return formatted code' end
+  if reason == 'failed' then
+    message = 'Formatting failed; the LeetCode API did not return formatted code'
+  elseif reason == 'auth' then
+    message = 'Authentication failed or session expired (check cookies)'
+  end
   local changed = false
   if formatted ~= nil then
     if formatted ~= code then

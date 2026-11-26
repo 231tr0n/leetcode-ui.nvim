@@ -325,12 +325,12 @@ T['handle_status']['401 and 403 clear the cached session and browser cache'] = f
   end
 end
 
-T['handle_status']['resets browser sources so a fresh login is found'] = function()
+T['handle_status']['marks the failed browser source'] = function()
   local auth = helpers.mod('auth')
   local resets = 0
   helpers.with_stub(
     'leetcode-ui.browser',
-    'reset',
+    'reset_cookies',
     function() resets = resets + 1 end,
     function() auth.handle_status({ status = 403 }) end
   )
@@ -349,7 +349,75 @@ T['verify']['anonymous when no cookies are configured'] = function()
   eq(session.signed_in, false)
   eq(session.checked, true)
   eq(auth.session, {})
-  eq(browser.cache, nil)
+  eq(browser.cache.value, nil)
+end
+
+T['verify']['retries browser sources after clearing the cache'] = function()
+  local auth = helpers.mod('auth')
+  auth.reset()
+  local checks = 0
+  helpers.with_stub('leetcode-ui.auth', 'has_session', function()
+    checks = checks + 1
+    return checks > 1
+  end, function()
+    helpers.with_stub('leetcode-ui.browser', 'reset', function() end, function()
+      helpers.with_stub(
+        'leetcode-ui.net',
+        'request',
+        function()
+          return {
+            status = 200,
+            body = vim.json.encode({ data = { userStatus = { is_signed_in = true, id = 1, name = 'user' } } }),
+          },
+            nil
+        end,
+        function()
+          local session, err = auth.verify()
+          eq(err, nil)
+          eq(session.signed_in, true)
+          eq(session.name, 'user')
+        end
+      )
+    end)
+  end)
+  eq(checks, 2)
+end
+
+T['verify']['picks up fresh browser cookies after a reset'] = function()
+  helpers.configure({ browser = 'auto' })
+  local auth = helpers.mod('auth')
+  local browser = helpers.mod('browser')
+  auth.reset()
+  browser.reset()
+  browser.cache = { value = nil, at = os.time(), source = 'auto', url = 'leetcode.com' }
+  helpers.with_stub('leetcode-ui.browser', 'cookie_db', function(name)
+    if name == 'firefox' then return '/tmp/firefox' end
+  end, function()
+    helpers.with_stub(
+      'leetcode-ui.browser',
+      'read_cookies',
+      function() return { LEETCODE_SESSION = 'fresh', csrftoken = 'csrf' }, nil end,
+      function()
+        helpers.with_stub(
+          'leetcode-ui.net',
+          'request',
+          function()
+            return {
+              status = 200,
+              body = vim.json.encode({ data = { userStatus = { is_signed_in = true, id = 1, name = 'user' } } }),
+            },
+              nil
+          end,
+          function()
+            local session, err = auth.verify()
+            eq(err, nil)
+            eq(session.signed_in, true)
+            eq(session.name, 'user')
+          end
+        )
+      end
+    )
+  end)
 end
 
 T['verify']['revalidates cached sessions when credentials change'] = function()

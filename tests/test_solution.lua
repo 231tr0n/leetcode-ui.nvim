@@ -611,6 +611,20 @@ T['format']['normalizes an uppercase WWW domain'] = function()
   eq(endpoint, 'https://lsp-py3.leetcode.com/format')
 end
 
+T['format']['resets auth when the formatter rejects the session'] = function()
+  local auth = helpers.mod('auth')
+  auth.session = { checked = true, signed_in = true, name = 'old' }
+  local solution = helpers.mod('solution')
+  local view = with_code_buffer(helpers.fake_view({ lang = 'python3' }), 'x')
+  helpers.with_stub(
+    'leetcode-ui.net',
+    'request',
+    function() return { status = 403, body = '' }, nil end,
+    function() solution.format(view) end
+  )
+  eq(auth.session, {})
+end
+
 T['format']['reports API failures for supported languages'] = function()
   helpers.configure({ notifications = true })
   local solution = helpers.mod('solution')

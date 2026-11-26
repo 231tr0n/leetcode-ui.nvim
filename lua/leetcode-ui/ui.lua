@@ -28,7 +28,6 @@ LeetCodeUI.state = {
   winid = nil,
 }
 
-local saved_guicursor = nil
 local cursor_is_hidden = false
 local cursor_autocmd = nil
 local resize_autocmd = nil
@@ -87,22 +86,20 @@ local function without_hidden_cursor(value)
 end
 
 local function restore_cursor()
-  local base = saved_guicursor or vim.o.guicursor
-  vim.o.guicursor = without_hidden_cursor(base)
-  saved_guicursor = nil
+  vim.o.guicursor = without_hidden_cursor(vim.o.guicursor)
   cursor_is_hidden = false
 end
 
 local function hide_cursor()
   if cursor_is_hidden then return end
-  saved_guicursor = without_hidden_cursor(vim.o.guicursor)
+  local base = without_hidden_cursor(vim.o.guicursor)
   local hidden = 'n-v-ve-o-i-r-sm:LeetCodeCursor'
   -- Leave command-line modes untouched so the visible cmdline cursor is kept.
-  if saved_guicursor == '' then
+  if base == '' then
     vim.o.guicursor = hidden
   else
-    local sep = saved_guicursor:sub(-1) == ',' and '' or ','
-    vim.o.guicursor = saved_guicursor .. sep .. hidden
+    local sep = base:sub(-1) == ',' and '' or ','
+    vim.o.guicursor = base .. sep .. hidden
   end
   cursor_is_hidden = true
 end
