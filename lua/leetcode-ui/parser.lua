@@ -1272,9 +1272,8 @@ LeetCodeParser.markdown = function(content)
       set_current_text(text)
     end
     local opened_here = style.start ~= nil and text:sub(style.start - #style.marker, style.start - 1) == style.marker
-    local style_content = opened_here and text:sub(style.start) or nil
-    if style_content ~= nil and style_content:gsub('[%*_]', '') == '' then
-      if text:sub(-#style.marker) == style.marker then set_current_text(text:sub(1, #text - #style.marker)) end
+    if opened_here and #text == style.start - 1 then
+      set_current_text(text:sub(1, #text - #style.marker))
     else
       append(style.marker)
     end

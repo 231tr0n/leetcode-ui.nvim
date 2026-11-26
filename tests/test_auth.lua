@@ -325,6 +325,18 @@ T['handle_status']['401 and 403 clear the cached session and browser cache'] = f
   end
 end
 
+T['handle_status']['resets browser sources so a fresh login is found'] = function()
+  local auth = helpers.mod('auth')
+  local resets = 0
+  helpers.with_stub(
+    'leetcode-ui.browser',
+    'reset',
+    function() resets = resets + 1 end,
+    function() auth.handle_status({ status = 403 }) end
+  )
+  eq(resets, 1)
+end
+
 T['verify'] = new_set()
 
 T['verify']['anonymous when no cookies are configured'] = function()

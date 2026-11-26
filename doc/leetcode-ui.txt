@@ -1427,10 +1427,9 @@ when `browser` import is enabled.
 |LeetCodeAuth.verify()| lazily runs the `userStatus` GraphQL query and
 caches successful results as `{ checked, signed_in, name, is_premium,
 user_id }` until reset, the first setup, or a credential/URL change.
-Signed-out checks are not cached. With incomplete or missing credentials,
-browser caches are cleared so a fresh sign-in is found on the next check;
-sources that rejected credentials stay skipped in `auto` browser mode until
-the cookie cache TTL expires.
+Signed-out checks are not cached. With incomplete or missing credentials, or
+after a rejected session, browser caches and failed-source tracking are
+cleared so a fresh browser sign-in is found on the next check.
 
 ------------------------------------------------------------------------------
                                                     *LeetCodeAuth.cookie_file()*

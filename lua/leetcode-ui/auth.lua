@@ -8,10 +8,9 @@
 --- |LeetCodeAuth.verify()| lazily runs the `userStatus` GraphQL query and
 --- caches successful results as `{ checked, signed_in, name, is_premium,
 --- user_id }` until reset, the first setup, or a credential/URL change.
---- Signed-out checks are not cached. With incomplete or missing credentials,
---- browser caches are cleared so a fresh sign-in is found on the next check;
---- sources that rejected credentials stay skipped in `auto` browser mode until
---- the cookie cache TTL expires.
+--- Signed-out checks are not cached. With incomplete or missing credentials, or
+--- after a rejected session, browser caches and failed-source tracking are
+--- cleared so a fresh browser sign-in is found on the next check.
 ---@tag LeetCodeAuth
 ---@toc_entry Authentication
 
@@ -200,7 +199,7 @@ LeetCodeAuth.handle_status = function(res)
   -- expired or rejected credentials.
   if res.status == 401 or res.status == 403 then
     LeetCodeAuth.reset()
-    require('leetcode-ui.browser').reset_cookies()
+    require('leetcode-ui.browser').reset()
     return nil, 'Authentication failed or session expired (check cookies)'
   end
   return res, nil
@@ -226,9 +225,9 @@ LeetCodeAuth.verify = function()
 
   if not LeetCodeAuth.has_session() then
     if generation ~= verify_generation then return nil, 'Authentication state changed' end
-    -- Re-read browsers on the next check. Sources that rejected credentials
-    -- stay skipped until the cookie cache TTL expires.
-    require('leetcode-ui.browser').reset_cache()
+    -- Re-read browsers on the next check, including sources that previously
+    -- rejected credentials, so a fresh sign-in is picked up.
+    require('leetcode-ui.browser').reset()
     return { checked = true, signed_in = false, name = nil, is_premium = false }, nil
   end
 
@@ -281,8 +280,8 @@ LeetCodeAuth.verify = function()
     LeetCodeAuth.session = session
   else
     session_key = nil
-    -- Skip the browser source that failed and retry the next verification.
-    require('leetcode-ui.browser').reset_cookies()
+    -- Re-read browser sources on the next verification so a fresh login is picked up.
+    require('leetcode-ui.browser').reset()
   end
   return session, nil
 end
